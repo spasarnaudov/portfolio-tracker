@@ -21,7 +21,23 @@
 
     <main>
         <h2>Categories</h2>
-        <p>Тук ще показваме категориите активи от PostgreSQL.</p>
+
+        <table border="1" cellpadding="8">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                    <tr>
+                        <td>{{ category[0] }}</td>
+                        <td>{{ category[1] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </main>
 </body>
-</html>
+</html> 
