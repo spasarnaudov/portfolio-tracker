@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>Prices - Portfolio Tracker</title>
+</head>
+<body>
+    <header>
+        <h1>Portfolio Tracker</h1>
+
+        <nav>
+            <a href="/">Dashboard</a> |
+            <a href="/categories">Categories</a> |
+            <a href="/assets">Assets</a> |
+            <a href="/prices">Prices</a> |
+            <a href="/charts">Charts</a>
+        </nav>
+    </header>
+
+    <hr>
+
+    <main>
+        <h2>Prices</h2>
+
+        <table border="1" cellpadding="8">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for price in prices %}
+                    <tr>
+                        <td>{{ price[0] }}</td>
+                        <td>{{ price[1] }}</td>
+                        <td>{{ price[2] }}</td>
+                        <td>{{ price[3] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+</body>
+</html>

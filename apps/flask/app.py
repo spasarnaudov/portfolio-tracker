@@ -43,5 +43,25 @@ def assets():
     return render_template("assets.html", assets=assets)
 
 
+@app.route("/prices")
+def prices():
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    assets.symbol,
+                    assets.name,
+                    asset_prices.price_date,
+                    asset_prices.price
+                FROM asset_prices
+                JOIN assets
+                    ON asset_prices.asset_id = assets.id
+                ORDER BY asset_prices.price_date DESC, assets.symbol;
+            """)
+            prices = cur.fetchall()
+
+    return render_template("prices.html", prices=prices)
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
