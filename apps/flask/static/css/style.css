@@ -48,8 +48,38 @@ main {
 }
 
 h2 {
-    margin-top: 0;
+    margin: 0 0 4px;
     font-size: 24px;
+}
+
+.page-intro {
+    margin: 0 0 18px;
+    color: #52606d;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.summary-card {
+    background: #ffffff;
+    border: 1px solid #d9e2ec;
+    padding: 12px 14px;
+}
+
+.summary-label {
+    display: block;
+    margin-bottom: 4px;
+    color: #52606d;
+    font-size: 13px;
+}
+
+.summary-card strong {
+    display: block;
+    font-size: 22px;
 }
 
 table {

@@ -4,12 +4,28 @@
 
 {% block content %}
     <h2>Dashboard</h2>
-    <p>Добре дошъл в първата версия на Portfolio Tracker.</p>
+    <p class="page-intro">Overview of tracked portfolio data.</p>
 
-    <ul>
-        <li>Следене на категории активи</li>
-        <li>Следене на активи</li>
-        <li>Исторически цени</li>
-        <li>Бъдещи графики и справки</li>
-    </ul>
+    <section class="summary-grid">
+        <div class="summary-card">
+            <span class="summary-label">Categories</span>
+            <strong>{{ dashboard.category_count }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span class="summary-label">Assets</span>
+            <strong>{{ dashboard.asset_count }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span class="summary-label">Price records</span>
+            <strong>{{ dashboard.price_count }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span class="summary-label">Latest price date</span>
+            <strong>{{ dashboard.latest_price_date }}</strong>
+        </div>
+    </section>
+
 {% endblock %}

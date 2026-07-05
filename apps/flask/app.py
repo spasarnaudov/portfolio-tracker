@@ -8,7 +8,18 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT
+                    (SELECT COUNT(*) FROM asset_categories) AS category_count,
+                    (SELECT COUNT(*) FROM assets) AS asset_count,
+                    (SELECT COUNT(*) FROM asset_prices) AS price_count,
+                    (SELECT MAX(price_date) FROM asset_prices) AS latest_price_date;
+            """)
+            dashboard = cur.fetchone()
+
+    return render_template("index.html", dashboard=dashboard)
 
 
 @app.route("/categories")
