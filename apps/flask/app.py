@@ -1,4 +1,6 @@
 from flask import Flask, render_template
+from psycopg.rows import dict_row
+
 from db import get_connection
 
 app = Flask(__name__)
@@ -12,7 +14,7 @@ def home():
 @app.route("/categories")
 def categories():
     with get_connection() as conn:
-        with conn.cursor() as cur:
+        with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 SELECT id, name
                 FROM asset_categories
@@ -26,7 +28,7 @@ def categories():
 @app.route("/assets")
 def assets():
     with get_connection() as conn:
-        with conn.cursor() as cur:
+        with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 SELECT
                     assets.id,
@@ -46,7 +48,7 @@ def assets():
 @app.route("/prices")
 def prices():
     with get_connection() as conn:
-        with conn.cursor() as cur:
+        with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 SELECT
                     assets.symbol,
