@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Portfolio Tracker{% endblock %}</title>
+</head>
+<body>
+    <header>
+        <h1>Portfolio Tracker</h1>
+
+        <nav>
+            <a href="/">Dashboard</a> |
+            <a href="/categories">Categories</a> |
+            <a href="/assets">Assets</a> |
+            <a href="/prices">Prices</a> |
+            <a href="/charts">Charts</a>
+        </nav>
+    </header>
+
+    <hr>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

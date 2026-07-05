@@ -1,43 +1,24 @@
-<!DOCTYPE html>
-<html lang="bg">
-<head>
-    <meta charset="UTF-8">
-    <title>Categories - Portfolio Tracker</title>
-</head>
-<body>
-    <header>
-        <h1>Portfolio Tracker</h1>
+{% extends "base.html" %}
 
-        <nav>
-            <a href="/">Dashboard</a> |
-            <a href="/categories">Categories</a> |
-            <a href="/assets">Assets</a> |
-            <a href="/prices">Prices</a> |
-            <a href="/charts">Charts</a>
-        </nav>
-    </header>
+{% block title %}Categories - Portfolio Tracker{% endblock %}
 
-    <hr>
+{% block content %}
+    <h2>Categories</h2>
 
-    <main>
-        <h2>Categories</h2>
-
-        <table border="1" cellpadding="8">
-            <thead>
+    <table border="1" cellpadding="8">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for category in categories %}
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
+                    <td>{{ category[0] }}</td>
+                    <td>{{ category[1] }}</td>
                 </tr>
-            </thead>
-            <tbody>
-                {% for category in categories %}
-                    <tr>
-                        <td>{{ category[0] }}</td>
-                        <td>{{ category[1] }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </main>
-</body>
-</html> 
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
