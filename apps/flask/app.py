@@ -26,6 +26,15 @@ def format_date_value(value):
     return value
 
 
+def get_last_query_value(name, default=None):
+    values = request.args.getlist(name)
+
+    if not values:
+        return default
+
+    return values[-1]
+
+
 @app.route("/")
 def home():
     dashboard = get_dashboard_summary()
@@ -54,13 +63,17 @@ def prices():
 def charts():
     assets = get_chart_assets()
     selected_asset_id = request.args.get("asset_id", type=int)
-    selected_range = request.args.get("range", "1w")
+    selected_range = get_last_query_value("range", "1w")
+    selected_interval = get_last_query_value("interval", "daily")
 
     if not selected_asset_id and assets:
         selected_asset_id = assets[0]["id"]
 
     if selected_range not in {"1w", "1m", "ytd", "1y", "all", "custom"}:
         selected_range = "1w"
+
+    if selected_interval not in {"daily", "weekly", "monthly"}:
+        selected_interval = "daily"
 
     custom_start_date = request.args.get("start_date") or None
     custom_end_date = request.args.get("end_date") or None
@@ -88,7 +101,12 @@ def charts():
                 start_date = None
                 end_date = None
 
-        prices = get_asset_prices(selected_asset_id, start_date, end_date)
+        prices = get_asset_prices(
+            selected_asset_id,
+            start_date,
+            end_date,
+            selected_interval,
+        )
 
     chart_labels = [
         price["price_date"].isoformat()
@@ -105,6 +123,7 @@ def charts():
         selected_asset=selected_asset,
         selected_asset_id=selected_asset_id,
         selected_range=selected_range,
+        selected_interval=selected_interval,
         start_date=format_date_value(start_date),
         end_date=format_date_value(end_date),
         prices=prices,

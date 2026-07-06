@@ -4,7 +4,7 @@
 
 {% block content %}
     <h2>Charts</h2>
-    <p class="page-intro">Daily price history for the selected asset.</p>
+    <p class="page-intro">Price history for the selected asset.</p>
 
     <form class="chart-controls" method="get" action="/charts">
         <div class="chart-control-row">
@@ -20,6 +20,9 @@
                 {% endfor %}
             </select>
         </div>
+
+        <input type="hidden" name="range" value="{{ selected_range }}">
+        <input type="hidden" name="interval" value="{{ selected_interval }}">
 
         <div class="range-buttons">
             <button
@@ -72,6 +75,33 @@
             </button>
         </div>
 
+        <div class="range-buttons">
+            <button
+                class="{% if selected_interval == 'daily' %}active{% endif %}"
+                type="submit"
+                name="interval"
+                value="daily"
+            >
+                Daily
+            </button>
+            <button
+                class="{% if selected_interval == 'weekly' %}active{% endif %}"
+                type="submit"
+                name="interval"
+                value="weekly"
+            >
+                Weekly Avg
+            </button>
+            <button
+                class="{% if selected_interval == 'monthly' %}active{% endif %}"
+                type="submit"
+                name="interval"
+                value="monthly"
+            >
+                Monthly Avg
+            </button>
+        </div>
+
         <div class="chart-control-row">
             <label for="start_date">From</label>
             <input
@@ -113,7 +143,7 @@
                 data-values='{{ chart_values | tojson }}'
             ></canvas>
             <p id="chartInfo" class="chart-info">
-                Click on the chart to inspect a day.
+                Click on the chart to inspect a point.
             </p>
         </section>
     {% else %}
@@ -126,6 +156,7 @@
         if (chartCanvas) {
             const labels = JSON.parse(chartCanvas.dataset.labels);
             const values = JSON.parse(chartCanvas.dataset.values);
+            const selectedInterval = "{{ selected_interval }}";
             const chartInfo = document.getElementById("chartInfo");
             const context = chartCanvas.getContext("2d");
             const width = chartCanvas.width;
@@ -218,7 +249,10 @@
                 drawChart(selectedIndex);
 
                 if (chartInfo) {
-                    chartInfo.textContent = `Date: ${labels[selectedIndex]} | Price: ${values[selectedIndex].toFixed(2)}`;
+                    const label = selectedInterval === "daily" ? "Date" : "Period";
+                    const priceLabel = selectedInterval === "daily" ? "Price" : "Average price";
+
+                    chartInfo.textContent = `${label}: ${labels[selectedIndex]} | ${priceLabel}: ${values[selectedIndex].toFixed(2)}`;
                 }
             });
         }
