@@ -112,24 +112,10 @@
                 data-labels='{{ chart_labels | tojson }}'
                 data-values='{{ chart_values | tojson }}'
             ></canvas>
+            <p id="chartInfo" class="chart-info">
+                Click on the chart to inspect a day.
+            </p>
         </section>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Price</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for price in prices %}
-                    <tr>
-                        <td>{{ price.price_date }}</td>
-                        <td>{{ price.price }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
     {% else %}
         <p>No price data available for this asset.</p>
     {% endif %}
@@ -140,6 +126,7 @@
         if (chartCanvas) {
             const labels = JSON.parse(chartCanvas.dataset.labels);
             const values = JSON.parse(chartCanvas.dataset.values);
+            const chartInfo = document.getElementById("chartInfo");
             const context = chartCanvas.getContext("2d");
             const width = chartCanvas.width;
             const height = chartCanvas.height;
@@ -149,51 +136,91 @@
             const valueRange = maxValue - minValue || 1;
             const xStep = (width - padding * 2) / Math.max(labels.length - 1, 1);
 
-            context.clearRect(0, 0, width, height);
-            context.font = "12px Arial";
-            context.strokeStyle = "#d9e2ec";
-            context.lineWidth = 1;
+            function getPoint(index) {
+                const x = padding + xStep * index;
+                const value = values[index];
+                const y = height - padding - ((value - minValue) / valueRange) * (height - padding * 2);
 
-            for (let i = 0; i <= 4; i += 1) {
-                const y = padding + ((height - padding * 2) / 4) * i;
-                context.beginPath();
-                context.moveTo(padding, y);
-                context.lineTo(width - padding, y);
-                context.stroke();
+                return { x, y, value };
             }
 
-            context.strokeStyle = "#0b5cad";
-            context.lineWidth = 3;
-            context.beginPath();
+            function drawChart(selectedIndex = null) {
+                context.clearRect(0, 0, width, height);
+                context.font = "12px Arial";
+                context.strokeStyle = "#d9e2ec";
+                context.lineWidth = 1;
 
-            values.forEach((value, index) => {
-                const x = padding + xStep * index;
-                const y = height - padding - ((value - minValue) / valueRange) * (height - padding * 2);
+                for (let i = 0; i <= 4; i += 1) {
+                    const y = padding + ((height - padding * 2) / 4) * i;
+                    context.beginPath();
+                    context.moveTo(padding, y);
+                    context.lineTo(width - padding, y);
+                    context.stroke();
+                }
 
-                if (index === 0) {
-                    context.moveTo(x, y);
-                } else {
-                    context.lineTo(x, y);
+                context.strokeStyle = "#0b5cad";
+                context.lineWidth = 3;
+                context.beginPath();
+
+                values.forEach((value, index) => {
+                    const point = getPoint(index);
+
+                    if (index === 0) {
+                        context.moveTo(point.x, point.y);
+                    } else {
+                        context.lineTo(point.x, point.y);
+                    }
+                });
+
+                context.stroke();
+
+                context.fillStyle = "#0b5cad";
+                values.forEach((value, index) => {
+                    const point = getPoint(index);
+
+                    context.beginPath();
+                    context.arc(point.x, point.y, 4, 0, Math.PI * 2);
+                    context.fill();
+                });
+
+                if (selectedIndex !== null) {
+                    const point = getPoint(selectedIndex);
+
+                    context.strokeStyle = "#b42318";
+                    context.lineWidth = 2;
+                    context.beginPath();
+                    context.moveTo(point.x, padding);
+                    context.lineTo(point.x, height - padding);
+                    context.stroke();
+
+                    context.fillStyle = "#b42318";
+                    context.beginPath();
+                    context.arc(point.x, point.y, 6, 0, Math.PI * 2);
+                    context.fill();
+                }
+
+                context.fillStyle = "#52606d";
+                context.fillText(maxValue.toFixed(2), 8, padding + 4);
+                context.fillText(minValue.toFixed(2), 8, height - padding + 4);
+                context.fillText(labels[0], padding, height - 14);
+                context.fillText(labels[labels.length - 1], width - padding - 74, height - 14);
+            }
+
+            drawChart();
+
+            chartCanvas.addEventListener("click", (event) => {
+                const rect = chartCanvas.getBoundingClientRect();
+                const scaleX = chartCanvas.width / rect.width;
+                const clickX = (event.clientX - rect.left) * scaleX;
+                const rawIndex = Math.round((clickX - padding) / xStep);
+                const selectedIndex = Math.max(0, Math.min(values.length - 1, rawIndex));
+
+                drawChart(selectedIndex);
+
+                if (chartInfo) {
+                    chartInfo.textContent = `Date: ${labels[selectedIndex]} | Price: ${values[selectedIndex].toFixed(2)}`;
                 }
             });
-
-            context.stroke();
-
-            context.fillStyle = "#0b5cad";
-            values.forEach((value, index) => {
-                const x = padding + xStep * index;
-                const y = height - padding - ((value - minValue) / valueRange) * (height - padding * 2);
-
-                context.beginPath();
-                context.arc(x, y, 4, 0, Math.PI * 2);
-                context.fill();
-            });
-
-            context.fillStyle = "#52606d";
-            context.fillText(maxValue.toFixed(2), 8, padding + 4);
-            context.fillText(minValue.toFixed(2), 8, height - padding + 4);
-            context.fillText(labels[0], padding, height - 14);
-            context.fillText(labels[labels.length - 1], width - padding - 74, height - 14);
         }
     </script>
 {% endblock %}
