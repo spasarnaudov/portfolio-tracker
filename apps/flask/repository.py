@@ -61,6 +61,106 @@ def get_prices():
             return cur.fetchall()
 
 
+def import_asset_prices_by_name(products, price_date):
+    imported_count = 0
+    missing_products = []
+
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            for product in products:
+                price = product.get("buy_price_eur")
+
+                if not price:
+                    missing_products.append(product["name"])
+                    continue
+
+                cur.execute("""
+                    SELECT id
+                    FROM assets
+                    WHERE LOWER(name) = LOWER(%s);
+                """, (product["name"],))
+                asset = cur.fetchone()
+
+                if not asset:
+                    missing_products.append(product["name"])
+                    continue
+
+                cur.execute("""
+                    INSERT INTO asset_prices (asset_id, price_date, price)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (asset_id, price_date)
+                    DO UPDATE SET price = EXCLUDED.price;
+                """, (
+                    asset["id"],
+                    price_date,
+                    price,
+                ))
+                imported_count += 1
+
+        conn.commit()
+
+    return {
+        "imported_count": imported_count,
+        "missing_products": missing_products,
+    }
+
+
+def import_assets_from_products(products):
+    imported_count = 0
+    skipped_count = 0
+
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            for product in products:
+                cur.execute("""
+                    SELECT id
+                    FROM assets
+                    WHERE LOWER(name) = LOWER(%s);
+                """, (product["name"],))
+
+                if cur.fetchone():
+                    skipped_count += 1
+                    continue
+
+                category_name = product.get("category_name") or "Gold"
+
+                cur.execute("""
+                    INSERT INTO asset_categories (name)
+                    VALUES (%s)
+                    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                    RETURNING id;
+                """, (category_name,))
+                category = cur.fetchone()
+
+                cur.execute("""
+                    SELECT COALESCE(MAX(id), 0) + 1 AS next_id
+                    FROM assets;
+                """)
+                next_asset_id = cur.fetchone()["next_id"]
+                symbol = f"TAVEX-{next_asset_id:03d}"
+
+                cur.execute("""
+                    INSERT INTO assets (symbol, name, category_id)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (symbol) DO NOTHING
+                    RETURNING id;
+                """, (
+                    symbol,
+                    product["name"],
+                    category["id"],
+                ))
+
+                if cur.fetchone():
+                    imported_count += 1
+
+        conn.commit()
+
+    return {
+        "imported_count": imported_count,
+        "skipped_count": skipped_count,
+    }
+
+
 def get_chart_assets():
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:

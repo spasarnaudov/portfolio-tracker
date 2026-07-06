@@ -1,6 +1,8 @@
-from datetime import timedelta
+import sys
+from datetime import date, timedelta
+from pathlib import Path
 
-from flask import Flask, render_template, request
+from flask import Flask, redirect, render_template, request, url_for
 
 from repository import (
     get_asset_by_id,
@@ -11,7 +13,17 @@ from repository import (
     get_dashboard_summary,
     get_latest_price_date,
     get_prices,
+    import_assets_from_products,
+    import_asset_prices_by_name,
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS_PATH = PROJECT_ROOT / "scripts"
+
+if str(SCRIPTS_PATH) not in sys.path:
+    sys.path.append(str(SCRIPTS_PATH))
+
+from fetch_tavex_prices import DEFAULT_CATEGORY_URLS, fetch_products_from_urls
 
 app = Flask(__name__)
 
@@ -56,7 +68,29 @@ def assets():
 @app.route("/prices")
 def prices():
     prices = get_prices()
-    return render_template("prices.html", prices=prices)
+    return render_template(
+        "prices.html",
+        prices=prices,
+        imported_count=request.args.get("imported", type=int),
+        missing_count=request.args.get("missing", type=int),
+        imported_assets_count=request.args.get("imported_assets", type=int),
+        skipped_assets_count=request.args.get("skipped_assets", type=int),
+    )
+
+
+@app.route("/prices/import-tavex", methods=["POST"])
+def import_tavex_prices():
+    products, _sources = fetch_products_from_urls(DEFAULT_CATEGORY_URLS, timeout=15)
+    assets_result = import_assets_from_products(products)
+    prices_result = import_asset_prices_by_name(products, date.today())
+
+    return redirect(url_for(
+        "prices",
+        imported=prices_result["imported_count"],
+        missing=len(prices_result["missing_products"]),
+        imported_assets=assets_result["imported_count"],
+        skipped_assets=assets_result["skipped_count"],
+    ))
 
 
 @app.route("/charts")

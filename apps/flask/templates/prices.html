@@ -5,6 +5,26 @@
 {% block content %}
     <h2>Prices</h2>
 
+    <div class="page-actions">
+        <form method="post" action="/prices/import-tavex">
+            <button type="submit">Import Tavex prices</button>
+        </form>
+    </div>
+
+    {% if imported_count is not none %}
+        <p class="import-result">
+            Imported {{ imported_assets_count }} missing Tavex assets.
+            {% if skipped_assets_count %}
+                {{ skipped_assets_count }} Tavex assets already existed.
+            {% endif %}
+            <br>
+            Imported {{ imported_count }} Tavex prices.
+            {% if missing_count %}
+                {{ missing_count }} Tavex products were not matched to existing assets.
+            {% endif %}
+        </p>
+    {% endif %}
+
     <table border="1" cellpadding="8">
         <thead>
             <tr>

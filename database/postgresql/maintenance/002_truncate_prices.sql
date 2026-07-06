@@ -1,0 +1,3 @@
+TRUNCATE TABLE
+    asset_prices
+RESTART IDENTITY;

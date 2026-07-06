@@ -57,6 +57,34 @@ h2 {
     color: #52606d;
 }
 
+.page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 14px;
+}
+
+.page-actions button {
+    border: 1px solid #0b5cad;
+    border-radius: 8px;
+    background: #0b5cad;
+    color: #ffffff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 8px 12px;
+}
+
+.page-actions button:hover {
+    background: #084b8f;
+}
+
+.import-result {
+    margin: 0 0 14px;
+    color: #52606d;
+    font-weight: 700;
+}
+
 .summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
