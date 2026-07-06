@@ -78,13 +78,36 @@
             const selectedInterval = "{{ selected_interval }}";
             const chartInfo = document.getElementById("chartInfo");
             const context = chartCanvas.getContext("2d");
-            const width = chartCanvas.width;
-            const height = chartCanvas.height;
-            const padding = 48;
             const minValue = Math.min(...values);
             const maxValue = Math.max(...values);
             const valueRange = maxValue - minValue || 1;
-            const xStep = (width - padding * 2) / Math.max(labels.length - 1, 1);
+            let width = chartCanvas.width;
+            let height = chartCanvas.height;
+            let padding = 48;
+            let fontSize = 12;
+            let xStep = 1;
+            let selectedIndex = null;
+
+            function resizeChart() {
+                const pixelRatio = window.devicePixelRatio || 1;
+                const isMobile = window.matchMedia("(max-width: 700px)").matches;
+                const panelStyle = window.getComputedStyle(chartCanvas.parentElement);
+                const horizontalPadding = parseFloat(panelStyle.paddingLeft) + parseFloat(panelStyle.paddingRight);
+                const chartWidth = chartCanvas.parentElement.clientWidth - horizontalPadding;
+
+                width = Math.max(chartWidth, 280);
+                height = isMobile ? 320 : 360;
+                padding = isMobile ? 76 : 58;
+                fontSize = isMobile ? 15 : 12;
+                xStep = (width - padding * 2) / Math.max(labels.length - 1, 1);
+
+                chartCanvas.style.width = `${width}px`;
+                chartCanvas.style.height = `${height}px`;
+                chartCanvas.width = Math.floor(width * pixelRatio);
+                chartCanvas.height = Math.floor(height * pixelRatio);
+
+                context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+            }
 
             function getPoint(index) {
                 const x = padding + xStep * index;
@@ -96,7 +119,7 @@
 
             function drawChart(selectedIndex = null) {
                 context.clearRect(0, 0, width, height);
-                context.font = "12px Arial";
+                context.font = `${fontSize}px Arial`;
                 context.strokeStyle = "#d9e2ec";
                 context.lineWidth = 1;
 
@@ -153,17 +176,19 @@
                 context.fillText(maxValue.toFixed(2), 8, padding + 4);
                 context.fillText(minValue.toFixed(2), 8, height - padding + 4);
                 context.fillText(labels[0], padding, height - 14);
-                context.fillText(labels[labels.length - 1], width - padding - 74, height - 14);
+                const lastLabel = labels[labels.length - 1];
+                const lastLabelWidth = context.measureText(lastLabel).width;
+                context.fillText(lastLabel, width - padding - lastLabelWidth, height - 14);
             }
 
+            resizeChart();
             drawChart();
 
             chartCanvas.addEventListener("click", (event) => {
                 const rect = chartCanvas.getBoundingClientRect();
-                const scaleX = chartCanvas.width / rect.width;
-                const clickX = (event.clientX - rect.left) * scaleX;
+                const clickX = event.clientX - rect.left;
                 const rawIndex = Math.round((clickX - padding) / xStep);
-                const selectedIndex = Math.max(0, Math.min(values.length - 1, rawIndex));
+                selectedIndex = Math.max(0, Math.min(values.length - 1, rawIndex));
 
                 drawChart(selectedIndex);
 
@@ -173,6 +198,11 @@
 
                     chartInfo.textContent = `${label}: ${labels[selectedIndex]} | ${priceLabel}: ${values[selectedIndex].toFixed(2)}`;
                 }
+            });
+
+            window.addEventListener("resize", () => {
+                resizeChart();
+                drawChart(selectedIndex);
             });
         }
     </script>
