@@ -83,6 +83,22 @@ def get_asset_by_id(asset_id):
             return cur.fetchone()
 
 
+def get_latest_price_date(asset_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT MAX(price_date) AS latest_price_date
+                FROM asset_prices
+                WHERE asset_id = %s;
+            """, (asset_id,))
+            result = cur.fetchone()
+
+            if not result:
+                return None
+
+            return result["latest_price_date"]
+
+
 def get_asset_prices(asset_id, start_date=None, end_date=None):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:

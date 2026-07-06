@@ -90,6 +90,14 @@ h2 {
     margin-bottom: 16px;
 }
 
+.chart-control-row,
+.range-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
 .chart-controls label {
     font-weight: 700;
 }
@@ -110,6 +118,21 @@ h2 {
     color: #ffffff;
     cursor: pointer;
     font-weight: 700;
+}
+
+.range-buttons button {
+    background: #ffffff;
+    color: #0b5cad;
+}
+
+.range-buttons button.active {
+    background: #0b5cad;
+    color: #ffffff;
+}
+
+.chart-controls input:disabled {
+    background: #edf2f7;
+    color: #829ab1;
 }
 
 .chart-panel {

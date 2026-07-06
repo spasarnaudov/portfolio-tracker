@@ -7,35 +7,99 @@
     <p class="page-intro">Daily price history for the selected asset.</p>
 
     <form class="chart-controls" method="get" action="/charts">
-        <label for="asset_id">Asset</label>
-        <select id="asset_id" name="asset_id">
-            {% for asset in assets %}
-                <option
-                    value="{{ asset.id }}"
-                    {% if asset.id == selected_asset_id %}selected{% endif %}
-                >
-                    {{ asset.symbol }} - {{ asset.name }}
-                </option>
-            {% endfor %}
-        </select>
+        <div class="chart-control-row">
+            <label for="asset_id">Asset</label>
+            <select id="asset_id" name="asset_id">
+                {% for asset in assets %}
+                    <option
+                        value="{{ asset.id }}"
+                        {% if asset.id == selected_asset_id %}selected{% endif %}
+                    >
+                        {{ asset.symbol }} - {{ asset.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
 
-        <label for="start_date">From</label>
-        <input
-            id="start_date"
-            type="date"
-            name="start_date"
-            value="{{ start_date or '' }}"
-        >
+        <div class="range-buttons">
+            <button
+                class="{% if selected_range == '1w' %}active{% endif %}"
+                type="submit"
+                name="range"
+                value="1w"
+            >
+                1 Week
+            </button>
+            <button
+                class="{% if selected_range == '1m' %}active{% endif %}"
+                type="submit"
+                name="range"
+                value="1m"
+            >
+                1 Month
+            </button>
+            <button
+                class="{% if selected_range == 'ytd' %}active{% endif %}"
+                type="submit"
+                name="range"
+                value="ytd"
+            >
+                YTD
+            </button>
+            <button
+                class="{% if selected_range == '1y' %}active{% endif %}"
+                type="submit"
+                name="range"
+                value="1y"
+            >
+                1 Year
+            </button>
+            <button
+                class="{% if selected_range == 'all' %}active{% endif %}"
+                type="submit"
+                name="range"
+                value="all"
+            >
+                All
+            </button>
+            <button
+                class="{% if selected_range == 'custom' %}active{% endif %}"
+                type="submit"
+                name="range"
+                value="custom"
+            >
+                Custom
+            </button>
+        </div>
 
-        <label for="end_date">To</label>
-        <input
-            id="end_date"
-            type="date"
-            name="end_date"
-            value="{{ end_date or '' }}"
-        >
+        <div class="chart-control-row">
+            <label for="start_date">From</label>
+            <input
+                id="start_date"
+                type="date"
+                name="start_date"
+                value="{{ start_date }}"
+                {% if selected_range != 'custom' %}disabled{% endif %}
+            >
 
-        <button type="submit">Show</button>
+            <label for="end_date">To</label>
+            <input
+                id="end_date"
+                type="date"
+                name="end_date"
+                value="{{ end_date }}"
+                {% if selected_range != 'custom' %}disabled{% endif %}
+            >
+
+            {% if selected_range != 'custom' %}
+                <input type="hidden" name="start_date" value="{{ start_date }}">
+                <input type="hidden" name="end_date" value="{{ end_date }}">
+            {% endif %}
+
+            <button type="submit" name="range" value="{{ selected_range }}">
+                Show
+            </button>
+        </div>
     </form>
 
     {% if selected_asset and prices %}
