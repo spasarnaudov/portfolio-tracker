@@ -84,10 +84,16 @@ h2 {
 
 .chart-controls {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
     margin-bottom: 16px;
+}
+
+.chart-control-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .chart-control-row,
@@ -102,6 +108,10 @@ h2 {
     font-weight: 700;
 }
 
+.control-section-title {
+    font-weight: 700;
+}
+
 .chart-controls select,
 .chart-controls input,
 .chart-controls button {
@@ -112,12 +122,21 @@ h2 {
     padding: 8px 10px;
 }
 
+.chart-controls select {
+    width: 100%;
+    max-width: 420px;
+}
+
 .chart-controls button {
     background: #0b5cad;
     border-color: #0b5cad;
     color: #ffffff;
     cursor: pointer;
     font-weight: 700;
+}
+
+.range-buttons button {
+    flex: 0 0 auto;
 }
 
 .range-buttons button {

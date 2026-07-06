@@ -7,7 +7,7 @@
     <p class="page-intro">Price history for the selected asset.</p>
 
     <form class="chart-controls" method="get" action="/charts">
-        <div class="chart-control-row">
+        <section class="chart-control-section">
             <label for="asset_id">Asset</label>
             <select id="asset_id" name="asset_id">
                 {% for asset in assets %}
@@ -19,117 +19,46 @@
                     </option>
                 {% endfor %}
             </select>
-        </div>
+        </section>
 
         <input type="hidden" name="range" value="{{ selected_range }}">
         <input type="hidden" name="interval" value="{{ selected_interval }}">
 
-        <div class="range-buttons">
-            <button
-                class="{% if selected_range == '1w' %}active{% endif %}"
-                type="submit"
-                name="range"
-                value="1w"
-            >
-                1 Week
-            </button>
-            <button
-                class="{% if selected_range == '1m' %}active{% endif %}"
-                type="submit"
-                name="range"
-                value="1m"
-            >
-                1 Month
-            </button>
-            <button
-                class="{% if selected_range == 'ytd' %}active{% endif %}"
-                type="submit"
-                name="range"
-                value="ytd"
-            >
-                YTD
-            </button>
-            <button
-                class="{% if selected_range == '1y' %}active{% endif %}"
-                type="submit"
-                name="range"
-                value="1y"
-            >
-                1 Year
-            </button>
-            <button
-                class="{% if selected_range == 'all' %}active{% endif %}"
-                type="submit"
-                name="range"
-                value="all"
-            >
-                All
-            </button>
-            <button
-                class="{% if selected_range == 'custom' %}active{% endif %}"
-                type="submit"
-                name="range"
-                value="custom"
-            >
-                Custom
-            </button>
-        </div>
+        <section class="chart-control-section">
+            <span class="control-section-title">Period</span>
+            <div class="range-buttons">
+                <button class="{% if selected_range == '1w' %}active{% endif %}" type="submit" name="range" value="1w">1 Week</button>
+                <button class="{% if selected_range == '1m' %}active{% endif %}" type="submit" name="range" value="1m">1 Month</button>
+                <button class="{% if selected_range == 'ytd' %}active{% endif %}" type="submit" name="range" value="ytd">YTD</button>
+                <button class="{% if selected_range == '1y' %}active{% endif %}" type="submit" name="range" value="1y">1 Year</button>
+                <button class="{% if selected_range == 'all' %}active{% endif %}" type="submit" name="range" value="all">All</button>
+                <button class="{% if selected_range == 'custom' %}active{% endif %}" type="submit" name="range" value="custom">Custom</button>
+            </div>
 
-        <div class="range-buttons">
-            <button
-                class="{% if selected_interval == 'daily' %}active{% endif %}"
-                type="submit"
-                name="interval"
-                value="daily"
-            >
-                Daily
-            </button>
-            <button
-                class="{% if selected_interval == 'weekly' %}active{% endif %}"
-                type="submit"
-                name="interval"
-                value="weekly"
-            >
-                Weekly Avg
-            </button>
-            <button
-                class="{% if selected_interval == 'monthly' %}active{% endif %}"
-                type="submit"
-                name="interval"
-                value="monthly"
-            >
-                Monthly Avg
-            </button>
-        </div>
+            <div class="chart-control-row">
+                <label for="start_date">From</label>
+                <input id="start_date" type="date" name="start_date" value="{{ start_date }}" {% if selected_range != 'custom' %}disabled{% endif %}>
 
-        <div class="chart-control-row">
-            <label for="start_date">From</label>
-            <input
-                id="start_date"
-                type="date"
-                name="start_date"
-                value="{{ start_date }}"
-                {% if selected_range != 'custom' %}disabled{% endif %}
-            >
+                <label for="end_date">To</label>
+                <input id="end_date" type="date" name="end_date" value="{{ end_date }}" {% if selected_range != 'custom' %}disabled{% endif %}>
 
-            <label for="end_date">To</label>
-            <input
-                id="end_date"
-                type="date"
-                name="end_date"
-                value="{{ end_date }}"
-                {% if selected_range != 'custom' %}disabled{% endif %}
-            >
+                {% if selected_range != 'custom' %}
+                    <input type="hidden" name="start_date" value="{{ start_date }}">
+                    <input type="hidden" name="end_date" value="{{ end_date }}">
+                {% endif %}
 
-            {% if selected_range != 'custom' %}
-                <input type="hidden" name="start_date" value="{{ start_date }}">
-                <input type="hidden" name="end_date" value="{{ end_date }}">
-            {% endif %}
+                <button type="submit" name="range" value="{{ selected_range }}">Show</button>
+            </div>
+        </section>
 
-            <button type="submit" name="range" value="{{ selected_range }}">
-                Show
-            </button>
-        </div>
+        <section class="chart-control-section">
+            <span class="control-section-title">Price display</span>
+            <div class="range-buttons">
+                <button class="{% if selected_interval == 'daily' %}active{% endif %}" type="submit" name="interval" value="daily">Daily</button>
+                <button class="{% if selected_interval == 'weekly' %}active{% endif %}" type="submit" name="interval" value="weekly">Weekly Avg</button>
+                <button class="{% if selected_interval == 'monthly' %}active{% endif %}" type="submit" name="interval" value="monthly">Monthly Avg</button>
+            </div>
+        </section>
     </form>
 
     {% if selected_asset and prices %}
