@@ -202,12 +202,16 @@ def get_latest_price_date(asset_id):
 def get_asset_prices(asset_id, start_date=None, end_date=None, interval="daily"):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            if interval == "weekly":
+            if interval == "recorded":
+                group_expression = "price_date"
+            elif interval == "hourly":
+                group_expression = "DATE_TRUNC('hour', price_date)"
+            elif interval == "weekly":
                 group_expression = "DATE_TRUNC('week', price_date)::date"
             elif interval == "monthly":
                 group_expression = "DATE_TRUNC('month', price_date)::date"
             else:
-                group_expression = "price_date"
+                group_expression = "DATE_TRUNC('day', price_date)::date"
 
             query = """
                 SELECT
@@ -215,8 +219,8 @@ def get_asset_prices(asset_id, start_date=None, end_date=None, interval="daily")
                     ROUND(AVG(price), 2) AS price
                 FROM asset_prices
                 WHERE asset_id = %s
-                    AND (%s::date IS NULL OR price_date >= %s::date)
-                    AND (%s::date IS NULL OR price_date <= %s::date)
+                    AND (%s::timestamp IS NULL OR price_date >= %s::timestamp)
+                    AND (%s::date IS NULL OR price_date < (%s::date + INTERVAL '1 day'))
                 GROUP BY {group_expression}
                 ORDER BY {group_expression};
             """.format(group_expression=group_expression)

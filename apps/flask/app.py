@@ -1,9 +1,9 @@
-import sys
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from flask import Flask, redirect, render_template, request, url_for
 
+from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
 from repository import (
     get_asset_by_id,
     get_asset_prices,
@@ -13,24 +13,40 @@ from repository import (
     get_dashboard_summary,
     get_latest_price_date,
     get_prices,
-    import_assets_from_products,
-    import_asset_prices_by_name,
 )
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS_PATH = PROJECT_ROOT / "scripts"
-
-if str(SCRIPTS_PATH) not in sys.path:
-    sys.path.append(str(SCRIPTS_PATH))
-
-from fetch_tavex_prices import DEFAULT_CATEGORY_URLS, fetch_products_from_urls
+from tavex_import import current_timestamp, import_tavex_prices as run_tavex_import
 
 app = Flask(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+TAVEX_IMPORT_LOG_PATH = PROJECT_ROOT / "logs" / "tavex_import.log"
 
 
 def format_date_value(value):
     if not value:
         return ""
+
+    if hasattr(value, "date"):
+        return value.date().isoformat()
+
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+
+    return value
+
+
+def format_chart_label(value, interval):
+    if not value:
+        return ""
+
+    if interval == "recorded" and hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+
+    if interval == "hourly" and hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d %H:%M")
+
+    if hasattr(value, "date"):
+        return value.date().isoformat()
 
     if hasattr(value, "isoformat"):
         return value.isoformat()
@@ -47,10 +63,30 @@ def get_last_query_value(name, default=None):
     return values[-1]
 
 
+def get_tavex_import_log_lines(limit=12):
+    if not TAVEX_IMPORT_LOG_PATH.exists():
+        return []
+
+    return TAVEX_IMPORT_LOG_PATH.read_text().splitlines()[-limit:]
+
+
 @app.route("/")
 def home():
     dashboard = get_dashboard_summary()
-    return render_template("index.html", dashboard=dashboard)
+    return render_template(
+        "index.html",
+        dashboard=dashboard,
+        auto_tavex_import_enabled=is_auto_tavex_import_enabled(),
+        tavex_import_log_lines=get_tavex_import_log_lines(),
+    )
+
+
+@app.route("/automation/tavex-import", methods=["POST"])
+def toggle_auto_tavex_import():
+    enabled = request.form.get("enabled") == "true"
+    set_auto_tavex_import_enabled(enabled)
+
+    return redirect(url_for("home"))
 
 
 @app.route("/categories")
@@ -80,16 +116,14 @@ def prices():
 
 @app.route("/prices/import-tavex", methods=["POST"])
 def import_tavex_prices():
-    products, _sources = fetch_products_from_urls(DEFAULT_CATEGORY_URLS, timeout=15)
-    assets_result = import_assets_from_products(products)
-    prices_result = import_asset_prices_by_name(products, date.today())
+    result = run_tavex_import(price_time=current_timestamp())
 
     return redirect(url_for(
         "prices",
-        imported=prices_result["imported_count"],
-        missing=len(prices_result["missing_products"]),
-        imported_assets=assets_result["imported_count"],
-        skipped_assets=assets_result["skipped_count"],
+        imported=result["imported_prices_count"],
+        missing=len(result["missing_products"]),
+        imported_assets=result["imported_assets_count"],
+        skipped_assets=result["skipped_assets_count"],
     ))
 
 
@@ -97,17 +131,17 @@ def import_tavex_prices():
 def charts():
     assets = get_chart_assets()
     selected_asset_id = request.args.get("asset_id", type=int)
-    selected_range = get_last_query_value("range", "1w")
-    selected_interval = get_last_query_value("interval", "daily")
+    selected_range = get_last_query_value("range", "1d")
+    selected_interval = get_last_query_value("interval", "recorded")
 
     if not selected_asset_id and assets:
         selected_asset_id = assets[0]["id"]
 
-    if selected_range not in {"1w", "1m", "ytd", "1y", "all", "custom"}:
-        selected_range = "1w"
+    if selected_range not in {"1d", "1w", "1m", "ytd", "1y", "all", "custom"}:
+        selected_range = "1d"
 
-    if selected_interval not in {"daily", "weekly", "monthly"}:
-        selected_interval = "daily"
+    if selected_interval not in {"recorded", "hourly", "daily", "weekly", "monthly"}:
+        selected_interval = "recorded"
 
     custom_start_date = request.args.get("start_date") or None
     custom_end_date = request.args.get("end_date") or None
@@ -123,7 +157,9 @@ def charts():
         if selected_range != "custom":
             end_date = latest_price_date
 
-            if selected_range == "1w" and latest_price_date:
+            if selected_range == "1d" and latest_price_date:
+                start_date = latest_price_date - timedelta(days=1)
+            elif selected_range == "1w" and latest_price_date:
                 start_date = latest_price_date - timedelta(days=7)
             elif selected_range == "1m" and latest_price_date:
                 start_date = latest_price_date - timedelta(days=30)
@@ -143,7 +179,7 @@ def charts():
         )
 
     chart_labels = [
-        price["price_date"].isoformat()
+        format_chart_label(price["price_date"], selected_interval)
         for price in prices
     ]
     chart_values = [

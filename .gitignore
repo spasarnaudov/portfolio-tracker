@@ -11,6 +11,10 @@ __pycache__/
 # Logs
 *.log
 
+# Runtime state
+runtime/*
+!runtime/.gitkeep
+
 # OS files
 .DS_Store
 Thumbs.db

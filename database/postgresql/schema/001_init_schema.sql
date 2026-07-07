@@ -17,7 +17,7 @@ CREATE TABLE assets (
 CREATE TABLE asset_prices (
     id SERIAL PRIMARY KEY,
     asset_id INTEGER NOT NULL,
-    price_date DATE NOT NULL,
+    price_date TIMESTAMP NOT NULL,
     price NUMERIC(18, 6) NOT NULL,
 
     CONSTRAINT fk_asset_prices_asset
