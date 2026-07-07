@@ -5,20 +5,22 @@
 {% block content %}
     <h2>Categories</h2>
 
-    <table border="1" cellpadding="8">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for category in categories %}
+    <div class="table-scroll">
+        <table border="1" cellpadding="8">
+            <thead>
                 <tr>
-                    <td>{{ category.id }}</td>
-                    <td>{{ category.name }}</td>
+                    <th>ID</th>
+                    <th>Name</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for category in categories %}
+                    <tr>
+                        <td>{{ category.id }}</td>
+                        <td>{{ category.name }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

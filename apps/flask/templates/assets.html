@@ -5,24 +5,26 @@
 {% block content %}
     <h2>Assets</h2>
 
-    <table border="1" cellpadding="8">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Symbol</th>
-                <th>Name</th>
-                <th>Category</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for asset in assets %}
+    <div class="table-scroll">
+        <table border="1" cellpadding="8">
+            <thead>
                 <tr>
-                    <td>{{ asset.id }}</td>
-                    <td>{{ asset.symbol }}</td>
-                    <td>{{ asset.name }}</td>
-                    <td>{{ asset.category_name }}</td>
+                    <th>ID</th>
+                    <th>Symbol</th>
+                    <th>Name</th>
+                    <th>Category</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for asset in assets %}
+                    <tr>
+                        <td>{{ asset.id }}</td>
+                        <td>{{ asset.symbol }}</td>
+                        <td>{{ asset.name }}</td>
+                        <td>{{ asset.category_name }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

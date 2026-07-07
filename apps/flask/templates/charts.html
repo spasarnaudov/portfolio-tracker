@@ -93,7 +93,7 @@
                 const isMobile = window.matchMedia("(max-width: 700px)").matches;
                 const panelStyle = window.getComputedStyle(chartCanvas.parentElement);
                 const horizontalPadding = parseFloat(panelStyle.paddingLeft) + parseFloat(panelStyle.paddingRight);
-                const chartWidth = chartCanvas.parentElement.clientWidth - horizontalPadding;
+                const chartWidth = chartCanvas.parentElement.clientWidth - horizontalPadding - 2;
 
                 width = Math.max(chartWidth, 280);
                 height = isMobile ? 320 : 360;

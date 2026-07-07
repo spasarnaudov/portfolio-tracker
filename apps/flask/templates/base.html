@@ -7,15 +7,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header>
-        <h1>Portfolio Tracker</h1>
+    <header class="site-header">
+        <h1 class="site-title">Portfolio Tracker</h1>
 
-        <nav>
-            <a href="/">Dashboard</a> |
-            <a href="/categories">Categories</a> |
-            <a href="/assets">Assets</a> |
-            <a href="/prices">Prices</a> |
-            <a href="/charts">Charts</a>
+        <nav class="site-nav">
+            <a class="{% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a>
+            <a class="{% if request.path.startswith('/categories') %}active{% endif %}" href="/categories">Categories</a>
+            <a class="{% if request.path.startswith('/assets') %}active{% endif %}" href="/assets">Assets</a>
+            <a class="{% if request.path.startswith('/prices') %}active{% endif %}" href="/prices">Prices</a>
+            <a class="{% if request.path.startswith('/charts') %}active{% endif %}" href="/charts">Charts</a>
         </nav>
     </header>
 
@@ -24,5 +24,23 @@
     <main>
         {% block content %}{% endblock %}
     </main>
+
+    <script>
+        function scrollActiveNavLinkIntoView() {
+            const activeNavLink = document.querySelector(".site-nav a.active");
+
+            if (activeNavLink) {
+                activeNavLink.scrollIntoView({
+                    block: "nearest",
+                    inline: "center",
+                });
+            }
+        }
+
+        scrollActiveNavLinkIntoView();
+        window.addEventListener("resize", () => {
+            window.setTimeout(scrollActiveNavLinkIntoView, 100);
+        });
+    </script>
 </body>
 </html>
