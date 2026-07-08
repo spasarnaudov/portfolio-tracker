@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Portfolio - Portfolio Tracker{% endblock %}
+
+{% block content %}
+    <section class="summary-grid">
+        <div class="summary-card">
+            <span class="summary-label">Portfolio value</span>
+            <strong>{{ "%.2f"|format(total_value) }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span class="summary-label">Tavex products</span>
+            <strong>{{ holdings|length }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span class="summary-label">Tavex value</span>
+            <strong>{{ "%.2f"|format(tavex_total) }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span class="summary-label">Manual items value</span>
+            <strong>{{ "%.2f"|format(manual_total) }}</strong>
+        </div>
+
+        <div class="summary-card">
+            <span class="summary-label">Tavex 14K €/g</span>
+            <strong>
+                {% if tavex_gold_price_per_gram %}
+                    {{ "%.2f"|format(tavex_gold_price_per_gram.price_per_gram|float) }}
+                {% else %}
+                    -
+                {% endif %}
+            </strong>
+        </div>
+    </section>
+
+    <form id="portfolioChartFilters" method="get" action="/portfolio"></form>
+
+    <section class="chart-panel portfolio-chart-panel">
+        <div class="chart-panel-header">
+            <div class="chart-panel-controls">
+                <select class="chart-panel-select" name="portfolio_range" aria-label="Period" form="portfolioChartFilters" onchange="this.form.submit()">
+                    {% for range_value, range_label in portfolio_ranges %}
+                        <option value="{{ range_value }}" {% if portfolio_range == range_value %}selected{% endif %}>
+                            {{ range_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <select class="chart-panel-select" name="portfolio_interval" aria-label="Display" form="portfolioChartFilters" onchange="this.form.submit()">
+                    {% for interval_value, interval_label in portfolio_intervals %}
+                        <option value="{{ interval_value }}" {% if portfolio_interval == interval_value %}selected{% endif %}>
+                            {{ interval_label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        {% if chart_values %}
+            <canvas
+                id="portfolioChart"
+                class="price-chart"
+                width="900"
+                height="360"
+                data-labels='{{ chart_labels | tojson }}'
+                data-values='{{ chart_values | tojson }}'
+                data-interval="{{ portfolio_interval }}"
+                data-value-label="Portfolio value"
+            ></canvas>
+            <p id="portfolioChartInfo" class="chart-info">
+                Click on the chart to inspect portfolio value.
+            </p>
+        {% else %}
+            <p class="chart-info">Add quantities to see portfolio history.</p>
+        {% endif %}
+    </section>
+
+    <form method="post" action="/portfolio">
+        <label class="portfolio-filter-toggle">
+            <input id="hideEmptyHoldings" type="checkbox">
+            Hide products without quantity
+        </label>
+
+        <div class="table-scroll">
+            <table border="1" cellpadding="8">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Name</th>
+                        <th>Quantity</th>
+                        <th>Latest price</th>
+                        <th>Current value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for holding in holdings %}
+                        <tr class="{% if holding.quantity > 0 %}holding-owned-row{% else %}holding-empty-row{% endif %}">
+                            <td>{{ holding.symbol }}</td>
+                            <td>{{ holding.name }}</td>
+                            <td>
+                                <input
+                                    class="quantity-input"
+                                    type="number"
+                                    step="1"
+                                    min="0"
+                                    name="quantity_{{ holding.asset_id }}"
+                                    value="{{ "%.0f"|format(holding.quantity|float) }}"
+                                >
+                            </td>
+                            <td>
+                                {% if holding.price %}
+                                    {{ "%.2f"|format(holding.price|float) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ "%.2f"|format(holding.current_value|float) }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <section class="manual-items-panel">
+            <h3>Jewelry and manual items</h3>
+
+            <div class="table-scroll">
+                <table border="1" cellpadding="8">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Quantity</th>
+                            <th>Unit price</th>
+                            <th>Tavex buyback</th>
+                            <th>Current value</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in manual_items %}
+                            <tr class="holding-owned-row">
+                                <td>
+                                    <input
+                                        class="manual-item-input"
+                                        type="text"
+                                        name="manual_item_name"
+                                        value="{{ item.name }}"
+                                    >
+                                    <input
+                                        type="hidden"
+                                        name="manual_item_id"
+                                        value="{{ item.id }}"
+                                    >
+                                </td>
+                                <td>
+                                    <input
+                                        class="quantity-input"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        name="manual_item_quantity"
+                                        value="{{ "%.2f"|format(item.quantity|float) }}"
+                                    >
+                                </td>
+                                <td>
+                                    <input
+                                        class="quantity-input"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        name="manual_item_unit_price"
+                                        value="{{ "%.2f"|format(item.unit_price|float) }}"
+                                    >
+                                </td>
+                                <td>
+                                    {% if tavex_gold_buyback_prices %}
+                                        <div class="inline-price-picker">
+                                            <select class="tavex-gram-price-select">
+                                                {% for buyback_price in tavex_gold_buyback_prices %}
+                                                    <option
+                                                        value="{{ "%.2f"|format(buyback_price.price_per_gram|float) }}"
+                                                        {% if buyback_price.karat == 14 %}selected{% endif %}
+                                                    >
+                                                        {{ buyback_price.label }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            <button
+                                                class="secondary-inline-button tavex-gram-price-button"
+                                                type="button"
+                                            >
+                                                Use
+                                            </button>
+                                        </div>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.2f"|format(item.current_value|float) }}</td>
+                                <td>
+                                    <input
+                                        class="manual-delete-input"
+                                        type="hidden"
+                                        name="manual_item_delete"
+                                        value=""
+                                    >
+                                    <button
+                                        class="manual-remove-button"
+                                        type="button"
+                                        data-item-name="{{ item.name }}"
+                                        data-item-id="{{ item.id }}"
+                                    >
+                                        -
+                                    </button>
+                                    <input
+                                        class="manual-delete-marker"
+                                        type="hidden"
+                                        value="{{ item.id }}"
+                                    >
+                                </td>
+                            </tr>
+                        {% endfor %}
+
+                        <tr>
+                            <td>
+                                <input
+                                    class="manual-item-input"
+                                    type="text"
+                                    name="new_manual_item_name"
+                                    placeholder="New item"
+                                >
+                            </td>
+                            <td>
+                                <input
+                                    class="quantity-input"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="new_manual_item_quantity"
+                                    value="0.00"
+                                >
+                            </td>
+                            <td>
+                                <input
+                                    class="quantity-input"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="new_manual_item_unit_price"
+                                    value="{% if tavex_gold_price_per_gram %}{{ "%.2f"|format(tavex_gold_price_per_gram.price_per_gram|float) }}{% else %}0.00{% endif %}"
+                                >
+                            </td>
+                            <td>
+                                {% if tavex_gold_buyback_prices %}
+                                    <div class="inline-price-picker">
+                                        <select class="tavex-gram-price-select">
+                                            {% for buyback_price in tavex_gold_buyback_prices %}
+                                                <option
+                                                    value="{{ "%.2f"|format(buyback_price.price_per_gram|float) }}"
+                                                    {% if buyback_price.karat == 14 %}selected{% endif %}
+                                                >
+                                                    {{ buyback_price.label }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                        <button
+                                            class="secondary-inline-button tavex-gram-price-button"
+                                            type="button"
+                                        >
+                                            Use
+                                        </button>
+                                    </div>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>-</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="page-actions portfolio-actions">
+            <button type="submit">Save quantities</button>
+        </div>
+    </form>
+
+    <script>
+        const hideEmptyHoldingsCheckbox = document.getElementById("hideEmptyHoldings");
+        const emptyHoldingRows = document.querySelectorAll(".holding-empty-row");
+        const hideEmptyHoldingsStorageKey = "portfolio.hideEmptyHoldings";
+
+        if (hideEmptyHoldingsCheckbox) {
+            function applyHideEmptyHoldingsPreference() {
+                emptyHoldingRows.forEach((row) => {
+                    row.hidden = hideEmptyHoldingsCheckbox.checked;
+                });
+            }
+
+            hideEmptyHoldingsCheckbox.checked = localStorage.getItem(hideEmptyHoldingsStorageKey) === "true";
+            applyHideEmptyHoldingsPreference();
+
+            hideEmptyHoldingsCheckbox.addEventListener("change", () => {
+                localStorage.setItem(hideEmptyHoldingsStorageKey, hideEmptyHoldingsCheckbox.checked ? "true" : "false");
+                applyHideEmptyHoldingsPreference();
+            });
+        }
+
+        document.querySelectorAll(".tavex-gram-price-button").forEach((button) => {
+            button.addEventListener("click", () => {
+                const row = button.closest("tr");
+                const unitPriceInput = row.querySelector("[name='manual_item_unit_price'], [name='new_manual_item_unit_price']");
+                const priceSelect = row.querySelector(".tavex-gram-price-select");
+
+                if (unitPriceInput && priceSelect) {
+                    unitPriceInput.value = priceSelect.value;
+                }
+            });
+        });
+
+        document.querySelectorAll(".manual-remove-button").forEach((button) => {
+            button.addEventListener("click", () => {
+                const row = button.closest("tr");
+                const deleteInput = row.querySelector(".manual-delete-input");
+                const deleteMarker = row.querySelector(".manual-delete-marker");
+                const itemName = button.dataset.itemName || "this item";
+
+                if (!deleteInput || !deleteMarker) {
+                    return;
+                }
+
+                if (confirm(`Remove ${itemName}?`)) {
+                    deleteInput.value = deleteMarker.value;
+                    button.form.submit();
+                }
+            });
+        });
+    </script>
+
+{% endblock %}

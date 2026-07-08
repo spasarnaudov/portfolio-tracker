@@ -14,8 +14,18 @@ from repository import (
     get_dashboard_summary,
     get_latest_price_date,
     get_prices,
+    get_portfolio_history,
+    get_portfolio_holdings,
+    get_portfolio_manual_items,
+    get_portfolio_manual_total,
+    save_portfolio_holdings,
+    save_portfolio_manual_items,
 )
-from tavex_import import current_timestamp, import_tavex_prices as run_tavex_import
+from tavex_import import (
+    current_timestamp,
+    get_tavex_gold_buyback_prices,
+    import_tavex_prices as run_tavex_import,
+)
 
 app = Flask(__name__)
 
@@ -25,6 +35,8 @@ DEFAULT_CHART_RANGE = "1d"
 DEFAULT_CHART_INTERVAL = "recorded"
 VALID_CHART_RANGES = {"1d", "1w", "1m", "ytd", "1y", "all", "custom"}
 VALID_CHART_INTERVALS = {"recorded", "hourly", "daily", "weekly", "monthly"}
+VALID_PORTFOLIO_RANGES = {"1d", "1w", "1m", "ytd", "1y", "all"}
+VALID_PORTFOLIO_INTERVALS = {"hourly", "daily", "weekly"}
 
 
 def format_date_value(value):
@@ -239,6 +251,152 @@ def prices():
         missing_count=request.args.get("missing", type=int),
         imported_assets_count=request.args.get("imported_assets", type=int),
         skipped_assets_count=request.args.get("skipped_assets", type=int),
+    )
+
+
+@app.route("/portfolio", methods=["GET", "POST"])
+def portfolio():
+    if request.method == "POST":
+        quantities_by_asset_id = {}
+        manual_items = []
+        manual_item_ids = request.form.getlist("manual_item_id")
+        manual_item_names = request.form.getlist("manual_item_name")
+        manual_item_quantities = request.form.getlist("manual_item_quantity")
+        manual_item_unit_prices = request.form.getlist("manual_item_unit_price")
+        deleted_manual_item_ids = set(request.form.getlist("manual_item_delete"))
+
+        for key, value in request.form.items():
+            if not key.startswith("quantity_"):
+                continue
+
+            try:
+                asset_id = int(key.replace("quantity_", "", 1))
+                quantity = float(value or 0)
+            except ValueError:
+                continue
+
+            quantities_by_asset_id[asset_id] = quantity
+
+        for index, raw_item_id in enumerate(manual_item_ids):
+            try:
+                item_id = int(raw_item_id)
+                quantity = float(manual_item_quantities[index] or 0)
+                unit_price = float(manual_item_unit_prices[index] or 0)
+            except (IndexError, ValueError):
+                continue
+
+            manual_items.append({
+                "id": item_id,
+                "name": manual_item_names[index] if index < len(manual_item_names) else "",
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "delete": raw_item_id in deleted_manual_item_ids,
+            })
+
+        new_manual_item_name = request.form.get("new_manual_item_name", "").strip()
+
+        if new_manual_item_name:
+            try:
+                new_manual_item_quantity = float(request.form.get("new_manual_item_quantity") or 0)
+                new_manual_item_unit_price = float(request.form.get("new_manual_item_unit_price") or 0)
+            except ValueError:
+                new_manual_item_quantity = 0
+                new_manual_item_unit_price = 0
+
+            manual_items.append({
+                "id": None,
+                "name": new_manual_item_name,
+                "quantity": new_manual_item_quantity,
+                "unit_price": new_manual_item_unit_price,
+                "delete": False,
+            })
+
+        save_portfolio_holdings(quantities_by_asset_id)
+        save_portfolio_manual_items(manual_items)
+        return redirect(url_for("portfolio"))
+
+    holdings = get_portfolio_holdings()
+    manual_items = get_portfolio_manual_items()
+    dashboard = get_dashboard_summary()
+    portfolio_range = request.args.get("portfolio_range", DEFAULT_CHART_RANGE)
+    portfolio_interval = request.args.get("portfolio_interval", "hourly")
+
+    if portfolio_range not in VALID_PORTFOLIO_RANGES:
+        portfolio_range = DEFAULT_CHART_RANGE
+
+    if portfolio_interval not in VALID_PORTFOLIO_INTERVALS:
+        portfolio_interval = "hourly"
+
+    portfolio_start_date, portfolio_end_date = get_chart_date_range(
+        portfolio_range,
+        dashboard["latest_price_date"],
+        None,
+        None,
+    )
+    portfolio_history = get_portfolio_history(
+        portfolio_start_date,
+        portfolio_end_date,
+        portfolio_interval,
+    )
+    tavex_gold_price_per_gram = None
+    tavex_gold_buyback_prices = []
+
+    try:
+        tavex_gold_buyback_prices = get_tavex_gold_buyback_prices()
+        tavex_gold_price_per_gram = next(
+            (
+                price
+                for price in tavex_gold_buyback_prices
+                if price["karat"] == 14
+            ),
+            tavex_gold_buyback_prices[0] if tavex_gold_buyback_prices else None,
+        )
+    except Exception:
+        tavex_gold_buyback_prices = []
+        tavex_gold_price_per_gram = None
+
+    tavex_total = sum(
+        float(holding["current_value"] or 0)
+        for holding in holdings
+    )
+    manual_total = float(get_portfolio_manual_total() or 0)
+    total_value = tavex_total + manual_total
+
+    chart_labels = [
+        format_chart_label(price["price_date"], portfolio_interval)
+        for price in portfolio_history
+    ]
+    chart_values = [
+        float(price["value"])
+        for price in portfolio_history
+    ]
+
+    return render_template(
+        "portfolio.html",
+        holdings=holdings,
+        manual_items=manual_items,
+        tavex_total=tavex_total,
+        manual_total=manual_total,
+        total_value=total_value,
+        tavex_gold_price_per_gram=tavex_gold_price_per_gram,
+        tavex_gold_buyback_prices=tavex_gold_buyback_prices,
+        portfolio_range=portfolio_range,
+        portfolio_interval=portfolio_interval,
+        portfolio_ranges=[
+            ("1d", "1 Day"),
+            ("1w", "1 Week"),
+            ("1m", "1 Month"),
+            ("ytd", "YTD"),
+            ("1y", "1 Year"),
+            ("all", "All"),
+        ],
+        portfolio_intervals=[
+            ("hourly", "Hourly"),
+            ("daily", "Daily"),
+            ("weekly", "Weekly"),
+        ],
+        chart_labels=chart_labels,
+        chart_values=chart_values,
     )
 
 

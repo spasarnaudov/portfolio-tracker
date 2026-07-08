@@ -62,6 +62,191 @@ def get_prices():
             return cur.fetchall()
 
 
+def get_portfolio_holdings():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT
+                    assets.id AS asset_id,
+                    assets.symbol,
+                    assets.name,
+                    COALESCE(portfolio_holdings.quantity, 0) AS quantity,
+                    latest_prices.price_date,
+                    latest_prices.price,
+                    ROUND(
+                        COALESCE(portfolio_holdings.quantity, 0)
+                        * COALESCE(latest_prices.price, 0),
+                        2
+                    ) AS current_value
+                FROM assets
+                LEFT JOIN portfolio_holdings
+                    ON portfolio_holdings.asset_id = assets.id
+                LEFT JOIN LATERAL (
+                    SELECT price_date, price
+                    FROM asset_prices
+                    WHERE asset_prices.asset_id = assets.id
+                    ORDER BY price_date DESC
+                    LIMIT 1
+                ) AS latest_prices ON TRUE
+                WHERE assets.symbol LIKE 'TAVEX-%'
+                ORDER BY assets.symbol, assets.name;
+            """)
+            return cur.fetchall()
+
+
+def save_portfolio_holdings(quantities_by_asset_id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for asset_id, quantity in quantities_by_asset_id.items():
+                if quantity <= 0:
+                    cur.execute("""
+                        DELETE FROM portfolio_holdings
+                        WHERE asset_id = %s;
+                    """, (asset_id,))
+                    continue
+
+                cur.execute("""
+                    INSERT INTO portfolio_holdings (asset_id, quantity)
+                    VALUES (%s, %s)
+                    ON CONFLICT (asset_id)
+                    DO UPDATE SET quantity = EXCLUDED.quantity;
+                """, (asset_id, quantity))
+
+        conn.commit()
+
+
+def get_portfolio_manual_items():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT
+                    id,
+                    name,
+                    quantity,
+                    unit_price,
+                    ROUND(quantity * unit_price, 2) AS current_value
+                FROM portfolio_manual_items
+                ORDER BY id;
+            """)
+            return cur.fetchall()
+
+
+def save_portfolio_manual_items(items):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for item in items:
+                item_id = item.get("id")
+                name = item.get("name", "").strip()
+                quantity = item.get("quantity", 0)
+                unit_price = item.get("unit_price", 0)
+                should_delete = item.get("delete", False)
+
+                if item_id and (should_delete or not name):
+                    cur.execute("""
+                        DELETE FROM portfolio_manual_items
+                        WHERE id = %s;
+                    """, (item_id,))
+                    continue
+
+                if item_id:
+                    cur.execute("""
+                        UPDATE portfolio_manual_items
+                        SET name = %s,
+                            quantity = %s,
+                            unit_price = %s
+                        WHERE id = %s;
+                    """, (name, quantity, unit_price, item_id))
+                    continue
+
+                if name:
+                    cur.execute("""
+                        INSERT INTO portfolio_manual_items (name, quantity, unit_price)
+                        VALUES (%s, %s, %s);
+                    """, (name, quantity, unit_price))
+
+        conn.commit()
+
+
+def get_portfolio_manual_total():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT ROUND(COALESCE(SUM(quantity * unit_price), 0), 2) AS total
+                FROM portfolio_manual_items;
+            """)
+            return cur.fetchone()["total"]
+
+
+def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            if interval == "recorded":
+                group_expression = "price_date"
+            elif interval == "daily":
+                group_expression = "DATE_TRUNC('day', price_date)::date"
+            elif interval == "weekly":
+                group_expression = "DATE_TRUNC('week', price_date)::date"
+            else:
+                group_expression = "DATE_TRUNC('hour', price_date)"
+
+            cur.execute("""
+                WITH manual_total AS (
+                    SELECT COALESCE(SUM(quantity * unit_price), 0) AS value
+                    FROM portfolio_manual_items
+                ),
+                tavex_history AS (
+                    SELECT
+                        {group_expression} AS price_date,
+                        SUM(portfolio_holdings.quantity * asset_prices.price) AS value
+                    FROM portfolio_holdings
+                    JOIN asset_prices
+                        ON asset_prices.asset_id = portfolio_holdings.asset_id
+                    WHERE portfolio_holdings.quantity > 0
+                        AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
+                        AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
+                    GROUP BY {group_expression}
+                ),
+                manual_only_history AS (
+                    SELECT
+                        {group_expression} AS price_date,
+                        0 AS value
+                    FROM asset_prices
+                    WHERE (SELECT value FROM manual_total) > 0
+                        AND NOT EXISTS (SELECT 1 FROM tavex_history)
+                        AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
+                        AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
+                    GROUP BY {group_expression}
+                ),
+                portfolio_history AS (
+                    SELECT price_date, value
+                    FROM tavex_history
+                    UNION ALL
+                    SELECT price_date, value
+                    FROM manual_only_history
+                )
+                SELECT
+                    portfolio_history.price_date,
+                    ROUND(
+                        portfolio_history.value
+                        + manual_total.value,
+                        2
+                    ) AS value
+                FROM portfolio_history
+                CROSS JOIN manual_total
+                ORDER BY portfolio_history.price_date;
+            """.format(group_expression=group_expression), (
+                start_date,
+                start_date,
+                end_date,
+                end_date,
+                start_date,
+                start_date,
+                end_date,
+                end_date,
+            ))
+            return cur.fetchall()
+
+
 def import_asset_prices_by_name(products, price_date):
     imported_count = 0
     missing_products = []

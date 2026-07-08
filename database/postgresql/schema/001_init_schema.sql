@@ -27,3 +27,20 @@ CREATE TABLE asset_prices (
     CONSTRAINT uq_asset_price_per_date
         UNIQUE (asset_id, price_date)
 );
+
+CREATE TABLE portfolio_holdings (
+    asset_id INTEGER PRIMARY KEY,
+    quantity NUMERIC(18, 6) NOT NULL DEFAULT 0,
+
+    CONSTRAINT fk_portfolio_holdings_asset
+        FOREIGN KEY (asset_id)
+        REFERENCES assets(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE portfolio_manual_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    quantity NUMERIC(18, 6) NOT NULL DEFAULT 0,
+    unit_price NUMERIC(18, 6) NOT NULL DEFAULT 0
+);

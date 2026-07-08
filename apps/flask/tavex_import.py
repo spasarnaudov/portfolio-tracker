@@ -1,5 +1,7 @@
 import sys
+import re
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from repository import import_assets_from_products, import_asset_prices_by_name
@@ -10,7 +12,15 @@ SCRIPTS_PATH = PROJECT_ROOT / "scripts"
 if str(SCRIPTS_PATH) not in sys.path:
     sys.path.append(str(SCRIPTS_PATH))
 
-from fetch_tavex_prices import DEFAULT_CATEGORY_URLS, fetch_products_from_urls
+from fetch_tavex_prices import (
+    DEFAULT_CATEGORY_URLS,
+    fetch_html,
+    fetch_products_from_urls,
+    html_to_lines,
+    parse_decimal,
+)
+
+TAVEX_BUYBACK_URL = "https://tavex.bg/izkupuvane-zlato-i-srebro/"
 
 
 def current_timestamp():
@@ -37,3 +47,106 @@ def import_tavex_prices(price_time=None, timeout=15):
         "imported_prices_count": prices_result["imported_count"],
         "missing_products": prices_result["missing_products"],
     }
+
+
+def decimal_or_none(value):
+    if value in {None, ""}:
+        return None
+
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
+
+
+def find_gold_price_per_gram(products):
+    candidates = []
+
+    for product in products:
+        name = product["name"].casefold()
+        category_name = (product.get("category_name") or "").casefold()
+
+        if category_name != "gold":
+            continue
+
+        if "кюлче" not in name or "1 грам" not in name:
+            continue
+
+        if "абонамент" in name:
+            continue
+
+        buy_price = decimal_or_none(product.get("buy_price_eur"))
+
+        if buy_price is None:
+            continue
+
+        candidates.append({
+            "product_name": product["name"],
+            "price_per_gram": buy_price,
+        })
+
+    if not candidates:
+        return None
+
+    return min(candidates, key=lambda candidate: candidate["price_per_gram"])
+
+
+def parse_tavex_gold_buyback_prices(page_html):
+    lines = html_to_lines(page_html)
+    prices = []
+
+    for index, line in enumerate(lines):
+        match = re.search(
+            r"1\s+грам\s+злато\s+проба\s+(?P<fineness>\d+)\s+\((?P<karat>\d+)\s+карата\)",
+            line,
+            flags=re.IGNORECASE,
+        )
+
+        if not match:
+            continue
+
+        for offset in range(1, 8):
+            price_line = " ".join(lines[index + 1:index + offset + 1])
+            price_match = re.search(
+                r"(?P<price>\d+(?:\s*[,.]\s*\d+)?)\s*€",
+                price_line,
+            )
+
+            if not price_match:
+                continue
+
+            raw_price = re.sub(r"\s+", "", price_match.group("price"))
+            price_per_gram = decimal_or_none(parse_decimal(raw_price))
+
+            if price_per_gram is None:
+                break
+
+            karat = int(match.group("karat"))
+            fineness = int(match.group("fineness"))
+            prices.append({
+                "karat": karat,
+                "fineness": fineness,
+                "label": f"{karat}K / {fineness}",
+                "price_per_gram": price_per_gram,
+            })
+            break
+
+    return sorted(prices, key=lambda price: price["karat"])
+
+
+def get_tavex_gold_buyback_prices(timeout=15):
+    page_html = fetch_html(TAVEX_BUYBACK_URL, timeout)
+    return parse_tavex_gold_buyback_prices(page_html)
+
+
+def get_tavex_gold_price_per_gram(timeout=15, default_karat=14):
+    prices = get_tavex_gold_buyback_prices(timeout=timeout)
+
+    for price in prices:
+        if price["karat"] == default_karat:
+            return price
+
+    if prices:
+        return prices[0]
+
+    return None
