@@ -4,6 +4,7 @@ from pathlib import Path
 from flask import Flask, redirect, render_template, request, url_for
 
 from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
+from chart_settings import load_chart_filters, save_chart_filters
 from repository import (
     get_asset_by_id,
     get_asset_prices,
@@ -70,6 +71,24 @@ def get_tavex_import_log_lines(limit=12):
     return TAVEX_IMPORT_LOG_PATH.read_text().splitlines()[-limit:]
 
 
+def get_chart_request_value(saved_filters, name, default=None, type_converter=None):
+    value = get_last_query_value(name)
+
+    if value is None:
+        value = saved_filters.get(name, default)
+
+    if value in {None, ""}:
+        return default
+
+    if type_converter:
+        try:
+            return type_converter(value)
+        except (TypeError, ValueError):
+            return default
+
+    return value
+
+
 @app.route("/")
 def home():
     dashboard = get_dashboard_summary()
@@ -130,9 +149,15 @@ def import_tavex_prices():
 @app.route("/charts")
 def charts():
     assets = get_chart_assets()
-    selected_asset_id = request.args.get("asset_id", type=int)
-    selected_range = get_last_query_value("range", "1d")
-    selected_interval = get_last_query_value("interval", "recorded")
+    saved_filters = load_chart_filters()
+    selected_asset_id = get_chart_request_value(saved_filters, "asset_id", type_converter=int)
+    selected_range = get_chart_request_value(saved_filters, "range", "1d")
+    selected_interval = get_chart_request_value(saved_filters, "interval", "recorded")
+
+    asset_ids = {asset["id"] for asset in assets}
+
+    if selected_asset_id not in asset_ids:
+        selected_asset_id = None
 
     if not selected_asset_id and assets:
         selected_asset_id = assets[0]["id"]
@@ -143,8 +168,8 @@ def charts():
     if selected_interval not in {"recorded", "hourly", "daily", "weekly", "monthly"}:
         selected_interval = "recorded"
 
-    custom_start_date = request.args.get("start_date") or None
-    custom_end_date = request.args.get("end_date") or None
+    custom_start_date = get_chart_request_value(saved_filters, "start_date")
+    custom_end_date = get_chart_request_value(saved_filters, "end_date")
     start_date = custom_start_date
     end_date = custom_end_date
     selected_asset = None
@@ -177,6 +202,14 @@ def charts():
             end_date,
             selected_interval,
         )
+
+    save_chart_filters({
+        "asset_id": selected_asset_id,
+        "range": selected_range,
+        "interval": selected_interval,
+        "start_date": format_date_value(start_date),
+        "end_date": format_date_value(end_date),
+    })
 
     chart_labels = [
         format_chart_label(price["price_date"], selected_interval)
