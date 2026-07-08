@@ -11,6 +11,9 @@ apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 The script stores prices with the current round hour, for example `14:00:00`.
 
 The script imports prices only when automatic Tavex import is enabled from the Dashboard.
+Use the Dashboard button to enable or disable the automatic import without editing cron.
+
+Manual imports from the web interface use the current time. The cron script uses the current round hour.
 
 ## Run Every Hour
 
@@ -27,3 +30,11 @@ Add this line:
 ```
 
 This runs the import on every round hour.
+
+Logs are written to:
+
+```text
+logs/tavex_import.log
+```
+
+The latest log lines are visible on the Dashboard.

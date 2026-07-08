@@ -27,5 +27,9 @@ Stores historical prices for each asset.
 Columns:
 - id: unique price record ID
 - asset_id: reference to assets
-- price_date: date of the price
-- price: asset price on that date
+- price_date: timestamp of the price record
+- price: asset price at that timestamp
+
+Notes:
+- `price_date` uses timestamp precision so the application can store multiple prices for the same asset during one day.
+- The unique constraint is based on `asset_id` and `price_date`, so one asset can have only one price for the exact same timestamp.
