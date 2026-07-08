@@ -3,90 +3,89 @@
 {% block title %}Charts - Portfolio Tracker{% endblock %}
 
 {% block content %}
-    <form class="chart-controls" method="get" action="/charts">
-        <section class="chart-select-row">
-            <select class="asset-select" id="asset_id" name="asset_id" aria-label="Asset" onchange="this.form.submit()">
-                {% for asset in assets %}
-                    <option
-                        value="{{ asset.id }}"
-                        {% if asset.id == selected_asset_id %}selected{% endif %}
-                    >
-                        {{ asset.symbol }} - {{ asset.name }}
-                    </option>
-                {% endfor %}
-            </select>
+    <form id="chartFilters" class="chart-controls" method="get" action="/charts"></form>
 
-            <select class="interval-select" id="interval" name="interval" aria-label="Price display" onchange="this.form.submit()">
-                <option value="recorded" {% if selected_interval == 'recorded' %}selected{% endif %}>Each record</option>
-                <option value="hourly" {% if selected_interval == 'hourly' %}selected{% endif %}>Hourly Avg</option>
-                <option value="daily" {% if selected_interval == 'daily' %}selected{% endif %}>Daily Avg</option>
-                <option value="weekly" {% if selected_interval == 'weekly' %}selected{% endif %}>Weekly Avg</option>
-                <option value="monthly" {% if selected_interval == 'monthly' %}selected{% endif %}>Monthly Avg</option>
-            </select>
-        </section>
+    {% if chart_panels %}
+        {% for chart_panel in chart_panels %}
+            <section class="chart-panel">
+                <div class="chart-panel-header">
+                    <select class="chart-title-select" name="chart_asset_id" aria-label="Asset" form="chartFilters" onchange="this.form.submit()">
+                        {% for asset in chart_panel.selectable_assets %}
+                            <option
+                                value="{{ asset.id }}"
+                                {% if asset.id == chart_panel.asset_id %}selected{% endif %}
+                            >
+                                {{ asset.symbol }} - {{ asset.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
 
-        <input type="hidden" name="range" value="{{ selected_range }}">
-
-        <section class="chart-control-section">
-            <div class="range-buttons segmented-buttons">
-                <button class="{% if selected_range == '1d' %}active{% endif %}" type="submit" name="range" value="1d">1 Day</button>
-                <button class="{% if selected_range == '1w' %}active{% endif %}" type="submit" name="range" value="1w">1 Week</button>
-                <button class="{% if selected_range == '1m' %}active{% endif %}" type="submit" name="range" value="1m">1 Month</button>
-                <button class="{% if selected_range == 'ytd' %}active{% endif %}" type="submit" name="range" value="ytd">YTD</button>
-                <button class="{% if selected_range == '1y' %}active{% endif %}" type="submit" name="range" value="1y">1 Year</button>
-                <button class="{% if selected_range == 'all' %}active{% endif %}" type="submit" name="range" value="all">All</button>
-                <button class="{% if selected_range == 'custom' %}active{% endif %}" type="submit" name="range" value="custom">Custom</button>
-            </div>
-
-            {% if selected_range == 'custom' %}
-                <div class="chart-control-row">
-                    <label for="start_date">From</label>
-                    <input id="start_date" type="date" name="start_date" value="{{ start_date }}" onchange="this.form.submit()">
-
-                    <label for="end_date">To</label>
-                    <input id="end_date" type="date" name="end_date" value="{{ end_date }}" onchange="this.form.submit()">
+                    <button class="remove-chart-button" type="submit" name="remove_chart" value="{{ chart_panel.index }}" form="chartFilters" aria-label="Remove chart">x</button>
                 </div>
-            {% else %}
-                <input type="hidden" name="start_date" value="{{ start_date }}">
-                <input type="hidden" name="end_date" value="{{ end_date }}">
-            {% endif %}
-        </section>
 
-    </form>
+                <div class="chart-panel-controls">
+                    <select class="chart-panel-select" name="chart_range" aria-label="Period" form="chartFilters" onchange="this.form.submit()">
+                        {% for range_value, range_label in chart_ranges %}
+                            <option value="{{ range_value }}" {% if chart_panel.range == range_value %}selected{% endif %}>
+                                {{ range_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
 
-    {% if selected_asset and prices %}
-        <section class="chart-panel">
-            <h3>{{ selected_asset.symbol }} price history</h3>
-            <canvas
-                id="priceChart"
-                width="900"
-                height="360"
-                data-labels='{{ chart_labels | tojson }}'
-                data-values='{{ chart_values | tojson }}'
-            ></canvas>
-            <p id="chartInfo" class="chart-info">
-                Click on the chart to inspect a point.
-            </p>
-        </section>
+                    <select class="chart-panel-select" name="chart_interval" aria-label="Price display" form="chartFilters" onchange="this.form.submit()">
+                        {% for interval_value, interval_label in chart_intervals %}
+                            <option value="{{ interval_value }}" {% if chart_panel.interval == interval_value %}selected{% endif %}>
+                                {{ interval_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <input type="hidden" name="chart_start_date" value="{{ chart_panel.start_date }}" form="chartFilters">
+                <input type="hidden" name="chart_end_date" value="{{ chart_panel.end_date }}" form="chartFilters">
+
+                {% if chart_panel.has_prices %}
+                    <canvas
+                        class="price-chart"
+                        width="900"
+                        height="360"
+                        data-labels='{{ chart_panel["labels"] | tojson }}'
+                        data-values='{{ chart_panel["values"] | tojson }}'
+                        data-interval="{{ chart_panel.interval }}"
+                    ></canvas>
+                    <p class="chart-info">
+                        Click on the chart to inspect a point.
+                    </p>
+                {% else %}
+                    <p class="chart-info">No price data available for this asset.</p>
+                {% endif %}
+            </section>
+        {% endfor %}
     {% else %}
-        <p>No price data available for this asset.</p>
+        <p class="empty-charts-message">Add a chart to start comparing assets.</p>
     {% endif %}
 
-    <script>
-        const chartCanvas = document.getElementById("priceChart");
+    <div class="add-chart-row">
+        <button class="add-chart-button" type="submit" name="add_chart" value="1" form="chartFilters" {% if not can_add_chart %}disabled{% endif %}>+</button>
+    </div>
 
-        if (chartCanvas) {
+    <script>
+        const chartCanvases = document.querySelectorAll(".price-chart");
+
+        chartCanvases.forEach((chartCanvas) => {
             const labels = JSON.parse(chartCanvas.dataset.labels);
             const values = JSON.parse(chartCanvas.dataset.values);
-            const selectedInterval = "{{ selected_interval }}";
-            const chartInfo = document.getElementById("chartInfo");
+            const selectedInterval = chartCanvas.dataset.interval;
+            const chartInfo = chartCanvas.parentElement.querySelector(".chart-info");
             const context = chartCanvas.getContext("2d");
             const minValue = Math.min(...values);
             const maxValue = Math.max(...values);
             const valueRange = maxValue - minValue || 1;
             let width = chartCanvas.width;
             let height = chartCanvas.height;
-            let padding = 48;
+            let horizontalPadding = 48;
+            let topPadding = 48;
+            let bottomPadding = 24;
             let fontSize = 12;
             let xStep = 1;
             let selectedIndex = null;
@@ -95,14 +94,16 @@
                 const pixelRatio = window.devicePixelRatio || 1;
                 const isMobile = window.matchMedia("(max-width: 700px)").matches;
                 const panelStyle = window.getComputedStyle(chartCanvas.parentElement);
-                const horizontalPadding = parseFloat(panelStyle.paddingLeft) + parseFloat(panelStyle.paddingRight);
-                const chartWidth = chartCanvas.parentElement.clientWidth - horizontalPadding - 2;
+                const panelHorizontalPadding = parseFloat(panelStyle.paddingLeft) + parseFloat(panelStyle.paddingRight);
+                const chartWidth = chartCanvas.parentElement.clientWidth - panelHorizontalPadding - 2;
 
                 width = Math.max(chartWidth, 280);
-                height = isMobile ? 320 : 360;
-                padding = isMobile ? 76 : 58;
+                height = isMobile ? 280 : 320;
+                horizontalPadding = isMobile ? 76 : 58;
+                topPadding = isMobile ? 42 : 40;
+                bottomPadding = isMobile ? 18 : 18;
                 fontSize = isMobile ? 15 : 12;
-                xStep = (width - padding * 2) / Math.max(labels.length - 1, 1);
+                xStep = (width - horizontalPadding * 2) / Math.max(labels.length - 1, 1);
 
                 chartCanvas.style.width = `${width}px`;
                 chartCanvas.style.height = `${height}px`;
@@ -113,9 +114,10 @@
             }
 
             function getPoint(index) {
-                const x = padding + xStep * index;
+                const x = horizontalPadding + xStep * index;
                 const value = values[index];
-                const y = height - padding - ((value - minValue) / valueRange) * (height - padding * 2);
+                const chartHeight = height - topPadding - bottomPadding;
+                const y = height - bottomPadding - ((value - minValue) / valueRange) * chartHeight;
 
                 return { x, y, value };
             }
@@ -127,10 +129,10 @@
                 context.lineWidth = 1;
 
                 for (let i = 0; i <= 4; i += 1) {
-                    const y = padding + ((height - padding * 2) / 4) * i;
+                    const y = topPadding + ((height - topPadding - bottomPadding) / 4) * i;
                     context.beginPath();
-                    context.moveTo(padding, y);
-                    context.lineTo(width - padding, y);
+                    context.moveTo(horizontalPadding, y);
+                    context.lineTo(width - horizontalPadding, y);
                     context.stroke();
                 }
 
@@ -165,8 +167,8 @@
                     context.strokeStyle = "#b42318";
                     context.lineWidth = 2;
                     context.beginPath();
-                    context.moveTo(point.x, padding);
-                    context.lineTo(point.x, height - padding);
+                    context.moveTo(point.x, topPadding);
+                    context.lineTo(point.x, height - bottomPadding);
                     context.stroke();
 
                     context.fillStyle = "#b42318";
@@ -176,12 +178,8 @@
                 }
 
                 context.fillStyle = "#52606d";
-                context.fillText(maxValue.toFixed(2), 8, padding + 4);
-                context.fillText(minValue.toFixed(2), 8, height - padding + 4);
-                context.fillText(labels[0], padding, height - 14);
-                const lastLabel = labels[labels.length - 1];
-                const lastLabelWidth = context.measureText(lastLabel).width;
-                context.fillText(lastLabel, width - padding - lastLabelWidth, height - 14);
+                context.fillText(maxValue.toFixed(2), 8, topPadding + 4);
+                context.fillText(minValue.toFixed(2), 8, height - bottomPadding + 4);
             }
 
             resizeChart();
@@ -190,7 +188,7 @@
             chartCanvas.addEventListener("click", (event) => {
                 const rect = chartCanvas.getBoundingClientRect();
                 const clickX = event.clientX - rect.left;
-                const rawIndex = Math.round((clickX - padding) / xStep);
+                const rawIndex = Math.round((clickX - horizontalPadding) / xStep);
                 selectedIndex = Math.max(0, Math.min(values.length - 1, rawIndex));
 
                 drawChart(selectedIndex);
@@ -207,6 +205,6 @@
                 resizeChart();
                 drawChart(selectedIndex);
             });
-        }
+        });
     </script>
 {% endblock %}

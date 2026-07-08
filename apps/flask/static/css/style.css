@@ -284,6 +284,31 @@ h2 {
     font-weight: 700;
 }
 
+.add-chart-button {
+    align-items: center;
+    border-radius: 999px;
+    display: inline-flex;
+    font-size: 26px;
+    height: 52px;
+    justify-content: center;
+    min-width: 52px;
+    padding: 0;
+    width: 52px;
+}
+
+.add-chart-button:disabled {
+    background: #edf2f7;
+    border-color: #bcccdc;
+    color: #829ab1;
+    cursor: not-allowed;
+}
+
+.add-chart-row {
+    display: flex;
+    justify-content: center;
+    margin: 6px 0 20px;
+}
+
 .range-buttons button {
     flex: 0 0 auto;
 }
@@ -354,9 +379,75 @@ h2 {
     padding: 16px;
 }
 
-.chart-panel h3 {
-    margin: 0 0 12px;
+.chart-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.chart-title-select {
+    border: 1px solid #bcccdc;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1f2933;
+    font: inherit;
     font-size: 18px;
+    font-weight: 700;
+    max-width: 100%;
+    min-width: 0;
+    padding: 6px 8px;
+    width: 100%;
+}
+
+.remove-chart-button {
+    border: 1px solid #d92d20;
+    border-radius: 8px;
+    background: #d92d20;
+    color: #ffffff;
+    cursor: pointer;
+    flex: 0 0 auto;
+    font: inherit;
+    font-weight: 700;
+    height: 36px;
+    line-height: 1;
+    width: 36px;
+}
+
+.remove-chart-button:hover {
+    background: #b42318;
+    border-color: #b42318;
+    color: #ffffff;
+}
+
+.chart-panel-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.chart-panel-select {
+    border: 1px solid #bcccdc;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1f2933;
+    font: inherit;
+    min-width: 0;
+    padding: 6px 8px;
+    width: 100%;
+}
+
+.chart-panel-select:focus {
+    border-color: #0b5cad;
+    box-shadow: 0 0 0 3px rgba(11, 92, 173, 0.16);
+    outline: none;
+}
+
+.chart-title-select:focus {
+    border-color: #0b5cad;
+    box-shadow: 0 0 0 3px rgba(11, 92, 173, 0.16);
+    outline: none;
 }
 
 .chart-panel canvas {
@@ -370,6 +461,11 @@ h2 {
     margin: 12px 0 0;
     color: #52606d;
     font-weight: 700;
+}
+
+.empty-charts-message {
+    color: #52606d;
+    margin: 12px 0 0;
 }
 
 .table-scroll {
