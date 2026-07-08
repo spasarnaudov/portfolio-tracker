@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS portfolio_cash_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    amount NUMERIC(18, 6) NOT NULL DEFAULT 0
+);

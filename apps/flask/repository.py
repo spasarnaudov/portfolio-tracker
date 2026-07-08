@@ -177,6 +177,61 @@ def get_portfolio_manual_total():
             return cur.fetchone()["total"]
 
 
+def get_portfolio_cash_items():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, name, amount
+                FROM portfolio_cash_items
+                ORDER BY id;
+            """)
+            return cur.fetchall()
+
+
+def save_portfolio_cash_items(items):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for item in items:
+                item_id = item.get("id")
+                name = item.get("name", "").strip()
+                amount = item.get("amount", 0)
+                should_delete = item.get("delete", False)
+
+                if item_id and (should_delete or not name):
+                    cur.execute("""
+                        DELETE FROM portfolio_cash_items
+                        WHERE id = %s;
+                    """, (item_id,))
+                    continue
+
+                if item_id:
+                    cur.execute("""
+                        UPDATE portfolio_cash_items
+                        SET name = %s,
+                            amount = %s
+                        WHERE id = %s;
+                    """, (name, amount, item_id))
+                    continue
+
+                if name:
+                    cur.execute("""
+                        INSERT INTO portfolio_cash_items (name, amount)
+                        VALUES (%s, %s);
+                    """, (name, amount))
+
+        conn.commit()
+
+
+def get_portfolio_cash_total():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT ROUND(COALESCE(SUM(amount), 0), 2) AS total
+                FROM portfolio_cash_items;
+            """)
+            return cur.fetchone()["total"]
+
+
 def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -193,6 +248,15 @@ def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
                 WITH manual_total AS (
                     SELECT COALESCE(SUM(quantity * unit_price), 0) AS value
                     FROM portfolio_manual_items
+                ),
+                cash_total AS (
+                    SELECT COALESCE(SUM(amount), 0) AS value
+                    FROM portfolio_cash_items
+                ),
+                static_total AS (
+                    SELECT manual_total.value + cash_total.value AS value
+                    FROM manual_total
+                    CROSS JOIN cash_total
                 ),
                 tavex_history AS (
                     SELECT
@@ -211,7 +275,7 @@ def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
                         {group_expression} AS price_date,
                         0 AS value
                     FROM asset_prices
-                    WHERE (SELECT value FROM manual_total) > 0
+                    WHERE (SELECT value FROM static_total) > 0
                         AND NOT EXISTS (SELECT 1 FROM tavex_history)
                         AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
                         AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
@@ -228,11 +292,11 @@ def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
                     portfolio_history.price_date,
                     ROUND(
                         portfolio_history.value
-                        + manual_total.value,
+                        + static_total.value,
                         2
                     ) AS value
                 FROM portfolio_history
-                CROSS JOIN manual_total
+                CROSS JOIN static_total
                 ORDER BY portfolio_history.price_date;
             """.format(group_expression=group_expression), (
                 start_date,
