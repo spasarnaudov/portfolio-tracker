@@ -11,7 +11,8 @@ def get_dashboard_summary():
                     (SELECT COUNT(*) FROM asset_categories) AS category_count,
                     (SELECT COUNT(*) FROM assets) AS asset_count,
                     (SELECT COUNT(*) FROM asset_prices) AS price_count,
-                    (SELECT MAX(price_date) FROM asset_prices) AS latest_price_date;
+                    (SELECT MAX(price_date) FROM asset_prices) AS latest_price_date,
+                    ROUND(pg_database_size(current_database()) / 1024.0 / 1024.0, 2) AS database_size_mb;
             """)
             return cur.fetchone()
 
