@@ -366,6 +366,21 @@ def portfolio():
     if portfolio_interval not in VALID_PORTFOLIO_INTERVALS:
         portfolio_interval = "hourly"
 
+    expanded_holding_id = request.args.get("expanded_holding_id", type=int)
+    requested_holding_asset_id = request.args.get("holding_asset_id", type=int)
+    requested_holding_range = request.args.get("holding_range", portfolio_range)
+    requested_holding_interval = request.args.get("holding_interval", portfolio_interval)
+    holding_filter_mode = request.args.get("holding_filter_mode", "custom")
+
+    if holding_filter_mode not in {"main", "custom"}:
+        holding_filter_mode = "custom"
+
+    if requested_holding_range not in VALID_PORTFOLIO_RANGES:
+        requested_holding_range = portfolio_range
+
+    if requested_holding_interval not in VALID_PORTFOLIO_INTERVALS:
+        requested_holding_interval = portfolio_interval
+
     portfolio_start_date, portfolio_end_date = get_chart_date_range(
         portfolio_range,
         dashboard["latest_price_date"],
@@ -410,10 +425,49 @@ def portfolio():
         float(price["value"])
         for price in portfolio_history
     ]
+    holding_charts = {}
+
+    for holding in holdings:
+        holding_range = portfolio_range
+        holding_interval = portfolio_interval
+
+        if holding_filter_mode == "custom" and holding["asset_id"] == requested_holding_asset_id:
+            holding_range = requested_holding_range
+            holding_interval = requested_holding_interval
+
+        latest_holding_price_date = get_latest_price_date(holding["asset_id"])
+        holding_start_date, holding_end_date = get_chart_date_range(
+            holding_range,
+            latest_holding_price_date,
+            None,
+            None,
+        )
+        prices = get_asset_prices(
+            holding["asset_id"],
+            holding_start_date,
+            holding_end_date,
+            holding_interval,
+        )
+        holding_charts[holding["asset_id"]] = {
+            "range": holding_range,
+            "interval": holding_interval,
+            "labels": [
+                format_chart_label(price["price_date"], holding_interval)
+                for price in prices
+            ],
+            "values": [
+                float(price["price"])
+                for price in prices
+            ],
+            "has_prices": bool(prices),
+        }
 
     return render_template(
         "portfolio.html",
         holdings=holdings,
+        holding_charts=holding_charts,
+        expanded_holding_id=expanded_holding_id,
+        holding_filter_mode=holding_filter_mode,
         manual_items=manual_items,
         cash_items=cash_items,
         tavex_total=tavex_total,

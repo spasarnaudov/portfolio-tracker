@@ -25,7 +25,9 @@
         </div>
     </section>
 
-    <form id="portfolioChartFilters" method="get" action="/portfolio"></form>
+    <form id="portfolioChartFilters" method="get" action="/portfolio">
+        <input type="hidden" name="holding_filter_mode" value="{{ holding_filter_mode }}">
+    </form>
 
     <section class="chart-panel portfolio-chart-panel">
         <div class="chart-panel-header">
@@ -68,15 +70,48 @@
     </section>
 
     <form method="post" action="/portfolio">
-        <label class="portfolio-filter-toggle">
-            <input id="hideEmptyHoldings" type="checkbox">
-            Hide products without quantity
-        </label>
+        <div class="portfolio-table-actions">
+            <div class="segmented-action-buttons" aria-label="Empty product visibility">
+                <button id="showEmptyHoldings" class="segmented-action-button" type="button">
+                    Show empty
+                </button>
+                <button id="hideEmptyHoldings" class="segmented-action-button" type="button">
+                    Hide empty
+                </button>
+            </div>
+
+            <div class="segmented-action-buttons" aria-label="Accordion state">
+                <button id="collapseAllHoldings" class="segmented-action-button" type="button">
+                    Collapse all
+                </button>
+                <button id="expandAllHoldings" class="segmented-action-button" type="button">
+                    Expand all
+                </button>
+            </div>
+
+            <div class="segmented-action-buttons" aria-label="Item chart filter mode">
+                <a
+                    class="segmented-action-button {% if holding_filter_mode == 'main' %}active{% endif %}"
+                    href="{{ url_for('portfolio', portfolio_range=portfolio_range, portfolio_interval=portfolio_interval, holding_filter_mode='main') }}"
+                    aria-pressed="{% if holding_filter_mode == 'main' %}true{% else %}false{% endif %}"
+                >
+                    Main filters
+                </a>
+                <a
+                    class="segmented-action-button {% if holding_filter_mode == 'custom' %}active{% endif %}"
+                    href="{{ url_for('portfolio', portfolio_range=portfolio_range, portfolio_interval=portfolio_interval, holding_filter_mode='custom') }}"
+                    aria-pressed="{% if holding_filter_mode == 'custom' %}true{% else %}false{% endif %}"
+                >
+                    Custom filters
+                </a>
+            </div>
+        </div>
 
         <div class="table-scroll">
             <table border="1" cellpadding="8">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Symbol</th>
                         <th>Name</th>
                         <th>Quantity</th>
@@ -86,7 +121,23 @@
                 </thead>
                 <tbody>
                     {% for holding in holdings %}
-                        <tr class="{% if holding.quantity > 0 %}holding-owned-row{% else %}holding-empty-row{% endif %}">
+                        {% set holding_chart = holding_charts.get(holding.asset_id) %}
+                        {% set is_holding_expanded = expanded_holding_id == holding.asset_id %}
+                        <tr
+                            class="holding-row {% if holding.quantity > 0 %}holding-owned-row{% else %}holding-empty-row{% endif %}"
+                            data-accordion-id="holding-{{ holding.asset_id }}"
+                        >
+                            <td>
+                                <button
+                                    class="accordion-toggle-button"
+                                    type="button"
+                                    aria-expanded="{% if is_holding_expanded %}true{% else %}false{% endif %}"
+                                    aria-controls="holding-chart-{{ holding.asset_id }}"
+                                    data-accordion-target="holding-{{ holding.asset_id }}"
+                                >
+                                    &gt;
+                                </button>
+                            </td>
                             <td>{{ holding.symbol }}</td>
                             <td>{{ holding.name }}</td>
                             <td>
@@ -107,6 +158,71 @@
                                 {% endif %}
                             </td>
                             <td>{{ "%.2f"|format(holding.current_value|float) }}</td>
+                        </tr>
+                        <tr
+                            id="holding-chart-{{ holding.asset_id }}"
+                            class="accordion-detail-row {% if holding.quantity <= 0 %}holding-empty-row-detail{% endif %}"
+                            data-accordion-panel="holding-{{ holding.asset_id }}"
+                            {% if not is_holding_expanded %}hidden{% endif %}
+                        >
+                            <td colspan="6">
+                                <div class="accordion-chart-panel">
+                                    <div class="chart-panel-header">
+                                        <div class="chart-panel-controls {% if holding_filter_mode == 'main' %}locked-chart-controls{% endif %}">
+                                            <select
+                                                class="chart-panel-select holding-chart-filter"
+                                                aria-label="Item chart period"
+                                                data-asset-id="{{ holding.asset_id }}"
+                                                data-filter-name="range"
+                                                {% if holding_filter_mode == 'main' %}disabled{% endif %}
+                                            >
+                                                {% for range_value, range_label in portfolio_ranges %}
+                                                    <option
+                                                        value="{{ range_value }}"
+                                                        {% if holding_chart and holding_chart["range"] == range_value %}selected{% endif %}
+                                                    >
+                                                        {{ range_label }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+
+                                            <select
+                                                class="chart-panel-select holding-chart-filter"
+                                                aria-label="Item chart display"
+                                                data-asset-id="{{ holding.asset_id }}"
+                                                data-filter-name="interval"
+                                                {% if holding_filter_mode == 'main' %}disabled{% endif %}
+                                            >
+                                                {% for interval_value, interval_label in portfolio_intervals %}
+                                                    <option
+                                                        value="{{ interval_value }}"
+                                                        {% if holding_chart and holding_chart["interval"] == interval_value %}selected{% endif %}
+                                                    >
+                                                        {{ interval_label }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {% if holding_chart and holding_chart.has_prices %}
+                                        <canvas
+                                            class="price-chart"
+                                            width="900"
+                                            height="300"
+                                            data-labels='{{ holding_chart["labels"] | tojson }}'
+                                            data-values='{{ holding_chart["values"] | tojson }}'
+                                            data-interval="{{ holding_chart["interval"] }}"
+                                            data-value-label="Price"
+                                        ></canvas>
+                                        <p class="chart-info">
+                                            Click on the chart to inspect price.
+                                        </p>
+                                    {% else %}
+                                        <p class="chart-info">No price data available for this item.</p>
+                                    {% endif %}
+                                </div>
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -368,22 +484,196 @@
     </form>
 
     <script>
-        const hideEmptyHoldingsCheckbox = document.getElementById("hideEmptyHoldings");
+        const showEmptyHoldingsButton = document.getElementById("showEmptyHoldings");
+        const hideEmptyHoldingsButton = document.getElementById("hideEmptyHoldings");
+        const collapseAllHoldingsButton = document.getElementById("collapseAllHoldings");
+        const expandAllHoldingsButton = document.getElementById("expandAllHoldings");
         const emptyHoldingRows = document.querySelectorAll(".holding-empty-row");
+        const emptyHoldingDetailRows = document.querySelectorAll(".holding-empty-row-detail");
         const hideEmptyHoldingsStorageKey = "portfolio.hideEmptyHoldings";
+        const expandedHoldingsStorageKey = "portfolio.expandedHoldings";
+        const holdingFilterModeStorageKey = "portfolio.holdingFilterMode";
+        const holdingChartFilterStorageKey = "portfolio.holdingChartFilter";
+        const currentHoldingFilterMode = "{{ holding_filter_mode }}";
+        let hideEmptyHoldings = localStorage.getItem(hideEmptyHoldingsStorageKey) === "true";
 
-        if (hideEmptyHoldingsCheckbox) {
-            function applyHideEmptyHoldingsPreference() {
-                emptyHoldingRows.forEach((row) => {
-                    row.hidden = hideEmptyHoldingsCheckbox.checked;
-                });
+        function syncStoredHoldingFilterMode() {
+            const params = new URLSearchParams(window.location.search);
+            const savedMode = localStorage.getItem(holdingFilterModeStorageKey);
+
+            if (params.has("holding_filter_mode")) {
+                localStorage.setItem(holdingFilterModeStorageKey, currentHoldingFilterMode);
+                return;
             }
 
-            hideEmptyHoldingsCheckbox.checked = localStorage.getItem(hideEmptyHoldingsStorageKey) === "true";
+            if (["main", "custom"].includes(savedMode) && savedMode !== currentHoldingFilterMode) {
+                params.set("holding_filter_mode", savedMode);
+                window.location.replace(`${window.location.pathname}?${params.toString()}`);
+            }
+        }
+
+        syncStoredHoldingFilterMode();
+
+        function storedHoldingChartFilter() {
+            try {
+                return JSON.parse(localStorage.getItem(holdingChartFilterStorageKey) || "null");
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function saveHoldingChartFilter(assetId, range, interval) {
+            localStorage.setItem(
+                holdingChartFilterStorageKey,
+                JSON.stringify({ assetId, range, interval })
+            );
+        }
+
+        function syncStoredHoldingChartFilter() {
+            const params = new URLSearchParams(window.location.search);
+            const assetId = params.get("holding_asset_id");
+            const range = params.get("holding_range");
+            const interval = params.get("holding_interval");
+            const savedFilter = storedHoldingChartFilter();
+
+            if (currentHoldingFilterMode !== "custom") {
+                return;
+            }
+
+            if (assetId && range && interval) {
+                saveHoldingChartFilter(assetId, range, interval);
+                return;
+            }
+
+            if (savedFilter && savedFilter.assetId && savedFilter.range && savedFilter.interval) {
+                params.set("expanded_holding_id", savedFilter.assetId);
+                params.set("holding_asset_id", savedFilter.assetId);
+                params.set("holding_range", savedFilter.range);
+                params.set("holding_interval", savedFilter.interval);
+                window.location.replace(`${window.location.pathname}?${params.toString()}`);
+            }
+        }
+
+        syncStoredHoldingChartFilter();
+
+        function storedExpandedHoldings() {
+            try {
+                return new Set(JSON.parse(localStorage.getItem(expandedHoldingsStorageKey) || "[]"));
+            } catch (error) {
+                return new Set();
+            }
+        }
+
+        function saveExpandedHoldings(expandedHoldings) {
+            localStorage.setItem(
+                expandedHoldingsStorageKey,
+                JSON.stringify(Array.from(expandedHoldings))
+            );
+        }
+
+        function setAccordionState(button, detailRow, isExpanded) {
+            detailRow.hidden = !isExpanded;
+            button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+
+            if (isExpanded) {
+                window.dispatchEvent(new Event("resize"));
+            }
+        }
+
+        function visibleAccordionButtons() {
+            return Array.from(document.querySelectorAll(".accordion-toggle-button")).filter((button) => {
+                const row = button.closest("tr");
+                return row && !row.hidden;
+            });
+        }
+
+        function saveAccordionState(button, isExpanded) {
+            const expandedHoldings = storedExpandedHoldings();
+            const target = button.dataset.accordionTarget;
+
+            if (isExpanded) {
+                expandedHoldings.add(target);
+            } else {
+                expandedHoldings.delete(target);
+            }
+
+            saveExpandedHoldings(expandedHoldings);
+        }
+
+        function applySavedAccordionState() {
+            const expandedHoldings = storedExpandedHoldings();
+
+            document.querySelectorAll(".accordion-toggle-button").forEach((button) => {
+                const target = button.dataset.accordionTarget;
+                const detailRow = document.querySelector(`[data-accordion-panel="${target}"]`);
+
+                if (detailRow && expandedHoldings.has(target) && !button.closest("tr").hidden) {
+                    setAccordionState(button, detailRow, true);
+                }
+            });
+
+            updateToggleAllHoldingsButton();
+        }
+
+        function setSegmentedButtonState(button, isActive) {
+            if (!button) {
+                return;
+            }
+
+            button.classList.toggle("active", isActive);
+            button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        }
+
+        function updateEmptyHoldingsButtons() {
+            setSegmentedButtonState(showEmptyHoldingsButton, !hideEmptyHoldings);
+            setSegmentedButtonState(hideEmptyHoldingsButton, hideEmptyHoldings);
+        }
+
+        function updateToggleAllHoldingsButton() {
+            if (!collapseAllHoldingsButton || !expandAllHoldingsButton) {
+                return;
+            }
+
+            const buttons = visibleAccordionButtons();
+            const allVisibleRowsExpanded = buttons.length > 0 && buttons.every((button) => {
+                return button.getAttribute("aria-expanded") === "true";
+            });
+
+            setSegmentedButtonState(collapseAllHoldingsButton, !allVisibleRowsExpanded);
+            setSegmentedButtonState(expandAllHoldingsButton, allVisibleRowsExpanded);
+        }
+
+        if (showEmptyHoldingsButton && hideEmptyHoldingsButton) {
+            function applyHideEmptyHoldingsPreference() {
+                emptyHoldingRows.forEach((row) => {
+                    row.hidden = hideEmptyHoldings;
+                });
+                emptyHoldingDetailRows.forEach((row) => {
+                    row.hidden = true;
+                });
+                emptyHoldingRows.forEach((row) => {
+                    const button = row.querySelector(".accordion-toggle-button");
+
+                    if (button && hideEmptyHoldings) {
+                        button.setAttribute("aria-expanded", "false");
+                        saveAccordionState(button, false);
+                    }
+                });
+                updateEmptyHoldingsButtons();
+                updateToggleAllHoldingsButton();
+            }
+
             applyHideEmptyHoldingsPreference();
 
-            hideEmptyHoldingsCheckbox.addEventListener("change", () => {
-                localStorage.setItem(hideEmptyHoldingsStorageKey, hideEmptyHoldingsCheckbox.checked ? "true" : "false");
+            showEmptyHoldingsButton.addEventListener("click", () => {
+                hideEmptyHoldings = false;
+                localStorage.setItem(hideEmptyHoldingsStorageKey, "false");
+                applyHideEmptyHoldingsPreference();
+            });
+
+            hideEmptyHoldingsButton.addEventListener("click", () => {
+                hideEmptyHoldings = true;
+                localStorage.setItem(hideEmptyHoldingsStorageKey, hideEmptyHoldings ? "true" : "false");
                 applyHideEmptyHoldingsPreference();
             });
         }
@@ -417,6 +707,97 @@
                 }
             });
         });
+
+        document.querySelectorAll(".accordion-toggle-button").forEach((button) => {
+            button.addEventListener("click", () => {
+                const target = button.dataset.accordionTarget;
+                const detailRow = document.querySelector(`[data-accordion-panel="${target}"]`);
+
+                if (!detailRow) {
+                    return;
+                }
+
+                const isExpanded = button.getAttribute("aria-expanded") === "true";
+                setAccordionState(button, detailRow, !isExpanded);
+                saveAccordionState(button, !isExpanded);
+                updateToggleAllHoldingsButton();
+            });
+        });
+
+        function setAllVisibleAccordions(isExpanded) {
+            visibleAccordionButtons().forEach((button) => {
+                const target = button.dataset.accordionTarget;
+                    const detailRow = document.querySelector(`[data-accordion-panel="${target}"]`);
+
+                    if (detailRow) {
+                        setAccordionState(button, detailRow, isExpanded);
+                        saveAccordionState(button, isExpanded);
+                    }
+                });
+
+                updateToggleAllHoldingsButton();
+            }
+
+        if (collapseAllHoldingsButton && expandAllHoldingsButton) {
+            collapseAllHoldingsButton.addEventListener("click", () => {
+                setAllVisibleAccordions(false);
+            });
+
+            expandAllHoldingsButton.addEventListener("click", () => {
+                setAllVisibleAccordions(true);
+            });
+        }
+
+        updateToggleAllHoldingsButton();
+
+        document.querySelectorAll(".holding-chart-filter").forEach((select) => {
+            select.addEventListener("change", () => {
+                const panel = select.closest(".accordion-chart-panel");
+                const assetId = select.dataset.assetId;
+                const rangeSelect = panel.querySelector('[data-filter-name="range"]');
+                const intervalSelect = panel.querySelector('[data-filter-name="interval"]');
+                const params = new URLSearchParams(window.location.search);
+                const expandedHoldings = storedExpandedHoldings();
+
+                params.set("portfolio_range", "{{ portfolio_range }}");
+                params.set("portfolio_interval", "{{ portfolio_interval }}");
+                params.set("expanded_holding_id", assetId);
+                params.set("holding_asset_id", assetId);
+                params.set("holding_filter_mode", "custom");
+                params.set("holding_range", rangeSelect.value);
+                params.set("holding_interval", intervalSelect.value);
+                localStorage.setItem(holdingFilterModeStorageKey, "custom");
+                saveHoldingChartFilter(assetId, rangeSelect.value, intervalSelect.value);
+                expandedHoldings.add(`holding-${assetId}`);
+                saveExpandedHoldings(expandedHoldings);
+
+                window.location.href = `${window.location.pathname}?${params.toString()}`;
+            });
+        });
+
+        document.querySelectorAll('[href*="holding_filter_mode="]').forEach((link) => {
+            link.addEventListener("click", (event) => {
+                const url = new URL(link.href);
+                const nextMode = url.searchParams.get("holding_filter_mode");
+
+                localStorage.setItem(holdingFilterModeStorageKey, nextMode);
+
+                if (nextMode === "custom") {
+                    const savedFilter = storedHoldingChartFilter();
+
+                    if (savedFilter && savedFilter.assetId && savedFilter.range && savedFilter.interval) {
+                        event.preventDefault();
+                        url.searchParams.set("expanded_holding_id", savedFilter.assetId);
+                        url.searchParams.set("holding_asset_id", savedFilter.assetId);
+                        url.searchParams.set("holding_range", savedFilter.range);
+                        url.searchParams.set("holding_interval", savedFilter.interval);
+                        window.location.href = url.toString();
+                    }
+                }
+            });
+        });
+
+        applySavedAccordionState();
     </script>
 
 {% endblock %}
