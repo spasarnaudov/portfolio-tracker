@@ -93,6 +93,7 @@
                 <a
                     class="segmented-action-button {% if holding_filter_mode == 'main' %}active{% endif %}"
                     href="{{ url_for('portfolio', portfolio_range=portfolio_range, portfolio_interval=portfolio_interval, holding_filter_mode='main') }}"
+                    data-holding-filter-mode="main"
                     aria-pressed="{% if holding_filter_mode == 'main' %}true{% else %}false{% endif %}"
                 >
                     Main filters
@@ -100,6 +101,7 @@
                 <a
                     class="segmented-action-button {% if holding_filter_mode == 'custom' %}active{% endif %}"
                     href="{{ url_for('portfolio', portfolio_range=portfolio_range, portfolio_interval=portfolio_interval, holding_filter_mode='custom') }}"
+                    data-holding-filter-mode="custom"
                     aria-pressed="{% if holding_filter_mode == 'custom' %}true{% else %}false{% endif %}"
                 >
                     Custom filters
@@ -494,7 +496,9 @@
         const expandedHoldingsStorageKey = "portfolio.expandedHoldings";
         const holdingFilterModeStorageKey = "portfolio.holdingFilterMode";
         const holdingChartFilterStorageKey = "portfolio.holdingChartFilter";
-        const currentHoldingFilterMode = "{{ holding_filter_mode }}";
+        let currentHoldingFilterMode = "{{ holding_filter_mode }}";
+        const portfolioRange = "{{ portfolio_range }}";
+        const portfolioInterval = "{{ portfolio_interval }}";
         let hideEmptyHoldings = localStorage.getItem(hideEmptyHoldingsStorageKey) === "true";
 
         function syncStoredHoldingFilterMode() {
@@ -571,12 +575,48 @@
             );
         }
 
-        function setAccordionState(button, detailRow, isExpanded) {
+        function redrawCharts() {
+            if (window.PriceCharts) {
+                window.PriceCharts.redrawAll();
+                return;
+            }
+
+            window.dispatchEvent(new Event("resize"));
+        }
+
+        function prepareDetailRowForChartRedraw(detailRow) {
+            if (detailRow.querySelector(".price-chart")) {
+                detailRow.classList.add("is-chart-measuring");
+            }
+        }
+
+        function revealPreparedChartRows(detailRows) {
+            detailRows.forEach((detailRow) => {
+                detailRow.classList.remove("is-chart-measuring");
+            });
+        }
+
+        function redrawChartsAfterLayout(detailRows = []) {
+            requestAnimationFrame(() => {
+                redrawCharts();
+                requestAnimationFrame(() => {
+                    revealPreparedChartRows(detailRows);
+                });
+            });
+        }
+
+        function setAccordionState(button, detailRow, isExpanded, shouldRedraw = true) {
+            if (isExpanded) {
+                prepareDetailRowForChartRedraw(detailRow);
+            } else {
+                detailRow.classList.remove("is-chart-measuring");
+            }
+
             detailRow.hidden = !isExpanded;
             button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
 
-            if (isExpanded) {
-                window.dispatchEvent(new Event("resize"));
+            if (isExpanded && shouldRedraw) {
+                redrawChartsAfterLayout([detailRow]);
             }
         }
 
@@ -585,6 +625,10 @@
                 const row = button.closest("tr");
                 return row && !row.hidden;
             });
+        }
+
+        function allAccordionButtons() {
+            return Array.from(document.querySelectorAll(".accordion-toggle-button"));
         }
 
         function saveAccordionState(button, isExpanded) {
@@ -602,15 +646,36 @@
 
         function applySavedAccordionState() {
             const expandedHoldings = storedExpandedHoldings();
+            const expandedDetailRows = [];
 
-            document.querySelectorAll(".accordion-toggle-button").forEach((button) => {
+            allAccordionButtons().forEach((button) => {
                 const target = button.dataset.accordionTarget;
                 const detailRow = document.querySelector(`[data-accordion-panel="${target}"]`);
+                const row = button.closest("tr");
+                const isRowVisible = row && !row.hidden;
+                const isExpanded = expandedHoldings.has(target);
 
-                if (detailRow && expandedHoldings.has(target) && !button.closest("tr").hidden) {
-                    setAccordionState(button, detailRow, true);
+                if (!detailRow) {
+                    return;
+                }
+
+                if (!isRowVisible) {
+                    detailRow.hidden = true;
+                    detailRow.classList.remove("is-chart-measuring");
+                    button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+                    return;
+                }
+
+                setAccordionState(button, detailRow, isExpanded, false);
+
+                if (isExpanded) {
+                    expandedDetailRows.push(detailRow);
                 }
             });
+
+            if (expandedDetailRows.length) {
+                redrawChartsAfterLayout(expandedDetailRows);
+            }
 
             updateToggleAllHoldingsButton();
         }
@@ -622,6 +687,162 @@
 
             button.classList.toggle("active", isActive);
             button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        }
+
+        function updateHoldingFilterModeButtons(mode) {
+            document.querySelectorAll("[data-holding-filter-mode]").forEach((button) => {
+                setSegmentedButtonState(button, button.dataset.holdingFilterMode === mode);
+            });
+        }
+
+        function savePanelCustomFilters(panel) {
+            const rangeSelect = panel.querySelector('[data-filter-name="range"]');
+            const intervalSelect = panel.querySelector('[data-filter-name="interval"]');
+
+            if (!rangeSelect || !intervalSelect) {
+                return;
+            }
+
+            panel.dataset.customRange = rangeSelect.value;
+            panel.dataset.customInterval = intervalSelect.value;
+        }
+
+        function setPanelFilterValues(panel, range, interval) {
+            const rangeSelect = panel.querySelector('[data-filter-name="range"]');
+            const intervalSelect = panel.querySelector('[data-filter-name="interval"]');
+
+            if (rangeSelect) {
+                rangeSelect.value = range;
+            }
+
+            if (intervalSelect) {
+                intervalSelect.value = interval;
+            }
+        }
+
+        function setHoldingFilterControlsLocked(isLocked) {
+            document.querySelectorAll(".accordion-chart-panel").forEach((panel) => {
+                const controls = panel.querySelector(".chart-panel-controls");
+
+                if (controls) {
+                    controls.classList.toggle("locked-chart-controls", isLocked);
+                }
+
+                panel.querySelectorAll(".holding-chart-filter").forEach((select) => {
+                    select.disabled = isLocked;
+                });
+            });
+        }
+
+        function updateHoldingFilterModeUrl(mode) {
+            const params = new URLSearchParams(window.location.search);
+            const savedFilter = storedHoldingChartFilter();
+
+            params.set("portfolio_range", portfolioRange);
+            params.set("portfolio_interval", portfolioInterval);
+            params.set("holding_filter_mode", mode);
+
+            if (mode === "custom" && savedFilter && savedFilter.assetId && savedFilter.range && savedFilter.interval) {
+                params.set("expanded_holding_id", savedFilter.assetId);
+                params.set("holding_asset_id", savedFilter.assetId);
+                params.set("holding_range", savedFilter.range);
+                params.set("holding_interval", savedFilter.interval);
+            }
+
+            window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+        }
+
+        async function updateHoldingChart(panel, assetId, range, interval) {
+            const chartInfo = panel.querySelector(".chart-info");
+
+            panel.classList.add("is-loading");
+
+            try {
+                const apiParams = new URLSearchParams({
+                    asset_id: assetId,
+                    range,
+                    interval,
+                });
+                const response = await fetch(`/api/portfolio/holding-chart?${apiParams.toString()}`);
+
+                if (!response.ok) {
+                    throw new Error("Chart update failed.");
+                }
+
+                const chartData = await response.json();
+                let chartCanvas = panel.querySelector(".price-chart");
+
+                if (chartData.has_prices && !chartCanvas) {
+                    chartCanvas = document.createElement("canvas");
+                    chartCanvas.className = "price-chart";
+                    chartCanvas.width = 900;
+                    chartCanvas.height = 300;
+                    chartCanvas.dataset.valueLabel = "Price";
+                    panel.insertBefore(chartCanvas, chartInfo);
+                }
+
+                if (chartCanvas && window.PriceCharts) {
+                    window.PriceCharts.update(
+                        chartCanvas,
+                        chartData.labels,
+                        chartData.values,
+                        chartData.interval
+                    );
+                } else if (chartInfo) {
+                    chartInfo.textContent = "No price data available for this item.";
+                }
+            } catch (error) {
+                if (chartInfo) {
+                    chartInfo.textContent = "Could not update chart. Please try again.";
+                }
+            } finally {
+                panel.classList.remove("is-loading");
+            }
+        }
+
+        function setHoldingFilterMode(mode) {
+            const holdingFilterModeInput = document.querySelector('[name="holding_filter_mode"]');
+
+            currentHoldingFilterMode = mode;
+            localStorage.setItem(holdingFilterModeStorageKey, mode);
+            updateHoldingFilterModeButtons(mode);
+            updateHoldingFilterModeUrl(mode);
+
+            if (holdingFilterModeInput) {
+                holdingFilterModeInput.value = mode;
+            }
+
+            if (mode === "main") {
+                document.querySelectorAll(".accordion-chart-panel").forEach((panel) => {
+                    const assetId = panel.querySelector(".holding-chart-filter")?.dataset.assetId;
+
+                    savePanelCustomFilters(panel);
+                    setPanelFilterValues(panel, portfolioRange, portfolioInterval);
+
+                    if (assetId) {
+                        updateHoldingChart(panel, assetId, portfolioRange, portfolioInterval);
+                    }
+                });
+                setHoldingFilterControlsLocked(true);
+                return;
+            }
+
+            setHoldingFilterControlsLocked(false);
+            document.querySelectorAll(".accordion-chart-panel").forEach((panel) => {
+                const assetId = panel.querySelector(".holding-chart-filter")?.dataset.assetId;
+                const range = panel.dataset.customRange || panel.querySelector('[data-filter-name="range"]')?.value;
+                const interval = panel.dataset.customInterval || panel.querySelector('[data-filter-name="interval"]')?.value;
+
+                if (!range || !interval) {
+                    return;
+                }
+
+                setPanelFilterValues(panel, range, interval);
+
+                if (assetId) {
+                    updateHoldingChart(panel, assetId, range, interval);
+                }
+            });
         }
 
         function updateEmptyHoldingsButtons() {
@@ -649,16 +870,12 @@
                     row.hidden = hideEmptyHoldings;
                 });
                 emptyHoldingDetailRows.forEach((row) => {
-                    row.hidden = true;
-                });
-                emptyHoldingRows.forEach((row) => {
-                    const button = row.querySelector(".accordion-toggle-button");
-
-                    if (button && hideEmptyHoldings) {
-                        button.setAttribute("aria-expanded", "false");
-                        saveAccordionState(button, false);
+                    if (hideEmptyHoldings) {
+                        row.hidden = true;
+                        row.classList.remove("is-chart-measuring");
                     }
                 });
+                applySavedAccordionState();
                 updateEmptyHoldingsButtons();
                 updateToggleAllHoldingsButton();
             }
@@ -724,34 +941,39 @@
             });
         });
 
-        function setAllVisibleAccordions(isExpanded) {
-            visibleAccordionButtons().forEach((button) => {
+        function setAllAccordions(isExpanded) {
+            const expandedHoldings = new Set();
+
+            allAccordionButtons().forEach((button) => {
                 const target = button.dataset.accordionTarget;
-                    const detailRow = document.querySelector(`[data-accordion-panel="${target}"]`);
 
-                    if (detailRow) {
-                        setAccordionState(button, detailRow, isExpanded);
-                        saveAccordionState(button, isExpanded);
-                    }
-                });
+                if (isExpanded) {
+                    expandedHoldings.add(target);
+                }
+            });
 
-                updateToggleAllHoldingsButton();
-            }
+            saveExpandedHoldings(expandedHoldings);
+            applySavedAccordionState();
+            updateToggleAllHoldingsButton();
+        }
 
         if (collapseAllHoldingsButton && expandAllHoldingsButton) {
             collapseAllHoldingsButton.addEventListener("click", () => {
-                setAllVisibleAccordions(false);
+                setAllAccordions(false);
             });
 
             expandAllHoldingsButton.addEventListener("click", () => {
-                setAllVisibleAccordions(true);
+                setAllAccordions(true);
             });
         }
 
         updateToggleAllHoldingsButton();
 
+        document.querySelectorAll(".accordion-chart-panel").forEach(savePanelCustomFilters);
+        updateHoldingFilterModeButtons(currentHoldingFilterMode);
+
         document.querySelectorAll(".holding-chart-filter").forEach((select) => {
-            select.addEventListener("change", () => {
+            select.addEventListener("change", async () => {
                 const panel = select.closest(".accordion-chart-panel");
                 const assetId = select.dataset.assetId;
                 const rangeSelect = panel.querySelector('[data-filter-name="range"]');
@@ -759,8 +981,9 @@
                 const params = new URLSearchParams(window.location.search);
                 const expandedHoldings = storedExpandedHoldings();
 
-                params.set("portfolio_range", "{{ portfolio_range }}");
-                params.set("portfolio_interval", "{{ portfolio_interval }}");
+                currentHoldingFilterMode = "custom";
+                params.set("portfolio_range", portfolioRange);
+                params.set("portfolio_interval", portfolioInterval);
                 params.set("expanded_holding_id", assetId);
                 params.set("holding_asset_id", assetId);
                 params.set("holding_filter_mode", "custom");
@@ -768,36 +991,33 @@
                 params.set("holding_interval", intervalSelect.value);
                 localStorage.setItem(holdingFilterModeStorageKey, "custom");
                 saveHoldingChartFilter(assetId, rangeSelect.value, intervalSelect.value);
+                savePanelCustomFilters(panel);
+                updateHoldingFilterModeButtons("custom");
                 expandedHoldings.add(`holding-${assetId}`);
                 saveExpandedHoldings(expandedHoldings);
 
-                window.location.href = `${window.location.pathname}?${params.toString()}`;
+                window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+                rangeSelect.disabled = true;
+                intervalSelect.disabled = true;
+
+                await updateHoldingChart(panel, assetId, rangeSelect.value, intervalSelect.value);
+
+                rangeSelect.disabled = currentHoldingFilterMode === "main";
+                intervalSelect.disabled = currentHoldingFilterMode === "main";
             });
         });
 
-        document.querySelectorAll('[href*="holding_filter_mode="]').forEach((link) => {
+        document.querySelectorAll("[data-holding-filter-mode]").forEach((link) => {
             link.addEventListener("click", (event) => {
-                const url = new URL(link.href);
-                const nextMode = url.searchParams.get("holding_filter_mode");
+                event.preventDefault();
+                const nextMode = link.dataset.holdingFilterMode;
 
-                localStorage.setItem(holdingFilterModeStorageKey, nextMode);
-
-                if (nextMode === "custom") {
-                    const savedFilter = storedHoldingChartFilter();
-
-                    if (savedFilter && savedFilter.assetId && savedFilter.range && savedFilter.interval) {
-                        event.preventDefault();
-                        url.searchParams.set("expanded_holding_id", savedFilter.assetId);
-                        url.searchParams.set("holding_asset_id", savedFilter.assetId);
-                        url.searchParams.set("holding_range", savedFilter.range);
-                        url.searchParams.set("holding_interval", savedFilter.interval);
-                        window.location.href = url.toString();
-                    }
+                if (nextMode && nextMode !== currentHoldingFilterMode) {
+                    setHoldingFilterMode(nextMode);
                 }
             });
         });
 
-        applySavedAccordionState();
     </script>
 
 {% endblock %}

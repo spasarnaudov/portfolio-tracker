@@ -208,8 +208,17 @@ h2 {
     padding: 0;
 }
 
+.accordion-detail-row.is-chart-measuring {
+    visibility: hidden;
+}
+
 .accordion-chart-panel {
     padding: 12px;
+    transition: opacity 0.18s ease;
+}
+
+.accordion-chart-panel.is-loading {
+    opacity: 0.72;
 }
 
 .accordion-chart-panel canvas {

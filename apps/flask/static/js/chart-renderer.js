@@ -1,13 +1,13 @@
 (function () {
     function renderPriceChart(chartCanvas) {
-        const labels = JSON.parse(chartCanvas.dataset.labels);
-        const values = JSON.parse(chartCanvas.dataset.values);
-        const selectedInterval = chartCanvas.dataset.interval;
+        let labels = JSON.parse(chartCanvas.dataset.labels || "[]");
+        let values = JSON.parse(chartCanvas.dataset.values || "[]");
+        let selectedInterval = chartCanvas.dataset.interval || "daily";
         const chartInfo = chartCanvas.parentElement.querySelector(".chart-info");
         const context = chartCanvas.getContext("2d");
-        const minValue = Math.min(...values);
-        const maxValue = Math.max(...values);
-        const valueRange = maxValue - minValue || 1;
+        let minValue = 0;
+        let maxValue = 0;
+        let valueRange = 1;
         let width = chartCanvas.width;
         let height = chartCanvas.height;
         let horizontalPadding = 48;
@@ -16,6 +16,23 @@
         let fontSize = 12;
         let xStep = 1;
         let selectedIndex = null;
+
+        if (chartCanvas.priceChart) {
+            return chartCanvas.priceChart;
+        }
+
+        function refreshValueRange() {
+            if (!values.length) {
+                minValue = 0;
+                maxValue = 0;
+                valueRange = 1;
+                return;
+            }
+
+            minValue = Math.min(...values);
+            maxValue = Math.max(...values);
+            valueRange = maxValue - minValue || 1;
+        }
 
         function resizeChart() {
             const pixelRatio = window.devicePixelRatio || 1;
@@ -52,6 +69,13 @@
         function drawChart(selectedIndex = null) {
             context.clearRect(0, 0, width, height);
             context.font = `${fontSize}px Arial`;
+
+            if (!values.length) {
+                context.fillStyle = "#52606d";
+                context.fillText("No price data available.", horizontalPadding, topPadding);
+                return;
+            }
+
             context.strokeStyle = "#d9e2ec";
             context.lineWidth = 1;
 
@@ -109,10 +133,15 @@
             context.fillText(minValue.toFixed(2), 8, height - bottomPadding + 4);
         }
 
+        refreshValueRange();
         resizeChart();
         drawChart();
 
         chartCanvas.addEventListener("click", (event) => {
+            if (!values.length) {
+                return;
+            }
+
             const rect = chartCanvas.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const rawIndex = Math.round((clickX - horizontalPadding) / xStep);
@@ -133,7 +162,45 @@
             resizeChart();
             drawChart(selectedIndex);
         });
+
+        chartCanvas.priceChart = {
+            redraw() {
+                resizeChart();
+                drawChart(selectedIndex);
+            },
+            update(nextLabels, nextValues, nextInterval) {
+                labels = nextLabels;
+                values = nextValues;
+                selectedInterval = nextInterval;
+                selectedIndex = null;
+                chartCanvas.dataset.labels = JSON.stringify(labels);
+                chartCanvas.dataset.values = JSON.stringify(values);
+                chartCanvas.dataset.interval = selectedInterval;
+                refreshValueRange();
+                resizeChart();
+                drawChart();
+
+                if (chartInfo) {
+                    chartInfo.textContent = values.length
+                        ? "Click on the chart to inspect price."
+                        : "No price data available for this item.";
+                }
+            },
+        };
+
+        return chartCanvas.priceChart;
     }
 
     document.querySelectorAll(".price-chart").forEach(renderPriceChart);
+    window.PriceCharts = {
+        render: renderPriceChart,
+        redrawAll() {
+            document.querySelectorAll(".price-chart").forEach((chartCanvas) => {
+                renderPriceChart(chartCanvas).redraw();
+            });
+        },
+        update(chartCanvas, labels, values, interval) {
+            renderPriceChart(chartCanvas).update(labels, values, interval);
+        },
+    };
 }());

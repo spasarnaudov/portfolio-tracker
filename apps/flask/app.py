@@ -1,7 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
 from chart_settings import load_chart_filters, save_chart_filters
@@ -211,6 +211,35 @@ def get_chart_date_range(selected_range, latest_price_date, custom_start_date, c
         end_date = None
 
     return start_date, end_date
+
+
+def get_holding_chart_payload(asset_id, selected_range, selected_interval):
+    latest_price_date = get_latest_price_date(asset_id)
+    start_date, end_date = get_chart_date_range(
+        selected_range,
+        latest_price_date,
+        None,
+        None,
+    )
+    prices = get_asset_prices(
+        asset_id,
+        start_date,
+        end_date,
+        selected_interval,
+    )
+
+    return {
+        "labels": [
+            format_chart_label(price["price_date"], selected_interval)
+            for price in prices
+        ],
+        "values": [
+            float(price["price"])
+            for price in prices
+        ],
+        "interval": selected_interval,
+        "has_prices": bool(prices),
+    }
 
 
 @app.route("/")
@@ -435,31 +464,17 @@ def portfolio():
             holding_range = requested_holding_range
             holding_interval = requested_holding_interval
 
-        latest_holding_price_date = get_latest_price_date(holding["asset_id"])
-        holding_start_date, holding_end_date = get_chart_date_range(
-            holding_range,
-            latest_holding_price_date,
-            None,
-            None,
-        )
-        prices = get_asset_prices(
+        holding_chart = get_holding_chart_payload(
             holding["asset_id"],
-            holding_start_date,
-            holding_end_date,
+            holding_range,
             holding_interval,
         )
         holding_charts[holding["asset_id"]] = {
             "range": holding_range,
             "interval": holding_interval,
-            "labels": [
-                format_chart_label(price["price_date"], holding_interval)
-                for price in prices
-            ],
-            "values": [
-                float(price["price"])
-                for price in prices
-            ],
-            "has_prices": bool(prices),
+            "labels": holding_chart["labels"],
+            "values": holding_chart["values"],
+            "has_prices": holding_chart["has_prices"],
         }
 
     return render_template(
@@ -494,6 +509,28 @@ def portfolio():
         chart_labels=chart_labels,
         chart_values=chart_values,
     )
+
+
+@app.route("/api/portfolio/holding-chart")
+def portfolio_holding_chart_api():
+    asset_id = request.args.get("asset_id", type=int)
+    selected_range = request.args.get("range", DEFAULT_CHART_RANGE)
+    selected_interval = request.args.get("interval", "hourly")
+
+    if not asset_id or not get_asset_by_id(asset_id):
+        return jsonify({"error": "Unknown asset."}), 404
+
+    if selected_range not in VALID_PORTFOLIO_RANGES:
+        return jsonify({"error": "Unknown chart range."}), 400
+
+    if selected_interval not in VALID_PORTFOLIO_INTERVALS:
+        return jsonify({"error": "Unknown chart interval."}), 400
+
+    return jsonify(get_holding_chart_payload(
+        asset_id,
+        selected_range,
+        selected_interval,
+    ))
 
 
 @app.route("/prices/import-tavex", methods=["POST"])
