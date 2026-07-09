@@ -258,17 +258,26 @@ def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
                     FROM manual_total
                     CROSS JOIN cash_total
                 ),
-                tavex_history AS (
+                asset_period_prices AS (
                     SELECT
                         {group_expression} AS price_date,
-                        SUM(portfolio_holdings.quantity * asset_prices.price) AS value
+                        asset_prices.asset_id,
+                        portfolio_holdings.quantity,
+                        AVG(asset_prices.price) AS price
                     FROM portfolio_holdings
                     JOIN asset_prices
                         ON asset_prices.asset_id = portfolio_holdings.asset_id
                     WHERE portfolio_holdings.quantity > 0
                         AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
                         AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
-                    GROUP BY {group_expression}
+                    GROUP BY {group_expression}, asset_prices.asset_id, portfolio_holdings.quantity
+                ),
+                tavex_history AS (
+                    SELECT
+                        price_date,
+                        SUM(quantity * price) AS value
+                    FROM asset_period_prices
+                    GROUP BY price_date
                 ),
                 manual_only_history AS (
                     SELECT
