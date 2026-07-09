@@ -57,6 +57,10 @@ The current version includes:
 - Tavex product and price import
 - Optional hourly Tavex price import through cron
 - Dashboard switch for enabling or disabling automatic Tavex imports
+- Portfolio page with owned Tavex quantities
+- Jewelry and manual items with Tavex gold buyback price helpers
+- Cash and savings entries
+- Portfolio value chart with hourly, daily, and weekly aggregation
 - Database maintenance scripts
 
 ## Local Runtime Files
@@ -89,8 +93,15 @@ Run schema migration for timestamp prices on an existing database:
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/002_price_date_to_timestamp.sql
 ```
 
+Run newer portfolio migrations on an existing database:
+
+```bash
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/003_create_portfolio_holdings.sql
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/004_create_portfolio_manual_items.sql
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/005_create_portfolio_cash_items.sql
+```
+
 ## Next Steps
 
-- Add portfolio ownership and quantities
 - Add authentication
 - Improve deployment setup for the HomeLab server

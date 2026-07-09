@@ -10,6 +10,9 @@ psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/
 
 This deletes all rows from:
 
+- `portfolio_cash_items`
+- `portfolio_manual_items`
+- `portfolio_holdings`
 - `asset_prices`
 - `assets`
 - `asset_categories`
