@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Users - Portfolio Tracker{% endblock %}
+{% block body_class %}users-page{% endblock %}
+
+{% block content %}
+    <form id="usersForm" class="users-panel" method="post" action="{{ url_for('save_users') }}">
+        <div class="users-table-frame">
+            <table class="users-table users-table-header" border="1" cellpadding="8">
+                <colgroup>
+                    <col class="users-col-username">
+                    <col class="users-col-role">
+                    <col class="users-col-active">
+                    <col class="users-col-created">
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Active</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+            </table>
+
+            <div class="table-scroll users-table-scroll">
+                <table class="users-table users-table-body" border="1" cellpadding="8">
+                    <colgroup>
+                        <col class="users-col-username">
+                        <col class="users-col-role">
+                        <col class="users-col-active">
+                        <col class="users-col-created">
+                    </colgroup>
+                <tbody>
+                    {% for user in users %}
+                        {% set is_demo = user.username|lower == 'demo' %}
+                        {% set is_role_manager = user.username|lower == 'admin' %}
+                        {% set is_current_user = current_user and user.id == current_user.id %}
+                        {% set can_edit_role = not is_demo and not is_role_manager and not is_current_user %}
+                        {% set can_edit_status = not is_demo and not is_current_user and not is_role_manager %}
+                        <tr>
+                            <td>
+                                {{ user.username }}
+                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                            </td>
+                            <td>
+                                <select
+                                    class="table-select"
+                                    name="role_{{ user.id }}"
+                                    data-original-value="{{ user.role }}"
+                                    data-confirm-message="Change role for {{ user.username }}?"
+                                    {% if not can_edit_role %}disabled{% endif %}
+                                >
+                                    {% for role_value, role_label in roles %}
+                                        <option value="{{ role_value }}" {% if user.role == role_value %}selected{% endif %}>
+                                            {{ role_label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <label class="table-checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        name="is_active"
+                                        value="{{ user.id }}"
+                                        data-original-checked="{% if user.is_active %}true{% else %}false{% endif %}"
+                                        data-confirm-message="Change active status for {{ user.username }}?"
+                                        {% if user.is_active %}checked{% endif %}
+                                        {% if not can_edit_status %}disabled{% endif %}
+                                    >
+                                </label>
+                            </td>
+                            <td>{{ user.created_at }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </form>
+
+    <script>
+        const usersForm = document.getElementById("usersForm");
+
+        document.querySelectorAll(".users-table select").forEach((select) => {
+            select.addEventListener("change", () => {
+                if (!confirm(select.dataset.confirmMessage)) {
+                    select.value = select.dataset.originalValue;
+                    return;
+                }
+
+                usersForm.submit();
+            });
+        });
+
+        document.querySelectorAll(".users-table input[type='checkbox']").forEach((checkbox) => {
+            checkbox.addEventListener("change", () => {
+                if (!confirm(checkbox.dataset.confirmMessage)) {
+                    checkbox.checked = checkbox.dataset.originalChecked === "true";
+                    return;
+                }
+
+                usersForm.submit();
+            });
+        });
+    </script>
+{% endblock %}

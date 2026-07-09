@@ -62,6 +62,7 @@ The current version includes:
 - Cash and savings entries
 - Portfolio value chart with hourly, daily, and weekly aggregation
 - User login and registration with password hashing
+- User roles: admin, user, and demo
 - Database maintenance scripts
 
 ## Local Runtime Files
@@ -112,9 +113,32 @@ apps/flask/.venv/bin/python scripts/create_user.py spas
 Assign existing portfolio data to the initial `Spas` user:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py Spas --password spas
+apps/flask/.venv/bin/python scripts/create_user.py Spas --password spas --role admin
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/008_add_user_roles.sql
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/009_rename_demo_user.sql
 ```
+
+Create a demo user and seed demo portfolio data:
+
+```bash
+apps/flask/.venv/bin/python scripts/create_user.py demo --password demo --role demo
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/seed/002_seed_demo_portfolio.sql
+```
+
+Role behavior:
+
+- `admin`: sees all application tabs, imports, and global data tables.
+- `user`: sees own portfolio and chart data.
+- `demo`: behaves like `user`, but can be preloaded with demonstration data.
+
+The special `admin` account is intended only for role management. It can open
+the Users and Password tabs, but it cannot browse portfolio or market-data tabs.
+The `demo` account role is locked, cannot change its password, and cannot be
+changed from the Users page.
+Users can be activated or deactivated from the Users page. The `demo` account,
+the currently logged-in user, and the special `admin` account cannot be
+deactivated from that page.
 
 ## Next Steps
 

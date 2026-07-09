@@ -1,9 +1,9 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
@@ -27,10 +27,13 @@ from repository import (
     get_user_by_id,
     get_user_by_username,
     get_user_with_password_by_id,
+    get_users,
     save_portfolio_cash_items,
     save_portfolio_holdings,
     save_portfolio_manual_items,
+    update_user_active_status,
     update_user_password,
+    update_user_role,
 )
 from tavex_import import (
     current_timestamp,
@@ -50,6 +53,30 @@ VALID_CHART_INTERVALS = {"recorded", "hourly", "daily", "weekly", "monthly"}
 VALID_PORTFOLIO_RANGES = {"1d", "1w", "1m", "ytd", "1y", "all"}
 VALID_PORTFOLIO_INTERVALS = {"hourly", "daily", "weekly"}
 PUBLIC_ENDPOINTS = {"login", "register", "static"}
+ADMIN_ENDPOINTS = {
+    "home",
+    "toggle_auto_tavex_import",
+    "categories",
+    "assets",
+    "prices",
+    "import_tavex_prices",
+}
+USER_MANAGEMENT_ENDPOINTS = {"users", "save_users"}
+ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {"change_password", "logout", "static"}
+VALID_USER_ROLES = {"admin", "user", "demo"}
+ROLE_MANAGER_USERNAME = "admin"
+
+
+def is_admin(user):
+    return user and user["role"] == "admin"
+
+
+def is_role_manager(user):
+    return is_admin(user) and user["username"].lower() == ROLE_MANAGER_USERNAME
+
+
+def is_demo_user(user):
+    return user and user["role"] == "demo"
 
 
 def is_safe_next_url(next_url):
@@ -58,6 +85,24 @@ def is_safe_next_url(next_url):
 
     parsed_url = urlsplit(next_url)
     return not parsed_url.netloc and parsed_url.path.startswith("/")
+
+
+def add_query_parameter(next_url, name, value):
+    parsed_url = urlsplit(next_url)
+    query_items = [
+        (query_name, query_value)
+        for query_name, query_value in parse_qsl(parsed_url.query, keep_blank_values=True)
+        if query_name != name
+    ]
+    query_items.append((name, value))
+
+    return urlunsplit((
+        parsed_url.scheme,
+        parsed_url.netloc,
+        parsed_url.path,
+        urlencode(query_items),
+        parsed_url.fragment,
+    ))
 
 
 @app.before_request
@@ -77,6 +122,22 @@ def require_login():
 
         if user and user["is_active"]:
             g.current_user = user
+
+            if is_role_manager(user) and request.endpoint not in ROLE_MANAGER_ENDPOINTS:
+                return redirect(url_for("users"))
+
+            if is_demo_user(user) and request.endpoint == "change_password":
+                return redirect(url_for("portfolio"))
+
+            if request.endpoint in USER_MANAGEMENT_ENDPOINTS and not is_role_manager(user):
+                if is_admin(user):
+                    return redirect(url_for("home"))
+
+                return redirect(url_for("portfolio"))
+
+            if request.endpoint in ADMIN_ENDPOINTS and not is_admin(user):
+                return redirect(url_for("portfolio"))
+
             return None
 
         session.clear()
@@ -336,7 +397,7 @@ def register():
         elif password != confirm_password:
             error = "Passwords do not match."
         else:
-            user = create_user(username, generate_password_hash(password))
+            user = create_user(username, generate_password_hash(password), "user")
 
             if user:
                 session.clear()
@@ -359,29 +420,76 @@ def logout():
 @app.route("/change-password", methods=["GET", "POST"])
 def change_password():
     error = None
-    success = None
+    next_url = request.form.get("next_url") or request.referrer or url_for("home")
 
-    if request.method == "POST":
-        current_password = request.form.get("current_password", "")
-        new_password = request.form.get("new_password", "")
-        confirm_password = request.form.get("confirm_password", "")
-        user = get_user_with_password_by_id(session["user_id"])
+    if not is_safe_next_url(next_url):
+        next_url = url_for("home")
 
-        if not user or not check_password_hash(user["password_hash"], current_password):
-            error = "Current password is not correct."
-        elif len(new_password) < 4:
-            error = "New password must be at least 4 characters."
-        elif new_password != confirm_password:
-            error = "New passwords do not match."
-        else:
-            update_user_password(session["user_id"], generate_password_hash(new_password))
-            success = "Password changed successfully."
+    if request.method == "GET":
+        return redirect(next_url)
 
-    return render_template("change_password.html", error=error, success=success)
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+    user = get_user_with_password_by_id(session["user_id"])
+
+    if not user or not check_password_hash(user["password_hash"], current_password):
+        error = "Current password is not correct."
+    elif len(new_password) < 4:
+        error = "New password must be at least 4 characters."
+    elif new_password != confirm_password:
+        error = "New passwords do not match."
+    else:
+        update_user_password(session["user_id"], generate_password_hash(new_password))
+        flash("Password changed successfully.", "password_success")
+        return redirect(add_query_parameter(next_url, "password_dialog", "1"))
+
+    flash(error, "password_error")
+    return redirect(add_query_parameter(next_url, "password_dialog", "1"))
+
+
+@app.route("/users")
+def users():
+    return render_template(
+        "users.html",
+        users=get_users(),
+        roles=[
+            ("admin", "admin"),
+            ("user", "user"),
+            ("demo", "demo"),
+        ],
+    )
+
+
+@app.route("/users/save", methods=["POST"])
+def save_users():
+    user_ids = request.form.getlist("user_id")
+    active_user_ids = set(request.form.getlist("is_active"))
+
+    for raw_user_id in user_ids:
+        try:
+            user_id = int(raw_user_id)
+        except ValueError:
+            continue
+
+        if user_id == session["user_id"]:
+            continue
+
+        role = request.form.get(f"role_{user_id}", "")
+
+        if role in VALID_USER_ROLES:
+            update_user_role(user_id, role)
+
+        update_user_active_status(user_id, str(user_id) in active_user_ids)
+
+    return redirect(url_for("users"))
 
 
 @app.route("/")
 def home():
+    if not is_admin(g.current_user):
+        return redirect(url_for("portfolio"))
+
     dashboard = get_dashboard_summary()
     return render_template(
         "index.html",
@@ -689,7 +797,8 @@ def import_tavex_prices():
 
 @app.route("/charts")
 def charts():
-    assets = get_chart_assets()
+    chart_user_id = None if is_admin(g.current_user) else session["user_id"]
+    assets = get_chart_assets(chart_user_id)
     saved_filters = load_chart_filters()
     asset_ids = [asset["id"] for asset in assets]
     assets_by_id = {

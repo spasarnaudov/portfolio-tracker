@@ -87,6 +87,7 @@ Columns:
 - id: unique user ID
 - username: unique login username
 - password_hash: hashed password, never the plain password
+- role: application role, one of admin, user, or demo
 - is_active: controls whether the user can log in
 - created_at: timestamp when the user was created
 
@@ -94,4 +95,9 @@ Notes:
 - Passwords are hashed by the Flask application before they are stored.
 - The application uses a session cookie after successful login.
 - Users can be created from the registration page or from the terminal helper script.
-- Logged-in users can change their own password from the application.
+- Logged-in users can change their own password from the application, except demo users.
+- Admin users can access global management tabs.
+- User and demo accounts see their own portfolio data.
+- The special `admin` user is limited to role management.
+- The `demo` user's role is locked in the application.
+- Inactive users cannot log in.

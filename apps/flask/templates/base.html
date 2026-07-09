@@ -6,23 +6,35 @@
     <title>{% block title %}Portfolio Tracker{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+{% set password_messages = get_flashed_messages(with_categories=true) %}
+<body class="{% block body_class %}{% endblock %}">
     <header class="site-header">
         <h1 class="site-title">Portfolio Tracker</h1>
 
         {% if current_user %}
-            <nav class="site-nav">
-                <a class="{% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a>
-                <a class="{% if request.path.startswith('/categories') %}active{% endif %}" href="/categories">Categories</a>
-                <a class="{% if request.path.startswith('/assets') %}active{% endif %}" href="/assets">Assets</a>
-                <a class="{% if request.path.startswith('/prices') %}active{% endif %}" href="/prices">Prices</a>
-                <a class="{% if request.path.startswith('/portfolio') %}active{% endif %}" href="/portfolio">Portfolio</a>
-                <a class="{% if request.path.startswith('/charts') %}active{% endif %}" href="/charts">Charts</a>
-                <a class="{% if request.path.startswith('/change-password') %}active{% endif %}" href="/change-password">Password</a>
-                <form class="logout-form" method="post" action="{{ url_for('logout') }}">
-                    <button type="submit">Logout</button>
-                </form>
-            </nav>
+            <div class="header-actions">
+                <nav class="site-nav">
+                    {% if current_user.role == 'admin' and current_user.username|lower != 'admin' %}
+                        <a class="{% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a>
+                    {% endif %}
+                    {% if current_user.username|lower != 'admin' %}
+                        <a class="{% if request.path.startswith('/portfolio') %}active{% endif %}" href="/portfolio">Portfolio</a>
+                        <a class="{% if request.path.startswith('/charts') %}active{% endif %}" href="/charts">Charts</a>
+                    {% endif %}
+                </nav>
+
+                <details class="user-menu">
+                    <summary>{{ current_user.username }}</summary>
+                    <div class="user-menu-content">
+                        {% if current_user.role != 'demo' %}
+                            <button type="button" data-open-password-dialog>Password</button>
+                        {% endif %}
+                        <form class="logout-form" method="post" action="{{ url_for('logout') }}">
+                            <button type="submit">Logout</button>
+                        </form>
+                    </div>
+                </details>
+            </div>
         {% endif %}
     </header>
 
@@ -31,6 +43,64 @@
     <main>
         {% block content %}{% endblock %}
     </main>
+
+    {% if current_user and current_user.role != 'demo' %}
+        <dialog class="password-dialog" id="passwordDialog">
+            <form class="password-dialog-panel" method="post" action="{{ url_for('change_password') }}">
+                <div class="password-dialog-header">
+                    <h2>Change password</h2>
+                    <button class="dialog-close-button" type="button" data-close-password-dialog aria-label="Close password dialog">&times;</button>
+                </div>
+
+                {% for category, message in password_messages %}
+                    {% if category == 'password_error' %}
+                        <p class="form-error">{{ message }}</p>
+                    {% elif category == 'password_success' %}
+                        <p class="form-success">{{ message }}</p>
+                    {% endif %}
+                {% endfor %}
+
+                <input type="hidden" name="next_url" value="{{ request.full_path }}">
+
+                <label>
+                    Current password
+                    <input
+                        class="auth-input"
+                        type="password"
+                        name="current_password"
+                        autocomplete="current-password"
+                        required
+                    >
+                </label>
+
+                <label>
+                    New password
+                    <input
+                        class="auth-input"
+                        type="password"
+                        name="new_password"
+                        autocomplete="new-password"
+                        minlength="4"
+                        required
+                    >
+                </label>
+
+                <label>
+                    Confirm new password
+                    <input
+                        class="auth-input"
+                        type="password"
+                        name="confirm_password"
+                        autocomplete="new-password"
+                        minlength="4"
+                        required
+                    >
+                </label>
+
+                <button class="primary-dialog-button" type="submit">Change password</button>
+            </form>
+        </dialog>
+    {% endif %}
 
     <script>
         function scrollActiveNavLinkIntoView() {
@@ -48,6 +118,48 @@
         window.addEventListener("resize", () => {
             window.setTimeout(scrollActiveNavLinkIntoView, 100);
         });
+
+        function setupPasswordDialog() {
+            const dialog = document.getElementById("passwordDialog");
+
+            if (!dialog) {
+                return;
+            }
+
+            const openButtons = document.querySelectorAll("[data-open-password-dialog]");
+            const closeButtons = document.querySelectorAll("[data-close-password-dialog]");
+            const shouldOpenDialog = new URLSearchParams(window.location.search).get("password_dialog") === "1";
+
+            openButtons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    const userMenu = button.closest(".user-menu");
+
+                    if (userMenu) {
+                        userMenu.removeAttribute("open");
+                    }
+
+                    dialog.showModal();
+                });
+            });
+
+            closeButtons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    dialog.close();
+                });
+            });
+
+            dialog.addEventListener("click", (event) => {
+                if (event.target === dialog) {
+                    dialog.close();
+                }
+            });
+
+            if (shouldOpenDialog) {
+                dialog.showModal();
+            }
+        }
+
+        setupPasswordDialog();
     </script>
     <script src="{{ url_for('static', filename='js/chart-renderer.js') }}"></script>
 </body>

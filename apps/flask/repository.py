@@ -7,7 +7,7 @@ def get_user_by_id(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                SELECT id, username, is_active
+                SELECT id, username, role, is_active
                 FROM users
                 WHERE id = %s;
             """, (user_id,))
@@ -18,7 +18,7 @@ def get_user_with_password_by_id(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                SELECT id, username, password_hash, is_active
+                SELECT id, username, password_hash, role, is_active
                 FROM users
                 WHERE id = %s;
             """, (user_id,))
@@ -29,25 +29,26 @@ def get_user_by_username(username):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                SELECT id, username, password_hash, is_active
+                SELECT id, username, password_hash, role, is_active
                 FROM users
                 WHERE LOWER(username) = LOWER(%s);
             """, (username,))
             return cur.fetchone()
 
 
-def save_user(username, password_hash):
+def save_user(username, password_hash, role="user"):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                INSERT INTO users (username, password_hash)
-                VALUES (%s, %s)
+                INSERT INTO users (username, password_hash, role)
+                VALUES (%s, %s, %s)
                 ON CONFLICT (username)
                 DO UPDATE SET
                     password_hash = EXCLUDED.password_hash,
+                    role = EXCLUDED.role,
                     is_active = TRUE
-                RETURNING id, username;
-            """, (username, password_hash))
+                RETURNING id, username, role;
+            """, (username, password_hash, role))
             user = cur.fetchone()
 
         conn.commit()
@@ -55,15 +56,15 @@ def save_user(username, password_hash):
     return user
 
 
-def create_user(username, password_hash):
+def create_user(username, password_hash, role="user"):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                INSERT INTO users (username, password_hash)
-                VALUES (%s, %s)
+                INSERT INTO users (username, password_hash, role)
+                VALUES (%s, %s, %s)
                 ON CONFLICT (username) DO NOTHING
-                RETURNING id, username;
-            """, (username, password_hash))
+                RETURNING id, username, role;
+            """, (username, password_hash, role))
             user = cur.fetchone()
 
         conn.commit()
@@ -81,6 +82,51 @@ def update_user_password(user_id, password_hash):
             """, (password_hash, user_id))
 
         conn.commit()
+
+
+def get_users():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, username, role, is_active, created_at
+                FROM users
+                ORDER BY LOWER(username);
+            """)
+            return cur.fetchall()
+
+
+def update_user_role(user_id, role):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                UPDATE users
+                SET role = %s
+                WHERE id = %s
+                    AND LOWER(username) NOT IN (LOWER('demo'), LOWER('admin'))
+                RETURNING id, username, role;
+            """, (role, user_id))
+            user = cur.fetchone()
+
+        conn.commit()
+
+    return user
+
+
+def update_user_active_status(user_id, is_active):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                UPDATE users
+                SET is_active = %s
+                WHERE id = %s
+                    AND LOWER(username) NOT IN (LOWER('demo'), LOWER('admin'))
+                RETURNING id, username, is_active;
+            """, (is_active, user_id))
+            user = cur.fetchone()
+
+        conn.commit()
+
+    return user
 
 
 def get_dashboard_summary():
@@ -516,9 +562,21 @@ def import_assets_from_products(products):
     }
 
 
-def get_chart_assets():
+def get_chart_assets(user_id=None):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
+            if user_id:
+                cur.execute("""
+                    SELECT assets.id, assets.symbol, assets.name
+                    FROM assets
+                    JOIN portfolio_holdings
+                        ON portfolio_holdings.asset_id = assets.id
+                    WHERE portfolio_holdings.user_id = %s
+                        AND portfolio_holdings.quantity > 0
+                    ORDER BY assets.symbol;
+                """, (user_id,))
+                return cur.fetchall()
+
             cur.execute("""
                 SELECT id, symbol, name
                 FROM assets
