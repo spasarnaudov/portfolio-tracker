@@ -39,6 +39,7 @@ Notes:
 Stores quantities of owned tracked assets, currently used for Tavex products.
 
 Columns:
+- user_id: reference to users and part of the primary key
 - asset_id: reference to assets and primary key
 - quantity: owned quantity
 
@@ -46,6 +47,7 @@ Notes:
 - If quantity is zero or lower, the holding is deleted by the application.
 - Latest asset prices are used for the current value.
 - Historical portfolio value uses average asset prices for the selected chart interval before multiplying by quantity.
+- Holdings are scoped per user, so the same asset can have different quantities for different users.
 
 ### portfolio_manual_items
 
@@ -53,6 +55,7 @@ Stores manually entered items such as jewelry.
 
 Columns:
 - id: unique manual item ID
+- user_id: reference to users
 - name: item name
 - quantity: item quantity or weight
 - unit_price: current unit price
@@ -68,8 +71,27 @@ Stores cash and bank savings entries.
 
 Columns:
 - id: unique cash item ID
+- user_id: reference to users
 - name: entry name
 - amount: current amount
 
 Notes:
 - Cash entries are added to the portfolio total and chart as a static value.
+- Cash entries are scoped per user.
+
+### users
+
+Stores application users used for login.
+
+Columns:
+- id: unique user ID
+- username: unique login username
+- password_hash: hashed password, never the plain password
+- is_active: controls whether the user can log in
+- created_at: timestamp when the user was created
+
+Notes:
+- Passwords are hashed by the Flask application before they are stored.
+- The application uses a session cookie after successful login.
+- Users can be created from the registration page or from the terminal helper script.
+- Logged-in users can change their own password from the application.

@@ -10,14 +10,20 @@
     <header class="site-header">
         <h1 class="site-title">Portfolio Tracker</h1>
 
-        <nav class="site-nav">
-            <a class="{% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a>
-            <a class="{% if request.path.startswith('/categories') %}active{% endif %}" href="/categories">Categories</a>
-            <a class="{% if request.path.startswith('/assets') %}active{% endif %}" href="/assets">Assets</a>
-            <a class="{% if request.path.startswith('/prices') %}active{% endif %}" href="/prices">Prices</a>
-            <a class="{% if request.path.startswith('/portfolio') %}active{% endif %}" href="/portfolio">Portfolio</a>
-            <a class="{% if request.path.startswith('/charts') %}active{% endif %}" href="/charts">Charts</a>
-        </nav>
+        {% if current_user %}
+            <nav class="site-nav">
+                <a class="{% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a>
+                <a class="{% if request.path.startswith('/categories') %}active{% endif %}" href="/categories">Categories</a>
+                <a class="{% if request.path.startswith('/assets') %}active{% endif %}" href="/assets">Assets</a>
+                <a class="{% if request.path.startswith('/prices') %}active{% endif %}" href="/prices">Prices</a>
+                <a class="{% if request.path.startswith('/portfolio') %}active{% endif %}" href="/portfolio">Portfolio</a>
+                <a class="{% if request.path.startswith('/charts') %}active{% endif %}" href="/charts">Charts</a>
+                <a class="{% if request.path.startswith('/change-password') %}active{% endif %}" href="/change-password">Password</a>
+                <form class="logout-form" method="post" action="{{ url_for('logout') }}">
+                    <button type="submit">Logout</button>
+                </form>
+            </nav>
+        {% endif %}
     </header>
 
     <hr>

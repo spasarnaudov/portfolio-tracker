@@ -1,11 +1,15 @@
+import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
 from chart_settings import load_chart_filters, save_chart_filters
 from repository import (
+    create_user,
     get_asset_by_id,
     get_asset_prices,
     get_assets,
@@ -20,9 +24,13 @@ from repository import (
     get_portfolio_holdings,
     get_portfolio_manual_items,
     get_portfolio_manual_total,
+    get_user_by_id,
+    get_user_by_username,
+    get_user_with_password_by_id,
     save_portfolio_cash_items,
     save_portfolio_holdings,
     save_portfolio_manual_items,
+    update_user_password,
 )
 from tavex_import import (
     current_timestamp,
@@ -31,6 +39,7 @@ from tavex_import import (
 )
 
 app = Flask(__name__)
+app.secret_key = os.getenv("APP_SECRET_KEY", "dev-secret-change-me")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TAVEX_IMPORT_LOG_PATH = PROJECT_ROOT / "logs" / "tavex_import.log"
@@ -40,6 +49,44 @@ VALID_CHART_RANGES = {"1d", "1w", "1m", "ytd", "1y", "all", "custom"}
 VALID_CHART_INTERVALS = {"recorded", "hourly", "daily", "weekly", "monthly"}
 VALID_PORTFOLIO_RANGES = {"1d", "1w", "1m", "ytd", "1y", "all"}
 VALID_PORTFOLIO_INTERVALS = {"hourly", "daily", "weekly"}
+PUBLIC_ENDPOINTS = {"login", "register", "static"}
+
+
+def is_safe_next_url(next_url):
+    if not next_url:
+        return False
+
+    parsed_url = urlsplit(next_url)
+    return not parsed_url.netloc and parsed_url.path.startswith("/")
+
+
+@app.before_request
+def require_login():
+    g.current_user = None
+
+    if request.endpoint in PUBLIC_ENDPOINTS:
+        return None
+
+    if request.endpoint is None:
+        return None
+
+    user_id = session.get("user_id")
+
+    if user_id:
+        user = get_user_by_id(user_id)
+
+        if user and user["is_active"]:
+            g.current_user = user
+            return None
+
+        session.clear()
+
+    return redirect(url_for("login", next=request.full_path))
+
+
+@app.context_processor
+def inject_current_user():
+    return {"current_user": getattr(g, "current_user", None)}
 
 
 def format_date_value(value):
@@ -242,6 +289,97 @@ def get_holding_chart_payload(asset_id, selected_range, selected_interval):
     }
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("user_id"):
+        return redirect(url_for("home"))
+
+    error = None
+    next_url = request.args.get("next") or request.form.get("next") or url_for("home")
+
+    if not is_safe_next_url(next_url):
+        next_url = url_for("home")
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = get_user_by_username(username) if username else None
+
+        if user and user["is_active"] and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+
+            return redirect(next_url)
+
+        error = "Invalid username or password."
+
+    return render_template("login.html", error=error, next_url=next_url)
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if session.get("user_id"):
+        return redirect(url_for("home"))
+
+    error = None
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if len(username) < 3:
+            error = "Username must be at least 3 characters."
+        elif len(password) < 8:
+            error = "Password must be at least 8 characters."
+        elif password != confirm_password:
+            error = "Passwords do not match."
+        else:
+            user = create_user(username, generate_password_hash(password))
+
+            if user:
+                session.clear()
+                session["user_id"] = user["id"]
+                session["username"] = user["username"]
+
+                return redirect(url_for("home"))
+
+            error = "This username is already taken."
+
+    return render_template("register.html", error=error)
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+@app.route("/change-password", methods=["GET", "POST"])
+def change_password():
+    error = None
+    success = None
+
+    if request.method == "POST":
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        user = get_user_with_password_by_id(session["user_id"])
+
+        if not user or not check_password_hash(user["password_hash"], current_password):
+            error = "Current password is not correct."
+        elif len(new_password) < 4:
+            error = "New password must be at least 4 characters."
+        elif new_password != confirm_password:
+            error = "New passwords do not match."
+        else:
+            update_user_password(session["user_id"], generate_password_hash(new_password))
+            success = "Password changed successfully."
+
+    return render_template("change_password.html", error=error, success=success)
+
+
 @app.route("/")
 def home():
     dashboard = get_dashboard_summary()
@@ -288,6 +426,8 @@ def prices():
 
 @app.route("/portfolio", methods=["GET", "POST"])
 def portfolio():
+    user_id = session["user_id"]
+
     if request.method == "POST":
         quantities_by_asset_id = {}
         manual_items = []
@@ -377,14 +517,14 @@ def portfolio():
                 "delete": False,
             })
 
-        save_portfolio_holdings(quantities_by_asset_id)
-        save_portfolio_manual_items(manual_items)
-        save_portfolio_cash_items(cash_items)
+        save_portfolio_holdings(user_id, quantities_by_asset_id)
+        save_portfolio_manual_items(user_id, manual_items)
+        save_portfolio_cash_items(user_id, cash_items)
         return redirect(url_for("portfolio"))
 
-    holdings = get_portfolio_holdings()
-    manual_items = get_portfolio_manual_items()
-    cash_items = get_portfolio_cash_items()
+    holdings = get_portfolio_holdings(user_id)
+    manual_items = get_portfolio_manual_items(user_id)
+    cash_items = get_portfolio_cash_items(user_id)
     dashboard = get_dashboard_summary()
     portfolio_range = request.args.get("portfolio_range", DEFAULT_CHART_RANGE)
     portfolio_interval = request.args.get("portfolio_interval", "hourly")
@@ -417,6 +557,7 @@ def portfolio():
         None,
     )
     portfolio_history = get_portfolio_history(
+        user_id,
         portfolio_start_date,
         portfolio_end_date,
         portfolio_interval,
@@ -442,8 +583,8 @@ def portfolio():
         float(holding["current_value"] or 0)
         for holding in holdings
     )
-    manual_total = float(get_portfolio_manual_total() or 0)
-    cash_total = float(get_portfolio_cash_total() or 0)
+    manual_total = float(get_portfolio_manual_total(user_id) or 0)
+    cash_total = float(get_portfolio_cash_total(user_id) or 0)
     total_value = tavex_total + manual_total + cash_total
 
     chart_labels = [

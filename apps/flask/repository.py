@@ -3,6 +3,86 @@ from psycopg.rows import dict_row
 from db import get_connection
 
 
+def get_user_by_id(user_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, username, is_active
+                FROM users
+                WHERE id = %s;
+            """, (user_id,))
+            return cur.fetchone()
+
+
+def get_user_with_password_by_id(user_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, username, password_hash, is_active
+                FROM users
+                WHERE id = %s;
+            """, (user_id,))
+            return cur.fetchone()
+
+
+def get_user_by_username(username):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, username, password_hash, is_active
+                FROM users
+                WHERE LOWER(username) = LOWER(%s);
+            """, (username,))
+            return cur.fetchone()
+
+
+def save_user(username, password_hash):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                INSERT INTO users (username, password_hash)
+                VALUES (%s, %s)
+                ON CONFLICT (username)
+                DO UPDATE SET
+                    password_hash = EXCLUDED.password_hash,
+                    is_active = TRUE
+                RETURNING id, username;
+            """, (username, password_hash))
+            user = cur.fetchone()
+
+        conn.commit()
+
+    return user
+
+
+def create_user(username, password_hash):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                INSERT INTO users (username, password_hash)
+                VALUES (%s, %s)
+                ON CONFLICT (username) DO NOTHING
+                RETURNING id, username;
+            """, (username, password_hash))
+            user = cur.fetchone()
+
+        conn.commit()
+
+    return user
+
+
+def update_user_password(user_id, password_hash):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET password_hash = %s
+                WHERE id = %s;
+            """, (password_hash, user_id))
+
+        conn.commit()
+
+
 def get_dashboard_summary():
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -62,7 +142,7 @@ def get_prices():
             return cur.fetchall()
 
 
-def get_portfolio_holdings():
+def get_portfolio_holdings(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
@@ -81,6 +161,7 @@ def get_portfolio_holdings():
                 FROM assets
                 LEFT JOIN portfolio_holdings
                     ON portfolio_holdings.asset_id = assets.id
+                    AND portfolio_holdings.user_id = %s
                 LEFT JOIN LATERAL (
                     SELECT price_date, price
                     FROM asset_prices
@@ -88,34 +169,35 @@ def get_portfolio_holdings():
                     ORDER BY price_date DESC
                     LIMIT 1
                 ) AS latest_prices ON TRUE
-                WHERE assets.symbol LIKE 'TAVEX-%'
+                WHERE assets.symbol LIKE 'TAVEX-%%'
                 ORDER BY assets.symbol, assets.name;
-            """)
+            """, (user_id,))
             return cur.fetchall()
 
 
-def save_portfolio_holdings(quantities_by_asset_id):
+def save_portfolio_holdings(user_id, quantities_by_asset_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
             for asset_id, quantity in quantities_by_asset_id.items():
                 if quantity <= 0:
                     cur.execute("""
                         DELETE FROM portfolio_holdings
-                        WHERE asset_id = %s;
-                    """, (asset_id,))
+                        WHERE user_id = %s
+                            AND asset_id = %s;
+                    """, (user_id, asset_id))
                     continue
 
                 cur.execute("""
-                    INSERT INTO portfolio_holdings (asset_id, quantity)
-                    VALUES (%s, %s)
-                    ON CONFLICT (asset_id)
+                    INSERT INTO portfolio_holdings (user_id, asset_id, quantity)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (user_id, asset_id)
                     DO UPDATE SET quantity = EXCLUDED.quantity;
-                """, (asset_id, quantity))
+                """, (user_id, asset_id, quantity))
 
         conn.commit()
 
 
-def get_portfolio_manual_items():
+def get_portfolio_manual_items(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
@@ -126,12 +208,13 @@ def get_portfolio_manual_items():
                     unit_price,
                     ROUND(quantity * unit_price, 2) AS current_value
                 FROM portfolio_manual_items
+                WHERE user_id = %s
                 ORDER BY id;
-            """)
+            """, (user_id,))
             return cur.fetchall()
 
 
-def save_portfolio_manual_items(items):
+def save_portfolio_manual_items(user_id, items):
     with get_connection() as conn:
         with conn.cursor() as cur:
             for item in items:
@@ -144,8 +227,9 @@ def save_portfolio_manual_items(items):
                 if item_id and (should_delete or not name):
                     cur.execute("""
                         DELETE FROM portfolio_manual_items
-                        WHERE id = %s;
-                    """, (item_id,))
+                        WHERE id = %s
+                            AND user_id = %s;
+                    """, (item_id, user_id))
                     continue
 
                 if item_id:
@@ -154,41 +238,44 @@ def save_portfolio_manual_items(items):
                         SET name = %s,
                             quantity = %s,
                             unit_price = %s
-                        WHERE id = %s;
-                    """, (name, quantity, unit_price, item_id))
+                        WHERE id = %s
+                            AND user_id = %s;
+                    """, (name, quantity, unit_price, item_id, user_id))
                     continue
 
                 if name:
                     cur.execute("""
-                        INSERT INTO portfolio_manual_items (name, quantity, unit_price)
-                        VALUES (%s, %s, %s);
-                    """, (name, quantity, unit_price))
+                        INSERT INTO portfolio_manual_items (user_id, name, quantity, unit_price)
+                        VALUES (%s, %s, %s, %s);
+                    """, (user_id, name, quantity, unit_price))
 
         conn.commit()
 
 
-def get_portfolio_manual_total():
+def get_portfolio_manual_total(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 SELECT ROUND(COALESCE(SUM(quantity * unit_price), 0), 2) AS total
-                FROM portfolio_manual_items;
-            """)
+                FROM portfolio_manual_items
+                WHERE user_id = %s;
+            """, (user_id,))
             return cur.fetchone()["total"]
 
 
-def get_portfolio_cash_items():
+def get_portfolio_cash_items(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 SELECT id, name, amount
                 FROM portfolio_cash_items
+                WHERE user_id = %s
                 ORDER BY id;
-            """)
+            """, (user_id,))
             return cur.fetchall()
 
 
-def save_portfolio_cash_items(items):
+def save_portfolio_cash_items(user_id, items):
     with get_connection() as conn:
         with conn.cursor() as cur:
             for item in items:
@@ -200,8 +287,9 @@ def save_portfolio_cash_items(items):
                 if item_id and (should_delete or not name):
                     cur.execute("""
                         DELETE FROM portfolio_cash_items
-                        WHERE id = %s;
-                    """, (item_id,))
+                        WHERE id = %s
+                            AND user_id = %s;
+                    """, (item_id, user_id))
                     continue
 
                 if item_id:
@@ -209,30 +297,32 @@ def save_portfolio_cash_items(items):
                         UPDATE portfolio_cash_items
                         SET name = %s,
                             amount = %s
-                        WHERE id = %s;
-                    """, (name, amount, item_id))
+                        WHERE id = %s
+                            AND user_id = %s;
+                    """, (name, amount, item_id, user_id))
                     continue
 
                 if name:
                     cur.execute("""
-                        INSERT INTO portfolio_cash_items (name, amount)
-                        VALUES (%s, %s);
-                    """, (name, amount))
+                        INSERT INTO portfolio_cash_items (user_id, name, amount)
+                        VALUES (%s, %s, %s);
+                    """, (user_id, name, amount))
 
         conn.commit()
 
 
-def get_portfolio_cash_total():
+def get_portfolio_cash_total(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 SELECT ROUND(COALESCE(SUM(amount), 0), 2) AS total
-                FROM portfolio_cash_items;
-            """)
+                FROM portfolio_cash_items
+                WHERE user_id = %s;
+            """, (user_id,))
             return cur.fetchone()["total"]
 
 
-def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
+def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hourly"):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             if interval == "recorded":
@@ -248,10 +338,12 @@ def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
                 WITH manual_total AS (
                     SELECT COALESCE(SUM(quantity * unit_price), 0) AS value
                     FROM portfolio_manual_items
+                    WHERE user_id = %s
                 ),
                 cash_total AS (
                     SELECT COALESCE(SUM(amount), 0) AS value
                     FROM portfolio_cash_items
+                    WHERE user_id = %s
                 ),
                 static_total AS (
                     SELECT manual_total.value + cash_total.value AS value
@@ -268,6 +360,7 @@ def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
                     JOIN asset_prices
                         ON asset_prices.asset_id = portfolio_holdings.asset_id
                     WHERE portfolio_holdings.quantity > 0
+                        AND portfolio_holdings.user_id = %s
                         AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
                         AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
                     GROUP BY {group_expression}, asset_prices.asset_id, portfolio_holdings.quantity
@@ -308,6 +401,9 @@ def get_portfolio_history(start_date=None, end_date=None, interval="hourly"):
                 CROSS JOIN static_total
                 ORDER BY portfolio_history.price_date;
             """.format(group_expression=group_expression), (
+                user_id,
+                user_id,
+                user_id,
                 start_date,
                 start_date,
                 end_date,

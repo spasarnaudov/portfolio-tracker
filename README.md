@@ -61,6 +61,7 @@ The current version includes:
 - Jewelry and manual items with Tavex gold buyback price helpers
 - Cash and savings entries
 - Portfolio value chart with hourly, daily, and weekly aggregation
+- User login and registration with password hashing
 - Database maintenance scripts
 
 ## Local Runtime Files
@@ -99,9 +100,22 @@ Run newer portfolio migrations on an existing database:
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/003_create_portfolio_holdings.sql
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/004_create_portfolio_manual_items.sql
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/005_create_portfolio_cash_items.sql
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/006_create_users.sql
+```
+
+Create or update an application user from the terminal:
+
+```bash
+apps/flask/.venv/bin/python scripts/create_user.py spas
+```
+
+Assign existing portfolio data to the initial `Spas` user:
+
+```bash
+apps/flask/.venv/bin/python scripts/create_user.py Spas --password spas
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
 ```
 
 ## Next Steps
 
-- Add authentication
 - Improve deployment setup for the HomeLab server
