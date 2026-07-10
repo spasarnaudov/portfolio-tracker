@@ -89,11 +89,15 @@ Columns:
 - password_hash: hashed password, never the plain password
 - role: application role, one of admin, user, or demo
 - is_active: controls whether the user can log in
+- active_session_token: token for the currently active browser session
+- active_session_expires_at: timestamp when the active session expires
 - created_at: timestamp when the user was created
 
 Notes:
 - Passwords are hashed by the Flask application before they are stored.
 - The application uses a session cookie after successful login.
+- Only one active session per user is allowed.
+- Inactivity timeout is configured through `SESSION_TIMEOUT_MINUTES`.
 - Users can be created from the registration page or from the terminal helper script.
 - Logged-in users can change their own password from the application, except demo users.
 - Admin users can access global management tabs.

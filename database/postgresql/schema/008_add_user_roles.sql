@@ -14,7 +14,7 @@ END $$;
 
 UPDATE users
 SET role = 'admin'
-WHERE LOWER(username) = LOWER('Spas');
+WHERE LOWER(username) = LOWER('spas');
 
 UPDATE users
 SET role = 'demo'

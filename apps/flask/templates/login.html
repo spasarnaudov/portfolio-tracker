@@ -10,38 +10,56 @@
             <p class="form-error">{{ error }}</p>
         {% endif %}
 
-        <form method="post" action="{{ url_for('login') }}">
-            <input type="hidden" name="next" value="{{ next_url }}">
+        {% if active_session_user %}
+            <div class="form-warning">
+                <p>{{ active_session_user }} is already logged in somewhere else.</p>
+                <p>Do you want to log out the other session and continue here?</p>
+            </div>
 
-            <label>
-                Username
-                <input
-                    class="auth-input"
-                    type="text"
-                    name="username"
-                    autocomplete="username"
-                    required
-                    autofocus
-                >
-            </label>
+            <form method="post" action="{{ url_for('login') }}">
+                <input type="hidden" name="next" value="{{ next_url }}">
+                <input type="hidden" name="force_logout" value="1">
 
-            <label>
-                Password
-                <input
-                    class="auth-input"
-                    type="password"
-                    name="password"
-                    autocomplete="current-password"
-                    required
-                >
-            </label>
+                <button type="submit">Logout other session</button>
+            </form>
 
-            <button type="submit">Login</button>
-        </form>
+            <p class="auth-link">
+                <a href="{{ url_for('login', next=next_url) }}">Cancel</a>
+            </p>
+        {% else %}
+            <form method="post" action="{{ url_for('login') }}">
+                <input type="hidden" name="next" value="{{ next_url }}">
 
-        <p class="auth-link">
-            New user?
-            <a href="{{ url_for('register') }}">Create an account</a>
-        </p>
+                <label>
+                    Username
+                    <input
+                        class="auth-input"
+                        type="text"
+                        name="username"
+                        autocomplete="username"
+                        required
+                        autofocus
+                    >
+                </label>
+
+                <label>
+                    Password
+                    <input
+                        class="auth-input"
+                        type="password"
+                        name="password"
+                        autocomplete="current-password"
+                        required
+                    >
+                </label>
+
+                <button type="submit">Login</button>
+            </form>
+
+            <p class="auth-link">
+                New user?
+                <a href="{{ url_for('register') }}">Create an account</a>
+            </p>
+        {% endif %}
     </section>
 {% endblock %}

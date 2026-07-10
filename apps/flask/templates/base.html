@@ -7,6 +7,14 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 {% set password_messages = get_flashed_messages(with_categories=true) %}
+{% set password_dialog_message = namespace(error='', success='') %}
+{% for category, message in password_messages %}
+    {% if category == 'password_error' %}
+        {% set password_dialog_message.error = message %}
+    {% elif category == 'password_success' %}
+        {% set password_dialog_message.success = message %}
+    {% endif %}
+{% endfor %}
 <body class="{% block body_class %}{% endblock %}">
     <header class="site-header">
         <h1 class="site-title">Portfolio Tracker</h1>
@@ -45,61 +53,14 @@
     </main>
 
     {% if current_user and current_user.role != 'demo' %}
-        <dialog class="password-dialog" id="passwordDialog">
-            <form class="password-dialog-panel" method="post" action="{{ url_for('change_password') }}">
-                <div class="password-dialog-header">
-                    <h2>Change password</h2>
-                    <button class="dialog-close-button" type="button" data-close-password-dialog aria-label="Close password dialog">&times;</button>
-                </div>
-
-                {% for category, message in password_messages %}
-                    {% if category == 'password_error' %}
-                        <p class="form-error">{{ message }}</p>
-                    {% elif category == 'password_success' %}
-                        <p class="form-success">{{ message }}</p>
-                    {% endif %}
-                {% endfor %}
-
-                <input type="hidden" name="next_url" value="{{ request.full_path }}">
-
-                <label>
-                    Current password
-                    <input
-                        class="auth-input"
-                        type="password"
-                        name="current_password"
-                        autocomplete="current-password"
-                        required
-                    >
-                </label>
-
-                <label>
-                    New password
-                    <input
-                        class="auth-input"
-                        type="password"
-                        name="new_password"
-                        autocomplete="new-password"
-                        minlength="4"
-                        required
-                    >
-                </label>
-
-                <label>
-                    Confirm new password
-                    <input
-                        class="auth-input"
-                        type="password"
-                        name="confirm_password"
-                        autocomplete="new-password"
-                        minlength="4"
-                        required
-                    >
-                </label>
-
-                <button class="primary-dialog-button" type="submit">Change password</button>
-            </form>
-        </dialog>
+        <dialog
+            class="password-dialog"
+            id="passwordDialog"
+            data-action="{{ url_for('change_password') }}"
+            data-next-url="{{ request.full_path }}"
+            data-error="{{ password_dialog_message.error }}"
+            data-success="{{ password_dialog_message.success }}"
+        ></dialog>
     {% endif %}
 
     <script>
@@ -128,7 +89,104 @@
 
             const openButtons = document.querySelectorAll("[data-open-password-dialog]");
             const closeButtons = document.querySelectorAll("[data-close-password-dialog]");
-            const shouldOpenDialog = new URLSearchParams(window.location.search).get("password_dialog") === "1";
+            const currentUrl = new URL(window.location.href);
+            const shouldOpenDialog = currentUrl.searchParams.get("password_dialog") === "1";
+
+            function removePasswordDialogMarker() {
+                if (!currentUrl.searchParams.has("password_dialog")) {
+                    return;
+                }
+
+                currentUrl.searchParams.delete("password_dialog");
+                window.history.replaceState({}, "", currentUrl.toString());
+            }
+
+            function createPasswordInput(labelText, name, autocomplete) {
+                const label = document.createElement("label");
+                const input = document.createElement("input");
+
+                label.append(document.createTextNode(labelText));
+                input.className = "auth-input";
+                input.type = "password";
+                input.name = name;
+                input.autocomplete = autocomplete;
+                input.required = true;
+
+                if (name !== "current_password") {
+                    input.minLength = 4;
+                }
+
+                label.append(input);
+
+                return label;
+            }
+
+            function buildPasswordDialogContent() {
+                if (dialog.dataset.ready === "1") {
+                    return;
+                }
+
+                const form = document.createElement("form");
+                const header = document.createElement("div");
+                const title = document.createElement("h2");
+                const closeButton = document.createElement("button");
+                const nextUrlInput = document.createElement("input");
+                const submitButton = document.createElement("button");
+
+                form.className = "password-dialog-panel";
+                form.method = "post";
+                form.action = dialog.dataset.action;
+
+                header.className = "password-dialog-header";
+                title.textContent = "Change password";
+
+                closeButton.className = "dialog-close-button";
+                closeButton.type = "button";
+                closeButton.setAttribute("aria-label", "Close password dialog");
+                closeButton.dataset.closePasswordDialog = "";
+                closeButton.innerHTML = "&times;";
+
+                header.append(title, closeButton);
+                form.append(header);
+
+                if (dialog.dataset.error) {
+                    const errorMessage = document.createElement("p");
+
+                    errorMessage.className = "form-error";
+                    errorMessage.textContent = dialog.dataset.error;
+                    form.append(errorMessage);
+                }
+
+                if (dialog.dataset.success) {
+                    const successMessage = document.createElement("p");
+
+                    successMessage.className = "form-success";
+                    successMessage.textContent = dialog.dataset.success;
+                    form.append(successMessage);
+                }
+
+                nextUrlInput.type = "hidden";
+                nextUrlInput.name = "next_url";
+                nextUrlInput.value = dialog.dataset.nextUrl;
+                form.append(nextUrlInput);
+
+                form.append(
+                    createPasswordInput("Current password", "current_password", "current-password"),
+                    createPasswordInput("New password", "new_password", "new-password"),
+                    createPasswordInput("Confirm new password", "confirm_password", "new-password"),
+                );
+
+                submitButton.className = "primary-dialog-button";
+                submitButton.type = "submit";
+                submitButton.textContent = "Change password";
+                form.append(submitButton);
+
+                dialog.append(form);
+                closeButton.addEventListener("click", () => {
+                    dialog.close();
+                });
+                dialog.dataset.ready = "1";
+            }
 
             openButtons.forEach((button) => {
                 button.addEventListener("click", () => {
@@ -138,6 +196,7 @@
                         userMenu.removeAttribute("open");
                     }
 
+                    buildPasswordDialogContent();
                     dialog.showModal();
                 });
             });
@@ -155,11 +214,96 @@
             });
 
             if (shouldOpenDialog) {
+                buildPasswordDialogContent();
                 dialog.showModal();
+                removePasswordDialogMarker();
             }
         }
 
+        function setupSessionStatusCheck() {
+            {% if current_user %}
+                const activityEvents = ["click", "keydown", "mousemove", "scroll", "touchstart"];
+                const activityPingIntervalMs = 60000;
+                const sessionActivityUrl = "{{ url_for('session_activity') }}";
+                const sessionStatusUrl = "{{ url_for('session_status') }}";
+                let lastActivityPingAt = 0;
+
+                async function sendActivityPing() {
+                    const now = Date.now();
+
+                    if (now - lastActivityPingAt < activityPingIntervalMs) {
+                        return;
+                    }
+
+                    lastActivityPingAt = now;
+
+                    try {
+                        const response = await fetch(sessionActivityUrl, {
+                            method: "POST",
+                            cache: "no-store",
+                            credentials: "same-origin",
+                        });
+
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                        }
+                    } catch (error) {
+                        // Keep the current page usable during a short network hiccup.
+                    }
+                }
+
+                async function checkSessionStatus() {
+                    try {
+                        const response = await fetch(sessionStatusUrl, {
+                            cache: "no-store",
+                            credentials: "same-origin",
+                        });
+
+                        if (response.redirected) {
+                            window.location.href = response.url;
+                            return;
+                        }
+
+                        if (!response.ok) {
+                            window.location.href = "{{ url_for('login') }}";
+                            return;
+                        }
+
+                        const contentType = response.headers.get("content-type") || "";
+
+                        if (!contentType.includes("application/json")) {
+                            window.location.href = "{{ url_for('login') }}";
+                            return;
+                        }
+
+                        const data = await response.json();
+
+                        if (!data.authenticated) {
+                            window.location.href = "{{ url_for('login') }}";
+                        }
+                    } catch (error) {
+                        // Keep the current page usable during a short network hiccup.
+                    }
+                }
+
+                activityEvents.forEach((eventName) => {
+                    window.addEventListener(eventName, sendActivityPing, {
+                        passive: true,
+                    });
+                });
+
+                window.setInterval(checkSessionStatus, 10000);
+                document.addEventListener("visibilitychange", () => {
+                    if (!document.hidden) {
+                        sendActivityPing();
+                        checkSessionStatus();
+                    }
+                });
+            {% endif %}
+        }
+
         setupPasswordDialog();
+        setupSessionStatusCheck();
     </script>
     <script src="{{ url_for('static', filename='js/chart-renderer.js') }}"></script>
 </body>

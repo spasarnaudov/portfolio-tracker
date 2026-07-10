@@ -110,13 +110,15 @@ Create or update an application user from the terminal:
 apps/flask/.venv/bin/python scripts/create_user.py spas
 ```
 
-Assign existing portfolio data to the initial `Spas` user:
+Assign existing portfolio data to the initial `spas` user:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py Spas --password spas --role admin
+apps/flask/.venv/bin/python scripts/create_user.py spas --password spas --role admin
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/008_add_user_roles.sql
 psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/009_rename_demo_user.sql
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/010_add_user_session_tracking.sql
+psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/011_rename_spas_user.sql
 ```
 
 Create a demo user and seed demo portfolio data:
@@ -139,6 +141,11 @@ changed from the Users page.
 Users can be activated or deactivated from the Users page. The `demo` account,
 the currently logged-in user, and the special `admin` account cannot be
 deactivated from that page.
+
+Sessions use `SESSION_TIMEOUT_MINUTES` from `apps/flask/.env`. When there is no
+user activity for that many minutes, the user is logged out. A user can have
+only one active session; a new login asks whether to log out the existing
+session first.
 
 ## Next Steps
 

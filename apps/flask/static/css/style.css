@@ -400,6 +400,23 @@ h2 {
     padding: 8px 10px;
 }
 
+.form-warning {
+    background: #fffaeb;
+    border: 1px solid #fedf89;
+    color: #93370d;
+    font-weight: 700;
+    margin: 0 0 12px;
+    padding: 8px 10px;
+}
+
+.form-warning p {
+    margin: 0;
+}
+
+.form-warning p + p {
+    margin-top: 4px;
+}
+
 .portfolio-table-actions {
     display: flex;
     flex-wrap: wrap;

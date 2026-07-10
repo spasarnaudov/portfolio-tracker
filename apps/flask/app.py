@@ -1,5 +1,6 @@
 import os
-from datetime import timedelta
+import secrets
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -28,12 +29,14 @@ from repository import (
     get_user_by_username,
     get_user_with_password_by_id,
     get_users,
+    clear_user_session,
     save_portfolio_cash_items,
     save_portfolio_holdings,
     save_portfolio_manual_items,
     update_user_active_status,
     update_user_password,
     update_user_role,
+    update_user_session,
 )
 from tavex_import import (
     current_timestamp,
@@ -43,6 +46,17 @@ from tavex_import import (
 
 app = Flask(__name__)
 app.secret_key = os.getenv("APP_SECRET_KEY", "dev-secret-change-me")
+
+
+def get_session_timeout_minutes():
+    try:
+        return max(1, int(os.getenv("SESSION_TIMEOUT_MINUTES", "5")))
+    except ValueError:
+        return 5
+
+
+SESSION_TIMEOUT = timedelta(minutes=get_session_timeout_minutes())
+app.permanent_session_lifetime = SESSION_TIMEOUT
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TAVEX_IMPORT_LOG_PATH = PROJECT_ROOT / "logs" / "tavex_import.log"
@@ -62,7 +76,14 @@ ADMIN_ENDPOINTS = {
     "import_tavex_prices",
 }
 USER_MANAGEMENT_ENDPOINTS = {"users", "save_users"}
-ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {"change_password", "logout", "static"}
+ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
+    "change_password",
+    "logout",
+    "session_activity",
+    "session_status",
+    "static",
+}
+PASSIVE_SESSION_ENDPOINTS = {"session_status", "static"}
 VALID_USER_ROLES = {"admin", "user", "demo"}
 ROLE_MANAGER_USERNAME = "admin"
 
@@ -87,6 +108,37 @@ def is_safe_next_url(next_url):
     return not parsed_url.netloc and parsed_url.path.startswith("/")
 
 
+def normalize_next_url(next_url):
+    if not is_safe_next_url(next_url):
+        return url_for("home")
+
+    internal_paths = {
+        url_for("change_password"),
+        url_for("login"),
+        url_for("logout"),
+        url_for("session_activity"),
+        url_for("session_status"),
+    }
+    parsed_url = urlsplit(next_url)
+
+    if parsed_url.path in internal_paths:
+        return url_for("home")
+
+    query_items = [
+        (query_name, query_value)
+        for query_name, query_value in parse_qsl(parsed_url.query, keep_blank_values=True)
+        if query_name != "password_dialog"
+    ]
+
+    return urlunsplit((
+        parsed_url.scheme,
+        parsed_url.netloc,
+        parsed_url.path,
+        urlencode(query_items),
+        parsed_url.fragment,
+    ))
+
+
 def add_query_parameter(next_url, name, value):
     parsed_url = urlsplit(next_url)
     query_items = [
@@ -105,6 +157,45 @@ def add_query_parameter(next_url, name, value):
     ))
 
 
+def get_session_expiration_time():
+    return datetime.now() + SESSION_TIMEOUT
+
+
+def has_active_session(user):
+    expires_at = user["active_session_expires_at"]
+
+    return bool(
+        user["active_session_token"]
+        and expires_at
+        and expires_at > datetime.now()
+    )
+
+
+def start_user_session(user, next_url):
+    session_token = secrets.token_urlsafe(32)
+    expires_at = get_session_expiration_time()
+
+    session.clear()
+    session.permanent = True
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+    session["session_token"] = session_token
+
+    update_user_session(user["id"], session_token, expires_at)
+
+    return redirect(next_url)
+
+
+def clear_current_session():
+    user_id = session.get("user_id")
+    session_token = session.get("session_token")
+
+    if user_id:
+        clear_user_session(user_id, session_token)
+
+    session.clear()
+
+
 @app.before_request
 def require_login():
     g.current_user = None
@@ -121,6 +212,21 @@ def require_login():
         user = get_user_by_id(user_id)
 
         if user and user["is_active"]:
+            session_token = session.get("session_token")
+            active_token = user["active_session_token"]
+            expires_at = user["active_session_expires_at"]
+
+            if not session_token or session_token != active_token:
+                session.clear()
+                return redirect(url_for("login", next=request.full_path))
+
+            if not expires_at or expires_at <= datetime.now():
+                clear_current_session()
+                return redirect(url_for("login", next=request.full_path))
+
+            if request.endpoint not in PASSIVE_SESSION_ENDPOINTS:
+                update_user_session(user["id"], session_token, get_session_expiration_time())
+
             g.current_user = user
 
             if is_role_manager(user) and request.endpoint not in ROLE_MANAGER_ENDPOINTS:
@@ -140,7 +246,7 @@ def require_login():
 
             return None
 
-        session.clear()
+        clear_current_session()
 
     return redirect(url_for("login", next=request.full_path))
 
@@ -356,26 +462,65 @@ def login():
         return redirect(url_for("home"))
 
     error = None
+    active_session_user = None
     next_url = request.args.get("next") or request.form.get("next") or url_for("home")
+    next_url = normalize_next_url(next_url)
 
-    if not is_safe_next_url(next_url):
-        next_url = url_for("home")
+    if request.method == "GET":
+        session.pop("pending_login_user_id", None)
+        session.pop("pending_login_next_url", None)
 
     if request.method == "POST":
+        force_logout = request.form.get("force_logout") == "1"
+        pending_user_id = session.get("pending_login_user_id")
+
+        if force_logout and pending_user_id:
+            user = get_user_with_password_by_id(pending_user_id)
+            pending_next_url = normalize_next_url(session.get("pending_login_next_url") or next_url)
+
+            if user and user["is_active"]:
+                clear_user_session(user["id"])
+                return start_user_session(user, pending_next_url)
+
+            session.pop("pending_login_user_id", None)
+            session.pop("pending_login_next_url", None)
+            error = "Invalid username or password."
+            return render_template(
+                "login.html",
+                error=error,
+                next_url=next_url,
+                active_session_user=active_session_user,
+            )
+
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         user = get_user_by_username(username) if username else None
 
         if user and user["is_active"] and check_password_hash(user["password_hash"], password):
-            session.clear()
-            session["user_id"] = user["id"]
-            session["username"] = user["username"]
+            if has_active_session(user):
+                session["pending_login_user_id"] = user["id"]
+                session["pending_login_next_url"] = next_url
+                active_session_user = user["username"]
 
-            return redirect(next_url)
+                return render_template(
+                    "login.html",
+                    error=error,
+                    next_url=next_url,
+                    active_session_user=active_session_user,
+                )
+
+            return start_user_session(user, next_url)
 
         error = "Invalid username or password."
+        session.pop("pending_login_user_id", None)
+        session.pop("pending_login_next_url", None)
 
-    return render_template("login.html", error=error, next_url=next_url)
+    return render_template(
+        "login.html",
+        error=error,
+        next_url=next_url,
+        active_session_user=active_session_user,
+    )
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -400,11 +545,7 @@ def register():
             user = create_user(username, generate_password_hash(password), "user")
 
             if user:
-                session.clear()
-                session["user_id"] = user["id"]
-                session["username"] = user["username"]
-
-                return redirect(url_for("home"))
+                return start_user_session(user, url_for("home"))
 
             error = "This username is already taken."
 
@@ -413,8 +554,18 @@ def register():
 
 @app.route("/logout", methods=["POST"])
 def logout():
-    session.clear()
+    clear_current_session()
     return redirect(url_for("login"))
+
+
+@app.route("/session-status")
+def session_status():
+    return jsonify({"authenticated": True})
+
+
+@app.route("/session-activity", methods=["POST"])
+def session_activity():
+    return jsonify({"active": True})
 
 
 @app.route("/change-password", methods=["GET", "POST"])

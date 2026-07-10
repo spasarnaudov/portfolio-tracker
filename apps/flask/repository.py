@@ -7,7 +7,13 @@ def get_user_by_id(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                SELECT id, username, role, is_active
+                SELECT
+                    id,
+                    username,
+                    role,
+                    is_active,
+                    active_session_token,
+                    active_session_expires_at
                 FROM users
                 WHERE id = %s;
             """, (user_id,))
@@ -18,7 +24,14 @@ def get_user_with_password_by_id(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                SELECT id, username, password_hash, role, is_active
+                SELECT
+                    id,
+                    username,
+                    password_hash,
+                    role,
+                    is_active,
+                    active_session_token,
+                    active_session_expires_at
                 FROM users
                 WHERE id = %s;
             """, (user_id,))
@@ -29,7 +42,14 @@ def get_user_by_username(username):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                SELECT id, username, password_hash, role, is_active
+                SELECT
+                    id,
+                    username,
+                    password_hash,
+                    role,
+                    is_active,
+                    active_session_token,
+                    active_session_expires_at
                 FROM users
                 WHERE LOWER(username) = LOWER(%s);
             """, (username,))
@@ -80,6 +100,44 @@ def update_user_password(user_id, password_hash):
                 SET password_hash = %s
                 WHERE id = %s;
             """, (password_hash, user_id))
+
+        conn.commit()
+
+
+def update_user_session(user_id, session_token, expires_at):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET
+                    active_session_token = %s,
+                    active_session_expires_at = %s
+                WHERE id = %s;
+            """, (session_token, expires_at, user_id))
+
+        conn.commit()
+
+
+def clear_user_session(user_id, session_token=None):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            if session_token:
+                cur.execute("""
+                    UPDATE users
+                    SET
+                        active_session_token = NULL,
+                        active_session_expires_at = NULL
+                    WHERE id = %s
+                        AND active_session_token = %s;
+                """, (user_id, session_token))
+            else:
+                cur.execute("""
+                    UPDATE users
+                    SET
+                        active_session_token = NULL,
+                        active_session_expires_at = NULL
+                    WHERE id = %s;
+                """, (user_id,))
 
         conn.commit()
 

@@ -5,10 +5,10 @@ BEGIN
     SELECT id
     INTO owner_user_id
     FROM users
-    WHERE LOWER(username) = LOWER('Spas');
+    WHERE LOWER(username) = LOWER('spas');
 
     IF owner_user_id IS NULL THEN
-        RAISE EXCEPTION 'Create user Spas before running this migration.';
+        RAISE EXCEPTION 'Create user spas before running this migration.';
     END IF;
 
     ALTER TABLE portfolio_holdings
