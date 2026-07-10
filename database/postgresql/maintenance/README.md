@@ -2,10 +2,13 @@
 
 ## Delete All Data
 
-Run this command from the project root:
+Load local environment variables and run this command from the project root:
 
 ```bash
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/maintenance/001_truncate_all_data.sql
+set -a
+. apps/flask/.env
+set +a
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/maintenance/001_truncate_all_data.sql
 ```
 
 This deletes all rows from:
@@ -24,7 +27,10 @@ It keeps the table structure and restarts the ID counters.
 Run this command from the project root:
 
 ```bash
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/maintenance/002_truncate_prices.sql
+set -a
+. apps/flask/.env
+set +a
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/maintenance/002_truncate_prices.sql
 ```
 
 This deletes all rows from `asset_prices` only.

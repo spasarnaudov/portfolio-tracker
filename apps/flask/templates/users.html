@@ -19,8 +19,8 @@
 
                 <tbody>
                     {% for user in users %}
-                        {% set is_demo = user.username|lower == 'demo' %}
-                        {% set is_role_manager = user.username|lower == 'admin' %}
+                        {% set is_demo = user.username|lower == demo_username %}
+                        {% set is_role_manager = user.username|lower == role_manager_username %}
                         {% set is_current_user = current_user and user.id == current_user.id %}
                         {% set can_edit_role = not is_demo and not is_role_manager and not is_current_user %}
                         {% set can_edit_status = not is_demo and not is_current_user and not is_role_manager %}

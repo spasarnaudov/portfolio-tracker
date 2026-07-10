@@ -11,6 +11,16 @@ __pycache__/
 # Logs
 *.log
 
+# Database backups
+backups/*
+!backups/.gitkeep
+!backups/database/
+backups/database/*
+!backups/database/.gitkeep
+!backups/env/
+backups/env/*
+!backups/env/.gitkeep
+
 # Runtime state
 runtime/*
 !runtime/.gitkeep

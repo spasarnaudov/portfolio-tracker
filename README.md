@@ -73,6 +73,10 @@ Some application state is intentionally stored locally and is not committed:
 - `runtime/chart_filters.json` stores the selected chart layout and filters.
 - `runtime/auto_tavex_import.enabled` controls whether the cron import is active.
 - `logs/tavex_import.log` stores automatic import output.
+- `logs/database_backup.log` stores automatic database backup output.
+- `logs/env_backup.log` stores automatic env backup output.
+- `backups/database/*.dump` stores PostgreSQL backup files.
+- `backups/env/*.backup` stores env backup files with secrets.
 
 ## Useful Commands
 
@@ -89,43 +93,57 @@ Run a manual Tavex import:
 apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 ```
 
+Load local environment variables before running database commands:
+
+```bash
+set -a
+. apps/flask/.env
+set +a
+```
+
 Run schema migration for timestamp prices on an existing database:
 
 ```bash
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/002_price_date_to_timestamp.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/002_price_date_to_timestamp.sql
 ```
 
 Run newer portfolio migrations on an existing database:
 
 ```bash
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/003_create_portfolio_holdings.sql
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/004_create_portfolio_manual_items.sql
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/005_create_portfolio_cash_items.sql
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/006_create_users.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/003_create_portfolio_holdings.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/004_create_portfolio_manual_items.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/005_create_portfolio_cash_items.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/006_create_users.sql
 ```
 
 Create or update an application user from the terminal:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py spas
+apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME"
 ```
 
-Assign existing portfolio data to the initial `spas` user:
+Assign existing portfolio data to the initial user:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py spas --password spas --role admin
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/008_add_user_roles.sql
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/009_rename_demo_user.sql
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/010_add_user_session_tracking.sql
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/schema/011_rename_spas_user.sql
+apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME" --password "$INITIAL_ADMIN_PASSWORD" --role admin
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/008_add_user_roles.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/009_rename_demo_user.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/010_add_user_session_tracking.sql
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/011_rename_spas_user.sql
 ```
 
 Create a demo user and seed demo portfolio data:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py demo --password demo --role demo
-psql -h localhost -p 5432 -U casaos -d portfolio_tracker -f database/postgresql/seed/002_seed_demo_portfolio.sql
+apps/flask/.venv/bin/python scripts/create_user.py "$DEMO_USERNAME" --password "$DEMO_PASSWORD" --role demo
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/seed/002_seed_demo_portfolio.sql
+```
+
+Create or update the role-management account:
+
+```bash
+apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --password "$ROLE_MANAGER_PASSWORD" --role admin
 ```
 
 Role behavior:

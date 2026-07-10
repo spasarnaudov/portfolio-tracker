@@ -45,7 +45,9 @@ from tavex_import import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.getenv("APP_SECRET_KEY", "dev-secret-change-me")
+app.secret_key = os.getenv("APP_SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("APP_SECRET_KEY must be set in apps/flask/.env")
 
 
 def get_session_timeout_minutes():
@@ -85,7 +87,8 @@ ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
 }
 PASSIVE_SESSION_ENDPOINTS = {"session_status", "static"}
 VALID_USER_ROLES = {"admin", "user", "demo"}
-ROLE_MANAGER_USERNAME = "admin"
+ROLE_MANAGER_USERNAME = os.getenv("ROLE_MANAGER_USERNAME", "admin").lower()
+DEMO_USERNAME = os.getenv("DEMO_USERNAME", "demo").lower()
 
 
 def is_admin(user):
@@ -98,6 +101,14 @@ def is_role_manager(user):
 
 def is_demo_user(user):
     return user and user["role"] == "demo"
+
+
+@app.context_processor
+def inject_configured_usernames():
+    return {
+        "role_manager_username": ROLE_MANAGER_USERNAME,
+        "demo_username": DEMO_USERNAME,
+    }
 
 
 def is_safe_next_url(next_url):
