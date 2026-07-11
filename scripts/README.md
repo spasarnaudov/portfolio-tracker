@@ -126,16 +126,16 @@ Open the crontab editor:
 crontab -e
 ```
 
-Run a backup every night at 02:00:
+Run the database backup every night at 03:00:
 
 ```cron
-0 2 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
+0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
 ```
 
 With explicit deploy settings:
 
 ```cron
-0 2 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/apps/flask/.env ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
+0 3 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/apps/flask/.env ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
 ```
 
 Logs are written to:
@@ -144,7 +144,7 @@ Logs are written to:
 logs/database_backup.log
 ```
 
-Run an env backup every night at 03:00:
+Run the env backup every night at 03:00:
 
 ```cron
 0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
