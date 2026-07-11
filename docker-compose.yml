@@ -1,0 +1,52 @@
+services:
+  app-development:
+    build:
+      context: .
+    image: portfolio-tracker:local
+    env_file:
+      - path: .env.development
+        required: false
+    ports:
+      - "5000:5000"
+    command: ["python", "apps/flask/app.py"]
+    volumes:
+      - .:/app
+    profiles:
+      - development
+
+  app-test:
+    build:
+      context: .
+    image: portfolio-tracker:local
+    env_file:
+      - path: .env.test
+        required: false
+    ports:
+      - "5001:5001"
+    command: ["python", "apps/flask/app.py"]
+    profiles:
+      - test
+
+  app-staging:
+    build:
+      context: .
+    image: portfolio-tracker:1.0.0
+    env_file:
+      - path: .env.staging
+        required: false
+    ports:
+      - "5002:5000"
+    profiles:
+      - staging
+
+  app-production:
+    build:
+      context: .
+    image: portfolio-tracker:1.0.0
+    env_file:
+      - path: .env.production
+        required: false
+    ports:
+      - "5003:5000"
+    profiles:
+      - production

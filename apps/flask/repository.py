@@ -1,12 +1,7 @@
-import os
-
 from psycopg.rows import dict_row
 
+from config import DEMO_USERNAME, ROLE_MANAGER_USERNAME
 from db import get_connection
-
-
-ROLE_MANAGER_USERNAME = os.getenv("ROLE_MANAGER_USERNAME", "admin")
-DEMO_USERNAME = os.getenv("DEMO_USERNAME", "demo")
 
 
 def get_user_by_id(user_id):

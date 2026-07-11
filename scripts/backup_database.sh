@@ -3,7 +3,14 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${ENV_FILE:-$PROJECT_DIR/apps/flask/.env}"
+APP_ENV="${APP_ENV:-development}"
+DEFAULT_ENV_FILE="$PROJECT_DIR/.env.$APP_ENV"
+LEGACY_ENV_FILE="$PROJECT_DIR/apps/flask/.env"
+ENV_FILE="${ENV_FILE:-$DEFAULT_ENV_FILE}"
+
+if [[ ! -f "$ENV_FILE" && "$ENV_FILE" == "$DEFAULT_ENV_FILE" && -f "$LEGACY_ENV_FILE" ]]; then
+    ENV_FILE="$LEGACY_ENV_FILE"
+fi
 
 if [[ -f "$ENV_FILE" ]]; then
     set -a
@@ -16,8 +23,8 @@ CONTAINER_NAME="${CONTAINER_NAME:-${DB_CONTAINER_NAME:-postgresql}}"
 BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups/database}"
 RETENTION_DAYS="${RETENTION_DAYS:-${BACKUP_RETENTION_DAYS:-30}}"
 
-: "${DB_NAME:?DB_NAME must be set in apps/flask/.env}"
-: "${DB_USER:?DB_USER must be set in apps/flask/.env}"
+: "${DB_NAME:?DB_NAME must be set in the active env file}"
+: "${DB_USER:?DB_USER must be set in the active env file}"
 
 TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
 BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump"

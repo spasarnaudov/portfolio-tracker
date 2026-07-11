@@ -60,7 +60,7 @@ The backup script:
 - creates a custom-format PostgreSQL dump in `backups/database/`
 - removes database backups older than `RETENTION_DAYS`
 - runs `scripts/verify_backup.sh` against the created dump
-- loads deploy settings from `apps/flask/.env`
+- loads deploy settings from `.env.development` by default, or from `ENV_FILE`
 
 Backup files are runtime artifacts and must not be committed to git.
 
@@ -96,7 +96,7 @@ The verification script checks that:
 
 ## Env Backups
 
-Create a backup of `apps/flask/.env` manually:
+Create a backup of the active environment file manually:
 
 ```bash
 ./scripts/backup_env.sh
@@ -104,7 +104,7 @@ Create a backup of `apps/flask/.env` manually:
 
 The env backup script:
 
-- loads settings from `apps/flask/.env`
+- loads settings from `.env.development` by default, or from `ENV_FILE`
 - copies the env file to `backups/env/`
 - stores the backup with file permissions `600`
 - removes env backups older than `ENV_BACKUP_RETENTION_DAYS`
@@ -117,6 +117,13 @@ ENV_BACKUP_RETENTION_DAYS=30
 ```
 
 Env backup files contain secrets and must not be committed to git.
+
+To back up a different environment file, pass `APP_ENV` or `ENV_FILE`:
+
+```bash
+APP_ENV=staging ./scripts/backup_env.sh
+ENV_FILE=/home/spas/Projects/portfolio-tracker/.env.production ./scripts/backup_env.sh
+```
 
 ## Backup Cron
 
@@ -135,7 +142,7 @@ Run the database backup every night at 03:00:
 With explicit deploy settings:
 
 ```cron
-0 3 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/apps/flask/.env ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
+0 3 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/.env.production ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
 ```
 
 Logs are written to:
@@ -153,7 +160,7 @@ Run the env backup every night at 03:00:
 With explicit deploy settings:
 
 ```cron
-0 3 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/apps/flask/.env ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
+0 3 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/.env.production ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
 ```
 
 Env backup logs are written to:

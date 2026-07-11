@@ -3,7 +3,14 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${ENV_FILE:-$PROJECT_DIR/apps/flask/.env}"
+APP_ENV="${APP_ENV:-development}"
+DEFAULT_ENV_FILE="$PROJECT_DIR/.env.$APP_ENV"
+LEGACY_ENV_FILE="$PROJECT_DIR/apps/flask/.env"
+ENV_FILE="${ENV_FILE:-$DEFAULT_ENV_FILE}"
+
+if [[ ! -f "$ENV_FILE" && "$ENV_FILE" == "$DEFAULT_ENV_FILE" && -f "$LEGACY_ENV_FILE" ]]; then
+    ENV_FILE="$LEGACY_ENV_FILE"
+fi
 
 if [[ -f "$ENV_FILE" ]]; then
     set -a

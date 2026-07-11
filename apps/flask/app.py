@@ -1,8 +1,5 @@
-import hashlib
-import os
 import secrets
 from datetime import datetime, timedelta
-from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
@@ -10,6 +7,18 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
 from chart_settings import load_chart_filters, save_chart_filters
+from config import (
+    DEBUG,
+    DEMO_USERNAME,
+    HOST,
+    LOG_LEVEL,
+    PORT,
+    PROJECT_ROOT,
+    ROLE_MANAGER_USERNAME,
+    SECRET_KEY,
+    SESSION_COOKIE_NAME,
+    SESSION_TIMEOUT_MINUTES,
+)
 from repository import (
     create_user,
     get_asset_by_id,
@@ -46,31 +55,11 @@ from tavex_import import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.getenv("APP_SECRET_KEY")
-if not app.secret_key:
-    raise RuntimeError("APP_SECRET_KEY must be set in apps/flask/.env")
+app.secret_key = SECRET_KEY
+app.config["SESSION_COOKIE_NAME"] = SESSION_COOKIE_NAME
+app.logger.setLevel(LOG_LEVEL)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-
-def get_default_session_cookie_name():
-    project_hash = hashlib.sha256(str(PROJECT_ROOT).encode()).hexdigest()[:12]
-    return f"portfolio_tracker_{project_hash}_session"
-
-
-app.config["SESSION_COOKIE_NAME"] = (
-    os.getenv("SESSION_COOKIE_NAME") or get_default_session_cookie_name()
-)
-
-
-def get_session_timeout_minutes():
-    try:
-        return max(1, int(os.getenv("SESSION_TIMEOUT_MINUTES", "5")))
-    except ValueError:
-        return 5
-
-
-SESSION_TIMEOUT = timedelta(minutes=get_session_timeout_minutes())
+SESSION_TIMEOUT = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 app.permanent_session_lifetime = SESSION_TIMEOUT
 
 TAVEX_IMPORT_LOG_PATH = PROJECT_ROOT / "logs" / "tavex_import.log"
@@ -99,8 +88,6 @@ ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
 }
 PASSIVE_SESSION_ENDPOINTS = {"session_status", "static"}
 VALID_USER_ROLES = {"admin", "user", "demo"}
-ROLE_MANAGER_USERNAME = os.getenv("ROLE_MANAGER_USERNAME", "admin").lower()
-DEMO_USERNAME = os.getenv("DEMO_USERNAME", "demo").lower()
 
 
 def is_admin(user):
@@ -1064,4 +1051,4 @@ def charts():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host=HOST, port=PORT, debug=DEBUG)

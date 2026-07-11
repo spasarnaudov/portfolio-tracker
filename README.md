@@ -69,7 +69,8 @@ The current version includes:
 
 Some application state is intentionally stored locally and is not committed:
 
-- `apps/flask/.env` stores database credentials.
+- `.env.development`, `.env.test`, `.env.staging`, and `.env.production`
+  store environment-specific settings and secrets.
 - `runtime/chart_filters.json` stores the selected chart layout and filters.
 - `runtime/auto_tavex_import.enabled` controls whether the cron import is active.
 - `logs/tavex_import.log` stores automatic import output.
@@ -80,40 +81,46 @@ Some application state is intentionally stored locally and is not committed:
 
 ## Useful Commands
 
-Run the Flask app from the project root:
+Create a local environment file from an example:
 
 ```bash
-cd apps/flask
-.venv/bin/python app.py
+cp .env.development.example .env.development
+```
+
+Run the Flask development server from the project root:
+
+```bash
+APP_ENV=development apps/flask/.venv/bin/python apps/flask/app.py
+```
+
+Run the app against the test environment:
+
+```bash
+APP_ENV=test apps/flask/.venv/bin/python apps/flask/app.py
 ```
 
 Run a manual Tavex import:
 
 ```bash
-apps/flask/.venv/bin/python scripts/import_tavex_prices.py
+APP_ENV=development apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 ```
 
-Load local environment variables before running database commands:
+Load an environment file before running database commands:
 
 ```bash
 set -a
-. apps/flask/.env
+. .env.development
 set +a
 ```
 
-Run schema migration for timestamp prices on an existing database:
+Run schema migrations on the active database:
 
 ```bash
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/002_price_date_to_timestamp.sql
-```
-
-Run newer portfolio migrations on an existing database:
-
-```bash
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/003_create_portfolio_holdings.sql
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/004_create_portfolio_manual_items.sql
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/005_create_portfolio_cash_items.sql
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/006_create_users.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/002_price_date_to_timestamp.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/003_create_portfolio_holdings.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/004_create_portfolio_manual_items.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/005_create_portfolio_cash_items.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/006_create_users.sql
 ```
 
 Create or update an application user from the terminal:
@@ -126,24 +133,97 @@ Assign existing portfolio data to the initial user:
 
 ```bash
 apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME" --password "$INITIAL_ADMIN_PASSWORD" --role admin
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/008_add_user_roles.sql
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/009_rename_demo_user.sql
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/010_add_user_session_tracking.sql
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/schema/011_rename_spas_user.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/008_add_user_roles.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/009_rename_demo_user.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/010_add_user_session_tracking.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/011_rename_spas_user.sql
 ```
 
 Create a demo user and seed demo portfolio data:
 
 ```bash
 apps/flask/.venv/bin/python scripts/create_user.py "$DEMO_USERNAME" --password "$DEMO_PASSWORD" --role demo
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/seed/002_seed_demo_portfolio.sql
+psql "$DATABASE_URL" -f database/postgresql/seed/002_seed_demo_portfolio.sql
 ```
 
 Create or update the role-management account:
 
 ```bash
 apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --password "$ROLE_MANAGER_PASSWORD" --role admin
+```
+
+## Environments
+
+The same application code is used in every environment. Differences come from
+environment variables loaded from one of these local files:
+
+- `.env.development`
+- `.env.test`
+- `.env.staging`
+- `.env.production`
+
+The real files are ignored by git. Use the committed examples as templates:
+
+```bash
+cp .env.development.example .env.development
+cp .env.test.example .env.test
+cp .env.staging.example .env.staging
+cp .env.production.example .env.production
+```
+
+Each file must point to its own database through `DATABASE_URL`:
+
+- development: `portfolio_tracker_development`
+- test: `portfolio_tracker_test`
+- staging: `portfolio_tracker_staging`
+- production: `portfolio_tracker_production`
+
+## Docker
+
+Build one image:
+
+```bash
+docker build -t portfolio-tracker:1.0.0 .
+```
+
+Run the same image with different environment files:
+
+```bash
+docker run --env-file .env.staging -p 5002:5000 portfolio-tracker:1.0.0
+docker run --env-file .env.production -p 5003:5000 portfolio-tracker:1.0.0
+```
+
+Staging and production use Gunicorn from the Docker image default command.
+Development can use the Flask debug server:
+
+```bash
+APP_ENV=development apps/flask/.venv/bin/python apps/flask/app.py
+```
+
+Docker Compose profiles:
+
+```bash
+docker compose --profile development up --build
+docker compose --profile test up --build
+docker compose --profile staging up --build
+docker compose --profile production up --build
+```
+
+Start commands by environment:
+
+```bash
+# development
+APP_ENV=development apps/flask/.venv/bin/python apps/flask/app.py
+
+# test
+APP_ENV=test apps/flask/.venv/bin/python apps/flask/app.py
+
+# staging
+docker run --env-file .env.staging -p 5002:5000 portfolio-tracker:1.0.0
+
+# production
+docker run --env-file .env.production -p 5003:5000 portfolio-tracker:1.0.0
 ```
 
 Role behavior:
@@ -160,7 +240,7 @@ Users can be activated or deactivated from the Users page. The `demo` account,
 the currently logged-in user, and the special `admin` account cannot be
 deactivated from that page.
 
-Sessions use `SESSION_TIMEOUT_MINUTES` from `apps/flask/.env`. When there is no
+Sessions use `SESSION_TIMEOUT_MINUTES` from the active environment file. When there is no
 user activity for that many minutes, the user is logged out. A user can have
 only one active session in the same environment; a new login asks whether to log
 out the existing session first.

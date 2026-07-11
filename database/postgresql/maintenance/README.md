@@ -6,9 +6,9 @@ Load local environment variables and run this command from the project root:
 
 ```bash
 set -a
-. apps/flask/.env
+. .env.development
 set +a
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/maintenance/001_truncate_all_data.sql
+psql "$DATABASE_URL" -f database/postgresql/maintenance/001_truncate_all_data.sql
 ```
 
 This deletes all rows from:
@@ -28,9 +28,9 @@ Run this command from the project root:
 
 ```bash
 set -a
-. apps/flask/.env
+. .env.development
 set +a
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f database/postgresql/maintenance/002_truncate_prices.sql
+psql "$DATABASE_URL" -f database/postgresql/maintenance/002_truncate_prices.sql
 ```
 
 This deletes all rows from `asset_prices` only.
