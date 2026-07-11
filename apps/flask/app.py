@@ -1,3 +1,4 @@
+import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta
@@ -49,6 +50,18 @@ app.secret_key = os.getenv("APP_SECRET_KEY")
 if not app.secret_key:
     raise RuntimeError("APP_SECRET_KEY must be set in apps/flask/.env")
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def get_default_session_cookie_name():
+    project_hash = hashlib.sha256(str(PROJECT_ROOT).encode()).hexdigest()[:12]
+    return f"portfolio_tracker_{project_hash}_session"
+
+
+app.config["SESSION_COOKIE_NAME"] = (
+    os.getenv("SESSION_COOKIE_NAME") or get_default_session_cookie_name()
+)
+
 
 def get_session_timeout_minutes():
     try:
@@ -60,7 +73,6 @@ def get_session_timeout_minutes():
 SESSION_TIMEOUT = timedelta(minutes=get_session_timeout_minutes())
 app.permanent_session_lifetime = SESSION_TIMEOUT
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TAVEX_IMPORT_LOG_PATH = PROJECT_ROOT / "logs" / "tavex_import.log"
 DEFAULT_CHART_RANGE = "1d"
 DEFAULT_CHART_INTERVAL = "recorded"

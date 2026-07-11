@@ -162,8 +162,15 @@ deactivated from that page.
 
 Sessions use `SESSION_TIMEOUT_MINUTES` from `apps/flask/.env`. When there is no
 user activity for that many minutes, the user is logged out. A user can have
-only one active session; a new login asks whether to log out the existing
-session first.
+only one active session in the same environment; a new login asks whether to log
+out the existing session first.
+
+When running two environments on the same host with different ports, the app
+uses a project-path-based default `SESSION_COOKIE_NAME`. Browsers separate
+cookies by host, not reliably by port, so separate cookie names prevent local
+environments from overwriting each other's login cookie. Set
+`SESSION_COOKIE_NAME` in `.env` only when you want an explicit stable cookie
+name for a deployment.
 
 ## Next Steps
 
