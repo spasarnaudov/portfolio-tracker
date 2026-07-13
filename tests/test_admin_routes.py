@@ -148,6 +148,31 @@ class AdminRouteTests(unittest.TestCase):
             "delete": False,
         }])
 
+    def test_portfolio_ajax_save_returns_updated_chart_without_redirect(self):
+        self._set_session()
+        price_date = datetime(2026, 7, 13, 12, 0)
+
+        with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
+                patch.object(application, "update_user_session"), \
+                patch.object(application, "save_portfolio_holdings"), \
+                patch.object(application, "save_portfolio_manual_items"), \
+                patch.object(application, "get_dashboard_summary", return_value={
+                    "latest_price_date": price_date,
+                }), \
+                patch.object(application, "get_portfolio_history", return_value=[{
+                    "price_date": price_date,
+                    "value": 123.45,
+                }]):
+            response = self.client.post(
+                "/portfolio?portfolio_range=1d&portfolio_interval=hourly",
+                data={"quantity_7": "2", "holding_include_in_chart": "7"},
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["chart_values"], [123.45])
+        self.assertEqual(response.json["portfolio_interval"], "hourly")
+
 
 if __name__ == "__main__":
     unittest.main()

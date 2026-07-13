@@ -674,6 +674,41 @@ def prices():
     )
 
 
+def get_portfolio_chart_data(user_id, portfolio_range, portfolio_interval):
+    if portfolio_range not in VALID_PORTFOLIO_RANGES:
+        portfolio_range = DEFAULT_CHART_RANGE
+
+    if portfolio_interval not in VALID_PORTFOLIO_INTERVALS:
+        portfolio_interval = "hourly"
+
+    dashboard = get_dashboard_summary()
+    portfolio_start_date, portfolio_end_date = get_chart_date_range(
+        portfolio_range,
+        dashboard["latest_price_date"],
+        None,
+        None,
+    )
+    portfolio_history = get_portfolio_history(
+        user_id,
+        portfolio_start_date,
+        portfolio_end_date,
+        portfolio_interval,
+    )
+
+    return {
+        "portfolio_range": portfolio_range,
+        "portfolio_interval": portfolio_interval,
+        "chart_labels": [
+            format_chart_label(price["price_date"], portfolio_interval)
+            for price in portfolio_history
+        ],
+        "chart_values": [
+            float(price["value"])
+            for price in portfolio_history
+        ],
+    }
+
+
 @app.route("/portfolio", methods=["GET", "POST"])
 def portfolio():
     user_id = session["user_id"]
@@ -755,32 +790,25 @@ def portfolio():
 
         save_portfolio_holdings(user_id, quantities_by_asset_id, chart_asset_ids)
         save_portfolio_manual_items(user_id, manual_items)
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(get_portfolio_chart_data(
+                user_id,
+                request.args.get("portfolio_range", DEFAULT_CHART_RANGE),
+                request.args.get("portfolio_interval", "hourly"),
+            ))
+
         return redirect(url_for("portfolio"))
 
     holdings = get_portfolio_holdings(user_id)
     manual_items = get_portfolio_manual_items(user_id)
-    dashboard = get_dashboard_summary()
-    portfolio_range = request.args.get("portfolio_range", DEFAULT_CHART_RANGE)
-    portfolio_interval = request.args.get("portfolio_interval", "hourly")
-
-    if portfolio_range not in VALID_PORTFOLIO_RANGES:
-        portfolio_range = DEFAULT_CHART_RANGE
-
-    if portfolio_interval not in VALID_PORTFOLIO_INTERVALS:
-        portfolio_interval = "hourly"
-
-    portfolio_start_date, portfolio_end_date = get_chart_date_range(
-        portfolio_range,
-        dashboard["latest_price_date"],
-        None,
-        None,
-    )
-    portfolio_history = get_portfolio_history(
+    chart_data = get_portfolio_chart_data(
         user_id,
-        portfolio_start_date,
-        portfolio_end_date,
-        portfolio_interval,
+        request.args.get("portfolio_range", DEFAULT_CHART_RANGE),
+        request.args.get("portfolio_interval", "hourly"),
     )
+    portfolio_range = chart_data["portfolio_range"]
+    portfolio_interval = chart_data["portfolio_interval"]
     tavex_gold_price_per_gram = None
     tavex_gold_buyback_prices = []
 
@@ -798,14 +826,6 @@ def portfolio():
         tavex_gold_buyback_prices = []
         tavex_gold_price_per_gram = None
 
-    chart_labels = [
-        format_chart_label(price["price_date"], portfolio_interval)
-        for price in portfolio_history
-    ]
-    chart_values = [
-        float(price["value"])
-        for price in portfolio_history
-    ]
     return render_template(
         "portfolio.html",
         holdings=holdings,
@@ -827,8 +847,8 @@ def portfolio():
             ("daily", "Daily"),
             ("weekly", "Weekly"),
         ],
-        chart_labels=chart_labels,
-        chart_values=chart_values,
+        chart_labels=chart_data["chart_labels"],
+        chart_values=chart_data["chart_values"],
     )
 
 

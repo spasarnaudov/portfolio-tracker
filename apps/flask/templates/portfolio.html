@@ -8,7 +8,7 @@
     <section class="chart-panel portfolio-chart-panel">
         <div class="chart-panel-header">
             <div class="chart-panel-controls">
-                <select class="chart-panel-select" name="portfolio_range" aria-label="Period" form="portfolioChartFilters" onchange="this.form.submit()">
+                <select class="chart-panel-select" name="portfolio_range" aria-label="Period" form="portfolioChartFilters" onchange="preservePortfolioScroll(); this.form.submit()">
                     {% for range_value, range_label in portfolio_ranges %}
                         <option value="{{ range_value }}" {% if portfolio_range == range_value %}selected{% endif %}>
                             {{ range_label }}
@@ -16,7 +16,7 @@
                     {% endfor %}
                 </select>
 
-                <select class="chart-panel-select" name="portfolio_interval" aria-label="Display" form="portfolioChartFilters" onchange="this.form.submit()">
+                <select class="chart-panel-select" name="portfolio_interval" aria-label="Display" form="portfolioChartFilters" onchange="preservePortfolioScroll(); this.form.submit()">
                     {% for interval_value, interval_label in portfolio_intervals %}
                         <option value="{{ interval_value }}" {% if portfolio_interval == interval_value %}selected{% endif %}>
                             {{ interval_label }}
@@ -31,24 +31,24 @@
             </div>
         </div>
 
-        {% if chart_values %}
-            <canvas
-                id="portfolioChart"
-                class="price-chart"
-                width="900"
-                height="360"
-                data-labels='{{ chart_labels | tojson }}'
-                data-values='{{ chart_values | tojson }}'
-                data-interval="{{ portfolio_interval }}"
-                data-value-label="Portfolio value"
-                data-select-latest="true"
-            ></canvas>
-            <p id="portfolioChartInfo" class="chart-info">
+        <canvas
+            id="portfolioChart"
+            class="price-chart"
+            width="900"
+            height="360"
+            data-labels='{{ chart_labels | tojson }}'
+            data-values='{{ chart_values | tojson }}'
+            data-interval="{{ portfolio_interval }}"
+            data-value-label="Portfolio value"
+            data-select-latest="true"
+        ></canvas>
+        <p id="portfolioChartInfo" class="chart-info">
+            {% if chart_values %}
                 Click on the chart to inspect portfolio value.
-            </p>
-        {% else %}
-            <p class="chart-info">Select portfolio items to see their history.</p>
-        {% endif %}
+            {% else %}
+                Select portfolio items to see their history.
+            {% endif %}
+        </p>
     </section>
 
     <form method="post" action="/portfolio">
@@ -300,11 +300,90 @@
     </form>
 
     <script>
+        const portfolioScrollStorageKey = "portfolio.scrollY";
+
+        function preservePortfolioScroll() {
+            sessionStorage.setItem(portfolioScrollStorageKey, String(window.scrollY));
+        }
+
+        const savedPortfolioScroll = sessionStorage.getItem(portfolioScrollStorageKey);
+        if (savedPortfolioScroll !== null) {
+            sessionStorage.removeItem(portfolioScrollStorageKey);
+            requestAnimationFrame(() => {
+                window.scrollTo(0, Number(savedPortfolioScroll));
+            });
+        }
+
         const portfolioForm = document.querySelector('form[method="post"][action="/portfolio"]');
+        const portfolioChart = document.getElementById("portfolioChart");
+        const portfolioChartInfo = document.getElementById("portfolioChartInfo");
         const showEmptyHoldingsCheckbox = document.getElementById("showEmptyHoldings");
         const emptyHoldingRows = document.querySelectorAll(".holding-empty-row");
         const hideEmptyHoldingsStorageKey = "portfolio.hideEmptyHoldings";
         let hideEmptyHoldings = localStorage.getItem(hideEmptyHoldingsStorageKey) === "true";
+        let portfolioSaveInProgress = false;
+        let portfolioSavePending = false;
+
+        async function savePortfolioInBackground() {
+            portfolioSavePending = true;
+            if (portfolioSaveInProgress) {
+                return;
+            }
+
+            portfolioSaveInProgress = true;
+
+            while (portfolioSavePending) {
+                portfolioSavePending = false;
+                const saveUrl = new URL(portfolioForm.action, window.location.href);
+                const formData = new FormData(portfolioForm);
+                saveUrl.search = window.location.search;
+                formData.delete("new_manual_item_name");
+                formData.delete("new_manual_item_quantity");
+                formData.delete("new_manual_item_unit_price");
+                formData.delete("new_manual_item_include_in_chart");
+
+                try {
+                    const response = await fetch(saveUrl, {
+                        method: "POST",
+                        body: formData,
+                        headers: {
+                            "Accept": "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Portfolio save failed with status ${response.status}`);
+                    }
+
+                    const responseType = response.headers.get("content-type") || "";
+                    if (!responseType.includes("application/json")) {
+                        preservePortfolioScroll();
+                        window.location.reload();
+                        return;
+                    }
+
+                    const chartData = await response.json();
+                    window.PriceCharts.update(
+                        portfolioChart,
+                        chartData.chart_labels,
+                        chartData.chart_values,
+                        chartData.portfolio_interval
+                    );
+                } catch (error) {
+                    console.error(error);
+                    portfolioSavePending = false;
+                    portfolioChartInfo.textContent = "The changes could not be saved. Please try again.";
+                }
+            }
+
+            portfolioSaveInProgress = false;
+        }
+
+        function submitPortfolioWithScrollPreserved() {
+            preservePortfolioScroll();
+            portfolioForm.submit();
+        }
 
         function applyHideEmptyHoldingsPreference() {
             emptyHoldingRows.forEach((row) => {
@@ -333,8 +412,10 @@
                     unitPriceInput.value = priceSelect.value;
 
                     const newItemName = row.querySelector('[name="new_manual_item_name"]');
-                    if (!newItemName || newItemName.value.trim()) {
-                        portfolioForm.requestSubmit();
+                    if (newItemName && newItemName.value.trim()) {
+                        submitPortfolioWithScrollPreserved();
+                    } else if (!newItemName) {
+                        savePortfolioInBackground();
                     }
                 }
             });
@@ -369,7 +450,7 @@
                 if (input.matches('[name^="quantity_"], [name="manual_item_quantity"]')) {
                     syncChartCheckboxWithQuantity(input);
                 }
-                portfolioForm.requestSubmit();
+                savePortfolioInBackground();
             });
         });
 
@@ -386,7 +467,7 @@
         if (newManualItemName) {
             newManualItemName.addEventListener("change", () => {
                 if (newManualItemName.value.trim()) {
-                    portfolioForm.requestSubmit();
+                    submitPortfolioWithScrollPreserved();
                 }
             });
         }
@@ -413,7 +494,7 @@
 
             checkbox.addEventListener("change", () => {
                 updateSelectAllCheckbox(checkbox.closest("table"));
-                checkbox.form.requestSubmit();
+                savePortfolioInBackground();
             });
         });
 
@@ -430,7 +511,7 @@
                     checkbox.checked = selectAllCheckbox.checked;
                 });
                 selectAllCheckbox.indeterminate = false;
-                portfolioForm.requestSubmit();
+                savePortfolioInBackground();
             });
         });
 
@@ -443,7 +524,7 @@
 
                 if (deleteInput && deleteMarker && confirm(`Remove ${itemName}?`)) {
                     deleteInput.value = deleteMarker.value;
-                    button.form.submit();
+                    submitPortfolioWithScrollPreserved();
                 }
             });
         });
