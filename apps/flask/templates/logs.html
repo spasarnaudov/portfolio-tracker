@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Portfolio Tracker{% endblock %}
+{% block body_class %}logs-page{% endblock %}
+
+{% block content %}
+    <section class="logs-panel">
+        {% if not log_directory_exists %}
+            <p class="empty-logs-message">Log directory not found.</p>
+        {% elif not log_files %}
+            <p class="empty-logs-message">No log files found.</p>
+        {% else %}
+            <div class="log-tabs" role="tablist" aria-label="Log files">
+                {% for log in log_files %}
+                    <button
+                        class="log-tab{% if loop.first %} active{% endif %}"
+                        id="log-tab-{{ loop.index }}"
+                        type="button"
+                        role="tab"
+                        aria-selected="{{ 'true' if loop.first else 'false' }}"
+                        aria-controls="log-panel-{{ loop.index }}"
+                        data-log-tab="{{ loop.index }}"
+                    >{{ log.label }}</button>
+                {% endfor %}
+            </div>
+
+            {% for log in log_files %}
+                <article
+                    class="log-viewer{% if loop.first %} active{% endif %}"
+                    id="log-panel-{{ loop.index }}"
+                    role="tabpanel"
+                    aria-labelledby="log-tab-{{ loop.index }}"
+                    data-log-panel="{{ loop.index }}"
+                    {% if not loop.first %}hidden{% endif %}
+                >
+                    <div class="log-meta">
+                        <span>File: <strong>{{ log.name }}</strong></span>
+                        {% if log.modified_at %}
+                            <span>Last modified: {{ log.modified_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        {% endif %}
+                        {% if not log.error %}
+                            <span>Showing last {{ log.displayed_lines }} of {{ log.total_lines }} lines (limit {{ log_max_lines }})</span>
+                        {% endif %}
+                    </div>
+
+                    {% if log.error %}
+                        <p class="log-error">{{ log.error }}</p>
+                    {% else %}
+                        <pre class="log-content" data-axis-locked-scroll>{{ log.content }}</pre>
+                    {% endif %}
+                </article>
+            {% endfor %}
+        {% endif %}
+    </section>
+
+    <script>
+        function scrollLogToBottom(panel) {
+            const content = panel && panel.querySelector(".log-content");
+
+            if (content) {
+                content.scrollTop = content.scrollHeight;
+                content.scrollLeft = 0;
+            }
+        }
+
+        document.querySelectorAll("[data-log-tab]").forEach((tab) => {
+            tab.addEventListener("click", () => {
+                document.querySelectorAll("[data-log-tab]").forEach((item) => {
+                    const isActive = item === tab;
+                    item.classList.toggle("active", isActive);
+                    item.setAttribute("aria-selected", String(isActive));
+                });
+
+                document.querySelectorAll("[data-log-panel]").forEach((panel) => {
+                    const isActive = panel.dataset.logPanel === tab.dataset.logTab;
+                    panel.classList.toggle("active", isActive);
+                    panel.hidden = !isActive;
+
+                    if (isActive) {
+                        scrollLogToBottom(panel);
+                    }
+                });
+            });
+        });
+
+        scrollLogToBottom(document.querySelector("[data-log-panel].active"));
+    </script>
+{% endblock %}

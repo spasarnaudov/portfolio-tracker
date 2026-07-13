@@ -1,0 +1,94 @@
+import os
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import patch
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+FLASK_APP_DIRECTORY = PROJECT_ROOT / "apps" / "flask"
+sys.path.insert(0, str(FLASK_APP_DIRECTORY))
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("APP_ENV", "test")
+
+import app as application
+
+
+class AdminRouteTests(unittest.TestCase):
+    def setUp(self):
+        application.app.config.update(TESTING=True, SECRET_KEY="test-secret-key")
+        self.client = application.app.test_client()
+
+    def _set_session(self):
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["username"] = "tester"
+            session["session_token"] = "token"
+
+    def _user(self, role):
+        return {
+            "id": 1,
+            "username": "tester",
+            "role": role,
+            "is_active": True,
+            "active_session_token": "token",
+            "active_session_expires_at": datetime.now() + timedelta(minutes=5),
+        }
+
+    def _get_as(self, path, role):
+        self._set_session()
+        with patch.object(application, "get_user_by_id", return_value=self._user(role)), \
+                patch.object(application, "update_user_session"):
+            return self.client.get(path)
+
+    def test_unauthenticated_user_is_redirected_from_admin_pages(self):
+        for path in ("/admin/users", "/admin/logs"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 302)
+            self.assertIn("/login", response.location)
+
+    def test_non_admin_is_redirected_from_admin_pages(self):
+        for path in ("/admin/users", "/admin/logs"):
+            response = self._get_as(path, "user")
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.location.endswith("/portfolio"))
+
+    def test_admin_can_view_users(self):
+        with patch.object(application, "get_users", return_value=[]):
+            response = self._get_as("/admin/users", "admin")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Users", response.data)
+
+    def test_admin_can_view_logs_and_content_is_html_escaped(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            (root / "logs").mkdir()
+            (root / "logs" / "audit.log").write_text("<script>alert(1)</script>\n", encoding="utf-8")
+
+            with patch.object(application, "PROJECT_ROOT", root):
+                response = self._get_as("/admin/logs", "admin")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"audit.log", response.data)
+        self.assertIn(b"&lt;script&gt;", response.data)
+        self.assertNotIn(b"<script>alert(1)</script>", response.data)
+
+    def test_missing_and_empty_log_directories_have_messages(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            with patch.object(application, "PROJECT_ROOT", root):
+                missing_response = self._get_as("/admin/logs", "admin")
+
+            (root / "logs").mkdir()
+            with patch.object(application, "PROJECT_ROOT", root):
+                empty_response = self._get_as("/admin/logs", "admin")
+
+        self.assertIn(b"Log directory not found.", missing_response.data)
+        self.assertIn(b"No log files found.", empty_response.data)
+
+
+if __name__ == "__main__":
+    unittest.main()

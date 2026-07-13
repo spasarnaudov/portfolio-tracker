@@ -172,7 +172,8 @@ main {
     padding: 0 24px;
 }
 
-.users-page {
+.users-page,
+.logs-page {
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -181,11 +182,13 @@ main {
     overflow: hidden;
 }
 
-.users-page .site-header {
+.users-page .site-header,
+.logs-page .site-header {
     flex: 0 0 auto;
 }
 
-.users-page main {
+.users-page main,
+.logs-page main {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -194,6 +197,129 @@ main {
     overflow: hidden;
     padding: 12px 24px;
     width: 100%;
+}
+
+.logs-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.log-tabs {
+    display: flex;
+    gap: 6px;
+    flex: 0 0 auto;
+    margin: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-bottom: 6px;
+}
+
+.log-tab {
+    border: 1px solid #bcccdc;
+    border-radius: 8px 8px 0 0;
+    background: #edf2f7;
+    color: #334e68;
+    cursor: pointer;
+    flex: 0 0 auto;
+    font: inherit;
+    font-weight: 700;
+    padding: 8px 12px;
+}
+
+.log-tab.active {
+    border-color: #0b5cad;
+    background: #0b5cad;
+    color: #ffffff;
+}
+
+.log-viewer {
+    background: #ffffff;
+    border: 1px solid #d9e2ec;
+    border-radius: 0 8px 8px 8px;
+    box-shadow: 0 8px 22px rgba(31, 41, 51, 0.06);
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    padding: 14px;
+}
+
+.log-viewer.active {
+    display: flex;
+}
+
+.log-meta {
+    color: #52606d;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 14px;
+    gap: 6px 18px;
+    margin-bottom: 12px;
+}
+
+.log-content {
+    background: #17212b;
+    border-radius: 6px;
+    color: #e6edf3;
+    flex: 1 1 auto;
+    font: 13px/1.5 Consolas, Monaco, monospace;
+    margin: 0;
+    min-height: 0;
+    min-width: 0;
+    overflow: scroll;
+    padding: 14px;
+    user-select: none;
+    -webkit-user-select: none;
+    white-space: pre;
+}
+
+[data-axis-locked-scroll] {
+    overscroll-behavior: contain;
+    scrollbar-color: #9fb3c8 #f0f4f8;
+    scrollbar-gutter: stable both-edges;
+    scrollbar-width: thin;
+    touch-action: none;
+}
+
+[data-axis-locked-scroll]::-webkit-scrollbar {
+    height: 12px;
+    width: 12px;
+}
+
+[data-axis-locked-scroll]::-webkit-scrollbar-track {
+    background: #f0f4f8;
+}
+
+[data-axis-locked-scroll]::-webkit-scrollbar-thumb {
+    background: #9fb3c8;
+    border: 3px solid #f0f4f8;
+    border-radius: 999px;
+}
+
+[data-axis-locked-scroll]::-webkit-scrollbar-thumb:hover {
+    background: #829ab1;
+}
+
+.empty-logs-message,
+.log-error {
+    background: #ffffff;
+    border: 1px solid #d9e2ec;
+    border-radius: 8px;
+    color: #52606d;
+    padding: 14px;
+}
+
+.log-error {
+    color: #b42318;
+}
+
+@media (max-width: 600px) {
+    .log-viewer {
+        padding: 10px;
+    }
 }
 
 h2 {

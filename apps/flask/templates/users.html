@@ -6,7 +6,7 @@
 {% block content %}
     <form id="usersForm" class="users-panel" method="post" action="{{ url_for('save_users') }}">
         <section class="data-table-card users-table-card">
-            <div class="data-table-scroll">
+            <div class="data-table-scroll" data-axis-locked-scroll>
                 <table class="data-table users-table">
                     <thead>
                         <tr>
@@ -68,110 +68,6 @@
 
     <script>
         const usersForm = document.getElementById("usersForm");
-        const usersTableScroll = document.querySelector(".data-table-scroll");
-
-        function setupAxisLockedScroll(scroller) {
-            if (!scroller) {
-                return;
-            }
-
-            let touchStartX = 0;
-            let touchStartY = 0;
-            let touchStartScrollLeft = 0;
-            let touchStartScrollTop = 0;
-            let touchAxis = null;
-            let pendingScrollLeft = 0;
-            let pendingScrollTop = 0;
-            let animationFrameId = null;
-
-            function applyPendingScroll() {
-                if (touchAxis === "x") {
-                    scroller.scrollLeft = pendingScrollLeft;
-                } else if (touchAxis === "y") {
-                    scroller.scrollTop = pendingScrollTop;
-                }
-
-                animationFrameId = null;
-            }
-
-            function requestScrollUpdate() {
-                if (animationFrameId !== null) {
-                    return;
-                }
-
-                animationFrameId = window.requestAnimationFrame(applyPendingScroll);
-            }
-
-            scroller.addEventListener("wheel", (event) => {
-                const absDeltaX = Math.abs(event.deltaX);
-                const absDeltaY = Math.abs(event.deltaY);
-
-                if (absDeltaX === 0 && absDeltaY === 0) {
-                    return;
-                }
-
-                event.preventDefault();
-
-                if (absDeltaX > absDeltaY) {
-                    scroller.scrollLeft += event.deltaX;
-                } else {
-                    scroller.scrollTop += event.deltaY;
-                }
-            }, { passive: false });
-
-            scroller.addEventListener("touchstart", (event) => {
-                if (event.touches.length !== 1) {
-                    return;
-                }
-
-                const touch = event.touches[0];
-
-                touchStartX = touch.clientX;
-                touchStartY = touch.clientY;
-                touchStartScrollLeft = scroller.scrollLeft;
-                touchStartScrollTop = scroller.scrollTop;
-                touchAxis = null;
-            }, { passive: true });
-
-            scroller.addEventListener("touchmove", (event) => {
-                if (event.touches.length !== 1) {
-                    return;
-                }
-
-                const touch = event.touches[0];
-                const deltaX = touch.clientX - touchStartX;
-                const deltaY = touch.clientY - touchStartY;
-
-                if (!touchAxis && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 6) {
-                    touchAxis = Math.abs(deltaX) > Math.abs(deltaY) ? "x" : "y";
-                }
-
-                if (!touchAxis) {
-                    return;
-                }
-
-                event.preventDefault();
-
-                if (touchAxis === "x") {
-                    pendingScrollLeft = touchStartScrollLeft - deltaX;
-                } else {
-                    pendingScrollTop = touchStartScrollTop - deltaY;
-                }
-
-                requestScrollUpdate();
-            }, { passive: false });
-
-            scroller.addEventListener("touchend", () => {
-                if (animationFrameId !== null) {
-                    window.cancelAnimationFrame(animationFrameId);
-                    applyPendingScroll();
-                }
-
-                touchAxis = null;
-            });
-        }
-
-        setupAxisLockedScroll(usersTableScroll);
 
         document.querySelectorAll(".users-table select").forEach((select) => {
             select.addEventListener("change", () => {

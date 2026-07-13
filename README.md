@@ -145,6 +145,16 @@ Create or update the role-management account:
 apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --password "$ROLE_MANAGER_PASSWORD" --role admin
 ```
 
+## Admin dashboards
+
+Users with the `admin` role can access the `Users` and `Logs` dashboards from
+the main navigation. Both pages require an authenticated admin account. The
+Users dashboard uses the existing role and account-status management features.
+
+The Logs dashboard reads regular `.log` files directly from the project-level
+`logs/` directory and displays at most the last 500 lines of each file. Log
+files are runtime data and are excluded from Git by `.gitignore`.
+
 ## Environments
 
 The same application code is used in every environment. Differences come from

@@ -48,6 +48,7 @@ from repository import (
     update_user_role,
     update_user_session,
 )
+from log_reader import LOG_MAX_LINES, get_log_files
 from tavex_import import (
     current_timestamp,
     get_tavex_gold_buyback_prices,
@@ -72,6 +73,7 @@ VALID_PORTFOLIO_INTERVALS = {"hourly", "daily", "weekly"}
 PUBLIC_ENDPOINTS = {"login", "register", "static"}
 ADMIN_ENDPOINTS = {
     "home",
+    "logs",
     "toggle_auto_tavex_import",
     "categories",
     "assets",
@@ -80,6 +82,7 @@ ADMIN_ENDPOINTS = {
 }
 USER_MANAGEMENT_ENDPOINTS = {"users", "save_users"}
 ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
+    "logs",
     "change_password",
     "logout",
     "session_activity",
@@ -245,10 +248,7 @@ def require_login():
             if is_demo_user(user) and request.endpoint == "change_password":
                 return redirect(url_for("portfolio"))
 
-            if request.endpoint in USER_MANAGEMENT_ENDPOINTS and not is_role_manager(user):
-                if is_admin(user):
-                    return redirect(url_for("home"))
-
+            if request.endpoint in USER_MANAGEMENT_ENDPOINTS and not is_admin(user):
                 return redirect(url_for("portfolio"))
 
             if request.endpoint in ADMIN_ENDPOINTS and not is_admin(user):
@@ -610,6 +610,7 @@ def change_password():
 
 
 @app.route("/users")
+@app.route("/admin/users")
 def users():
     return render_template(
         "users.html",
@@ -623,6 +624,7 @@ def users():
 
 
 @app.route("/users/save", methods=["POST"])
+@app.route("/admin/users/save", methods=["POST"])
 def save_users():
     user_ids = request.form.getlist("user_id")
     active_user_ids = set(request.form.getlist("is_active"))
@@ -644,6 +646,17 @@ def save_users():
         update_user_active_status(user_id, str(user_id) in active_user_ids)
 
     return redirect(url_for("users"))
+
+
+@app.route("/admin/logs")
+def logs():
+    log_directory = PROJECT_ROOT / "logs"
+    return render_template(
+        "logs.html",
+        log_directory_exists=log_directory.is_dir(),
+        log_files=get_log_files(log_directory),
+        log_max_lines=LOG_MAX_LINES,
+    )
 
 
 @app.route("/")

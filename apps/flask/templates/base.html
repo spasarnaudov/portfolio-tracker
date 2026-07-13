@@ -25,6 +25,10 @@
                     {% if current_user.role == 'admin' and current_user.username|lower != role_manager_username %}
                         <a class="{% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a>
                     {% endif %}
+                    {% if current_user.role == 'admin' %}
+                        <a class="{% if request.path.startswith('/admin/users') or request.path == '/users' %}active{% endif %}" href="{{ url_for('users') }}">Users</a>
+                        <a class="{% if request.path.startswith('/admin/logs') %}active{% endif %}" href="{{ url_for('logs') }}">Logs</a>
+                    {% endif %}
                     {% if current_user.username|lower != role_manager_username %}
                         <a class="{% if request.path.startswith('/portfolio') %}active{% endif %}" href="/portfolio">Portfolio</a>
                         <a class="{% if request.path.startswith('/charts') %}active{% endif %}" href="/charts">Charts</a>
@@ -64,6 +68,136 @@
     {% endif %}
 
     <script>
+        function setupAxisLockedScroll(scroller) {
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchStartScrollLeft = 0;
+            let touchStartScrollTop = 0;
+            let touchAxis = null;
+            let pendingScrollLeft = 0;
+            let pendingScrollTop = 0;
+            let animationFrameId = null;
+            let wheelAxis = null;
+            let wheelEndTimer = null;
+            let activePointerId = null;
+
+            function applyPendingScroll() {
+                if (touchAxis === "x") {
+                    scroller.scrollLeft = pendingScrollLeft;
+                    scroller.scrollTop = touchStartScrollTop;
+                } else if (touchAxis === "y") {
+                    scroller.scrollLeft = touchStartScrollLeft;
+                    scroller.scrollTop = pendingScrollTop;
+                }
+                animationFrameId = null;
+            }
+
+            function requestScrollUpdate() {
+                if (animationFrameId === null) {
+                    animationFrameId = window.requestAnimationFrame(applyPendingScroll);
+                }
+            }
+
+            scroller.addEventListener("wheel", (event) => {
+                const absDeltaX = Math.abs(event.deltaX);
+                const absDeltaY = Math.abs(event.deltaY);
+
+                if (absDeltaX === 0 && absDeltaY === 0) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                if (!wheelAxis) {
+                    wheelAxis = absDeltaX > absDeltaY ? "x" : "y";
+                }
+
+                window.clearTimeout(wheelEndTimer);
+                wheelEndTimer = window.setTimeout(() => {
+                    wheelAxis = null;
+                    wheelEndTimer = null;
+                }, 150);
+
+                if (wheelAxis === "x") {
+                    const lockedScrollTop = scroller.scrollTop;
+                    scroller.scrollLeft += event.deltaX;
+                    scroller.scrollTop = lockedScrollTop;
+                } else {
+                    const lockedScrollLeft = scroller.scrollLeft;
+                    scroller.scrollTop += event.deltaY;
+                    scroller.scrollLeft = lockedScrollLeft;
+                }
+            }, { passive: false });
+
+            scroller.addEventListener("pointerdown", (event) => {
+                if (event.pointerType === "mouse" || activePointerId !== null) {
+                    return;
+                }
+
+                activePointerId = event.pointerId;
+                scroller.setPointerCapture(event.pointerId);
+                touchStartX = event.clientX;
+                touchStartY = event.clientY;
+                touchStartScrollLeft = scroller.scrollLeft;
+                touchStartScrollTop = scroller.scrollTop;
+                pendingScrollLeft = touchStartScrollLeft;
+                pendingScrollTop = touchStartScrollTop;
+                touchAxis = null;
+
+                if (scroller.classList.contains("log-content")) {
+                    event.preventDefault();
+                }
+            });
+
+            scroller.addEventListener("pointermove", (event) => {
+                if (event.pointerId !== activePointerId) {
+                    return;
+                }
+
+                const deltaX = event.clientX - touchStartX;
+                const deltaY = event.clientY - touchStartY;
+
+                if (!touchAxis && Math.max(Math.abs(deltaX), Math.abs(deltaY)) > 6) {
+                    touchAxis = Math.abs(deltaX) > Math.abs(deltaY) ? "x" : "y";
+                }
+
+                if (!touchAxis) {
+                    return;
+                }
+
+                event.preventDefault();
+                if (touchAxis === "x") {
+                    pendingScrollLeft = touchStartScrollLeft - deltaX;
+                } else {
+                    pendingScrollTop = touchStartScrollTop - deltaY;
+                }
+                requestScrollUpdate();
+            });
+
+            function finishPointerScroll(event) {
+                if (event.pointerId !== activePointerId) {
+                    return;
+                }
+
+                if (animationFrameId !== null) {
+                    window.cancelAnimationFrame(animationFrameId);
+                    applyPendingScroll();
+                }
+
+                if (scroller.hasPointerCapture(event.pointerId)) {
+                    scroller.releasePointerCapture(event.pointerId);
+                }
+
+                activePointerId = null;
+                touchAxis = null;
+            }
+
+            scroller.addEventListener("pointerup", finishPointerScroll);
+            scroller.addEventListener("pointercancel", finishPointerScroll);
+        }
+
+        document.querySelectorAll("[data-axis-locked-scroll]").forEach(setupAxisLockedScroll);
+
         function scrollActiveNavLinkIntoView() {
             const activeNavLink = document.querySelector(".site-nav a.active");
 
