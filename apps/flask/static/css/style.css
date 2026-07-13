@@ -276,6 +276,47 @@ main {
     white-space: pre;
 }
 
+.login-history-scroll {
+    flex: 1 1 auto;
+}
+
+.login-history-toolbar {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.login-history-toolbar label {
+    font-weight: 700;
+}
+
+.login-history-toolbar select {
+    border: 1px solid #bcccdc;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1f2933;
+    font: inherit;
+    min-width: 180px;
+    padding: 7px 10px;
+}
+
+.login-history-table th,
+.login-history-table td {
+    white-space: nowrap;
+}
+
+.empty-login-history {
+    color: #52606d;
+    margin: 0;
+}
+
+.log-file-status {
+    flex: 0 0 auto;
+    margin: 8px 0 0;
+}
+
 [data-axis-locked-scroll] {
     overscroll-behavior: contain;
     scrollbar-color: #9fb3c8 #f0f4f8;
@@ -984,9 +1025,9 @@ h2 {
     border: 0;
     border-collapse: separate;
     border-spacing: 0;
-    min-width: 760px;
-    table-layout: fixed;
-    width: 100%;
+    min-width: 100%;
+    table-layout: auto;
+    width: max-content;
 }
 
 .data-table th,
@@ -995,6 +1036,7 @@ h2 {
     padding: 11px 14px;
     text-align: left;
     vertical-align: middle;
+    white-space: nowrap;
 }
 
 .data-table th {
@@ -1023,25 +1065,17 @@ h2 {
 
 .users-table th:nth-child(1),
 .users-table td:nth-child(1) {
-    width: 34%;
     font-weight: 700;
-}
-
-.users-table th:nth-child(2),
-.users-table td:nth-child(2) {
-    width: 22%;
 }
 
 .users-table th:nth-child(3),
 .users-table td:nth-child(3) {
     text-align: center;
-    width: 10%;
 }
 
-.users-table th:nth-child(4),
-.users-table td:nth-child(4) {
+.users-table th:nth-child(n+4),
+.users-table td:nth-child(n+4) {
     color: #52606d;
-    width: 34%;
 }
 
 table {

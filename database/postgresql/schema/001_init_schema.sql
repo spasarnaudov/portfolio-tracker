@@ -46,6 +46,21 @@ CREATE UNIQUE INDEX uq_users_single_admin_role
     ON users(role)
     WHERE role = 'admin';
 
+CREATE TABLE user_login_history (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER,
+    username VARCHAR(100) NOT NULL,
+    logged_in_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_user_login_history_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX idx_user_login_history_user_date
+    ON user_login_history(user_id, logged_in_at DESC);
+
 CREATE TABLE portfolio_holdings (
     user_id INTEGER NOT NULL,
     asset_id INTEGER NOT NULL,

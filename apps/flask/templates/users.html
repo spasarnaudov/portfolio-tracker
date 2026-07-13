@@ -14,6 +14,8 @@
                             <th>Role</th>
                             <th>Active</th>
                             <th>Created</th>
+                            <th>Last login</th>
+                            <th>Logins</th>
                         </tr>
                     </thead>
 
@@ -48,6 +50,14 @@
                                     -
                                 {% endif %}
                             </td>
+                            <td>
+                                {% if user.last_login_at %}
+                                    {{ user.last_login_at.strftime("%Y-%m-%d %H:%M:%S") }}
+                                {% else %}
+                                    Never
+                                {% endif %}
+                            </td>
+                            <td>{{ user.login_count | default(0, true) }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>

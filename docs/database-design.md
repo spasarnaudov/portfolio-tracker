@@ -108,3 +108,19 @@ Notes:
 - The special `admin` user is limited to role management.
 - Roles are read-only in the application, and only one account can have the `admin` role.
 - Inactive users cannot log in.
+
+### user_login_history
+
+Stores one record for every successful login, including the first session created
+after registration.
+
+Columns:
+- id: unique login event ID
+- user_id: reference to the user
+- username: username snapshot kept with the login event
+- logged_in_at: timestamp of the successful login
+
+Notes:
+- The Users admin table displays the latest login and total login count.
+- Login history and the username remain available after a user is deleted.
+- The user filter includes current users and deleted users that have login history.

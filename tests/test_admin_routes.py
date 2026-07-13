@@ -69,6 +69,8 @@ class AdminRouteTests(unittest.TestCase):
     def test_admin_can_view_users(self):
         listed_user = self._user("admin") | {
             "created_at": datetime(2026, 7, 14, 12, 34, 56, 789123),
+            "last_login_at": datetime(2026, 7, 15, 8, 9, 10, 654321),
+            "login_count": 12,
         }
 
         with patch.object(application, "get_users", return_value=[listed_user]):
@@ -83,6 +85,26 @@ class AdminRouteTests(unittest.TestCase):
         self.assertIn(b"admin", response.data)
         self.assertIn(b"2026-07-14 12:34:56", response.data)
         self.assertNotIn(b"789123", response.data)
+        self.assertIn(b"2026-07-15 08:09:10", response.data)
+        self.assertNotIn(b"654321", response.data)
+        self.assertIn(b">12<", response.data)
+        self.assertLess(
+            response.data.index(b"2026-07-14 12:34:56"),
+            response.data.index(b"2026-07-15 08:09:10"),
+        )
+
+    def test_start_user_session_records_successful_login(self):
+        user = self._user("user")
+
+        with application.app.test_request_context(), \
+                patch.object(application, "update_user_session") as update_session, \
+                patch.object(application, "record_user_login") as record_login:
+            response = application.start_user_session(user, "/portfolio")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.endswith("/portfolio"))
+        update_session.assert_called_once()
+        record_login.assert_called_once_with(1)
 
     def test_user_role_cannot_be_changed_from_users_form(self):
         self._set_session()
@@ -100,31 +122,58 @@ class AdminRouteTests(unittest.TestCase):
         update_status.assert_called_once_with(2, True)
 
     def test_admin_can_view_logs_and_content_is_html_escaped(self):
+        login_time = datetime(2026, 7, 15, 9, 10, 11, 123456)
+        login_history = [{
+            "id": 14,
+            "user_id": 2,
+            "username": "spas",
+            "logged_in_at": login_time,
+        }]
+
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             (root / "logs").mkdir()
             (root / "logs" / "audit.log").write_text("<script>alert(1)</script>\n", encoding="utf-8")
 
-            with patch.object(application, "PROJECT_ROOT", root):
+            with patch.object(application, "PROJECT_ROOT", root), \
+                    patch.object(application, "get_user_login_history", return_value=login_history), \
+                    patch.object(
+                        application,
+                        "get_user_login_users",
+                        return_value=["admin", "deleted_user", "spas"],
+                    ):
                 response = self._get_as("/admin/logs", "admin")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"audit.log", response.data)
         self.assertIn(b"&lt;script&gt;", response.data)
         self.assertNotIn(b"<script>alert(1)</script>", response.data)
+        self.assertIn(b"Logins", response.data)
+        self.assertIn(b"spas", response.data)
+        self.assertIn(b"2026-07-15 09:10:11", response.data)
+        self.assertNotIn(b"123456", response.data)
+        self.assertNotIn(b">Event<", response.data)
+        self.assertNotIn(b">User ID<", response.data)
+        self.assertIn(b'<option value="">All</option>', response.data)
+        self.assertIn(b'<option value="deleted_user">deleted_user</option>', response.data)
 
     def test_missing_and_empty_log_directories_have_messages(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
-            with patch.object(application, "PROJECT_ROOT", root):
+            with patch.object(application, "PROJECT_ROOT", root), \
+                    patch.object(application, "get_user_login_history", return_value=[]), \
+                    patch.object(application, "get_user_login_users", return_value=["admin", "spas"]):
                 missing_response = self._get_as("/admin/logs", "admin")
 
             (root / "logs").mkdir()
-            with patch.object(application, "PROJECT_ROOT", root):
+            with patch.object(application, "PROJECT_ROOT", root), \
+                    patch.object(application, "get_user_login_history", return_value=[]), \
+                    patch.object(application, "get_user_login_users", return_value=["admin", "spas"]):
                 empty_response = self._get_as("/admin/logs", "admin")
 
         self.assertIn(b"Log directory not found.", missing_response.data)
         self.assertIn(b"No log files found.", empty_response.data)
+        self.assertIn(b"No login sessions for the selected user.", empty_response.data)
 
     def test_portfolio_saves_chart_selection_for_tavex_and_manual_items(self):
         self._set_session()

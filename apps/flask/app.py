@@ -30,6 +30,9 @@ from repository import (
     get_user_by_username,
     get_user_with_password_by_id,
     get_users,
+    get_user_login_history,
+    get_user_login_users,
+    record_user_login,
     clear_user_session,
     save_portfolio_holdings,
     save_portfolio_manual_items,
@@ -176,6 +179,7 @@ def start_user_session(user, next_url):
     session["session_token"] = session_token
 
     update_user_session(user["id"], session_token, expires_at)
+    record_user_login(user["id"])
 
     return redirect(next_url)
 
@@ -470,6 +474,8 @@ def logs():
         "logs.html",
         log_directory_exists=log_directory.is_dir(),
         log_files=get_log_files(log_directory),
+        login_history=get_user_login_history(),
+        login_users=get_user_login_users(),
         log_max_lines=LOG_MAX_LINES,
     )
 

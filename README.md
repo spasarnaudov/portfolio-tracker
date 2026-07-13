@@ -58,6 +58,7 @@ The current version includes:
 - Jewelry and manual items with Tavex gold buyback price helpers
 - Portfolio value chart with selectable Tavex and manual gold items
 - User login and registration with password hashing
+- Successful login history with last-login and usage counts
 - User roles: admin and user
 - Database maintenance scripts
 

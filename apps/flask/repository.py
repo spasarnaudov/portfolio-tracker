@@ -126,6 +126,19 @@ def update_user_session(user_id, session_token, expires_at):
         conn.commit()
 
 
+def record_user_login(user_id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO user_login_history (user_id, username)
+                SELECT id, username
+                FROM users
+                WHERE id = %s;
+            """, (user_id,))
+
+        conn.commit()
+
+
 def clear_user_session(user_id, session_token=None):
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -154,11 +167,55 @@ def get_users():
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
-                SELECT id, username, role, is_active, created_at
+                SELECT
+                    users.id,
+                    users.username,
+                    users.role,
+                    users.is_active,
+                    users.created_at,
+                    COUNT(user_login_history.id) AS login_count,
+                    MAX(user_login_history.logged_in_at) AS last_login_at
                 FROM users
-                ORDER BY LOWER(username);
+                LEFT JOIN user_login_history
+                    ON user_login_history.user_id = users.id
+                GROUP BY users.id
+                ORDER BY LOWER(users.username);
             """)
             return cur.fetchall()
+
+
+def get_user_login_history():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT
+                    user_login_history.id,
+                    user_login_history.user_id,
+                    user_login_history.username,
+                    user_login_history.logged_in_at
+                FROM user_login_history
+                ORDER BY
+                    user_login_history.logged_in_at DESC,
+                    user_login_history.id DESC;
+            """)
+            return cur.fetchall()
+
+
+def get_user_login_users():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT known_users.username
+                FROM (
+                    SELECT username
+                    FROM users
+                    UNION
+                    SELECT username
+                    FROM user_login_history
+                ) AS known_users
+                ORDER BY LOWER(known_users.username);
+            """)
+            return [row["username"] for row in cur.fetchall()]
 
 
 def update_user_active_status(user_id, is_active):

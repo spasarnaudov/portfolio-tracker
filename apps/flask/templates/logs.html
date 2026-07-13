@@ -5,33 +5,83 @@
 
 {% block content %}
     <section class="logs-panel">
-        {% if not log_directory_exists %}
-            <p class="empty-logs-message">Log directory not found.</p>
-        {% elif not log_files %}
-            <p class="empty-logs-message">No log files found.</p>
-        {% else %}
-            <div class="log-tabs" role="tablist" aria-label="Log files">
+        <div class="log-tabs" role="tablist" aria-label="Logs">
+            <button
+                class="log-tab active"
+                id="log-tab-logins"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="log-panel-logins"
+                data-log-tab="logins"
+            >Logins</button>
+
+            {% if log_directory_exists %}
                 {% for log in log_files %}
                     <button
-                        class="log-tab{% if loop.first %} active{% endif %}"
+                        class="log-tab"
                         id="log-tab-{{ loop.index }}"
                         type="button"
                         role="tab"
-                        aria-selected="{{ 'true' if loop.first else 'false' }}"
+                        aria-selected="false"
                         aria-controls="log-panel-{{ loop.index }}"
-                        data-log-tab="{{ loop.index }}"
+                        data-log-tab="file-{{ loop.index }}"
                     >{{ log.label }}</button>
                 {% endfor %}
+            {% endif %}
+        </div>
+
+        <article
+            class="log-viewer active"
+            id="log-panel-logins"
+            role="tabpanel"
+            aria-labelledby="log-tab-logins"
+            data-log-panel="logins"
+        >
+            <div class="login-history-toolbar">
+                <label for="loginUserFilter">User</label>
+                <select id="loginUserFilter">
+                    <option value="">All</option>
+                    {% for username in login_users %}
+                        <option value="{{ username }}">{{ username }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
+            {% if login_history %}
+                <div id="loginHistoryScroll" class="data-table-scroll login-history-scroll" data-axis-locked-scroll>
+                    <table class="data-table login-history-table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Logged in</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for login in login_history %}
+                                <tr data-login-username="{{ login.username }}">
+                                    <td>{{ login.username }}</td>
+                                    <td>{{ login.logged_in_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+            <p id="emptyLoginHistory" class="empty-login-history" {% if login_history %}hidden{% endif %}>
+                No login sessions for the selected user.
+            </p>
+        </article>
+
+        {% if log_directory_exists %}
             {% for log in log_files %}
                 <article
-                    class="log-viewer{% if loop.first %} active{% endif %}"
+                    class="log-viewer"
                     id="log-panel-{{ loop.index }}"
                     role="tabpanel"
                     aria-labelledby="log-tab-{{ loop.index }}"
-                    data-log-panel="{{ loop.index }}"
-                    {% if not loop.first %}hidden{% endif %}
+                    data-log-panel="file-{{ loop.index }}"
+                    hidden
                 >
                     <div class="log-meta">
                         <span>File: <strong>{{ log.name }}</strong></span>
@@ -51,9 +101,45 @@
                 </article>
             {% endfor %}
         {% endif %}
+
+        {% if not log_directory_exists %}
+            <p class="empty-logs-message log-file-status">Log directory not found.</p>
+        {% elif not log_files %}
+            <p class="empty-logs-message log-file-status">No log files found.</p>
+        {% endif %}
     </section>
 
     <script>
+        const loginUserFilter = document.getElementById("loginUserFilter");
+        const loginHistoryScroll = document.getElementById("loginHistoryScroll");
+        const emptyLoginHistory = document.getElementById("emptyLoginHistory");
+
+        function filterLoginHistory() {
+            const selectedUsername = loginUserFilter ? loginUserFilter.value : "";
+            let visibleRows = 0;
+
+            document.querySelectorAll("[data-login-username]").forEach((row) => {
+                const isVisible = !selectedUsername
+                    || row.dataset.loginUsername === selectedUsername;
+                row.hidden = !isVisible;
+                if (isVisible) {
+                    visibleRows += 1;
+                }
+            });
+
+            if (loginHistoryScroll) {
+                loginHistoryScroll.hidden = visibleRows === 0;
+            }
+            if (emptyLoginHistory) {
+                emptyLoginHistory.hidden = visibleRows > 0;
+            }
+        }
+
+        if (loginUserFilter) {
+            loginUserFilter.addEventListener("change", filterLoginHistory);
+            filterLoginHistory();
+        }
+
         function scrollLogToBottom(panel) {
             const content = panel && panel.querySelector(".log-content");
 
