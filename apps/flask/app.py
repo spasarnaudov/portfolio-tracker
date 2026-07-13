@@ -32,7 +32,6 @@ from repository import (
     get_portfolio_history,
     get_portfolio_holdings,
     get_portfolio_manual_items,
-    get_portfolio_manual_total,
     get_user_by_id,
     get_user_by_username,
     get_user_with_password_by_id,
@@ -55,6 +54,7 @@ from tavex_import import (
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config["SESSION_COOKIE_NAME"] = SESSION_COOKIE_NAME
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.logger.setLevel(LOG_LEVEL)
 
 SESSION_TIMEOUT = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
@@ -434,35 +434,6 @@ def get_chart_date_range(selected_range, latest_price_date, custom_start_date, c
     return start_date, end_date
 
 
-def get_holding_chart_payload(asset_id, selected_range, selected_interval):
-    latest_price_date = get_latest_price_date(asset_id)
-    start_date, end_date = get_chart_date_range(
-        selected_range,
-        latest_price_date,
-        None,
-        None,
-    )
-    prices = get_asset_prices(
-        asset_id,
-        start_date,
-        end_date,
-        selected_interval,
-    )
-
-    return {
-        "labels": [
-            format_chart_label(price["price_date"], selected_interval)
-            for price in prices
-        ],
-        "values": [
-            float(price["price"])
-            for price in prices
-        ],
-        "interval": selected_interval,
-        "has_prices": bool(prices),
-    }
-
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("user_id"):
@@ -715,6 +686,12 @@ def portfolio():
         manual_item_quantities = request.form.getlist("manual_item_quantity")
         manual_item_unit_prices = request.form.getlist("manual_item_unit_price")
         deleted_manual_item_ids = set(request.form.getlist("manual_item_delete"))
+        chart_asset_ids = {
+            int(asset_id)
+            for asset_id in request.form.getlist("holding_include_in_chart")
+            if asset_id.isdigit()
+        }
+        chart_manual_item_ids = set(request.form.getlist("manual_item_include_in_chart"))
 
         for key, value in request.form.items():
             if not key.startswith("quantity_"):
@@ -727,6 +704,12 @@ def portfolio():
                 continue
 
             quantities_by_asset_id[asset_id] = quantity
+
+        chart_asset_ids = {
+            asset_id
+            for asset_id in chart_asset_ids
+            if quantities_by_asset_id.get(asset_id, 0) > 0
+        }
 
         for index, raw_item_id in enumerate(manual_item_ids):
             try:
@@ -741,6 +724,10 @@ def portfolio():
                 "name": manual_item_names[index] if index < len(manual_item_names) else "",
                 "quantity": quantity,
                 "unit_price": unit_price,
+                "include_in_chart": (
+                    raw_item_id in chart_manual_item_ids
+                    and quantity > 0
+                ),
                 "delete": raw_item_id in deleted_manual_item_ids,
             })
 
@@ -759,10 +746,14 @@ def portfolio():
                 "name": new_manual_item_name,
                 "quantity": new_manual_item_quantity,
                 "unit_price": new_manual_item_unit_price,
+                "include_in_chart": (
+                    request.form.get("new_manual_item_include_in_chart") == "1"
+                    and new_manual_item_quantity > 0
+                ),
                 "delete": False,
             })
 
-        save_portfolio_holdings(user_id, quantities_by_asset_id)
+        save_portfolio_holdings(user_id, quantities_by_asset_id, chart_asset_ids)
         save_portfolio_manual_items(user_id, manual_items)
         return redirect(url_for("portfolio"))
 
@@ -777,21 +768,6 @@ def portfolio():
 
     if portfolio_interval not in VALID_PORTFOLIO_INTERVALS:
         portfolio_interval = "hourly"
-
-    expanded_holding_id = request.args.get("expanded_holding_id", type=int)
-    requested_holding_asset_id = request.args.get("holding_asset_id", type=int)
-    requested_holding_range = request.args.get("holding_range", portfolio_range)
-    requested_holding_interval = request.args.get("holding_interval", portfolio_interval)
-    holding_filter_mode = request.args.get("holding_filter_mode", "custom")
-
-    if holding_filter_mode not in {"main", "custom"}:
-        holding_filter_mode = "custom"
-
-    if requested_holding_range not in VALID_PORTFOLIO_RANGES:
-        requested_holding_range = portfolio_range
-
-    if requested_holding_interval not in VALID_PORTFOLIO_INTERVALS:
-        requested_holding_interval = portfolio_interval
 
     portfolio_start_date, portfolio_end_date = get_chart_date_range(
         portfolio_range,
@@ -822,13 +798,6 @@ def portfolio():
         tavex_gold_buyback_prices = []
         tavex_gold_price_per_gram = None
 
-    tavex_total = sum(
-        float(holding["current_value"] or 0)
-        for holding in holdings
-    )
-    manual_total = float(get_portfolio_manual_total(user_id) or 0)
-    total_value = tavex_total + manual_total
-
     chart_labels = [
         format_chart_label(price["price_date"], portfolio_interval)
         for price in portfolio_history
@@ -837,39 +806,10 @@ def portfolio():
         float(price["value"])
         for price in portfolio_history
     ]
-    holding_charts = {}
-
-    for holding in holdings:
-        holding_range = portfolio_range
-        holding_interval = portfolio_interval
-
-        if holding_filter_mode == "custom" and holding["asset_id"] == requested_holding_asset_id:
-            holding_range = requested_holding_range
-            holding_interval = requested_holding_interval
-
-        holding_chart = get_holding_chart_payload(
-            holding["asset_id"],
-            holding_range,
-            holding_interval,
-        )
-        holding_charts[holding["asset_id"]] = {
-            "range": holding_range,
-            "interval": holding_interval,
-            "labels": holding_chart["labels"],
-            "values": holding_chart["values"],
-            "has_prices": holding_chart["has_prices"],
-        }
-
     return render_template(
         "portfolio.html",
         holdings=holdings,
-        holding_charts=holding_charts,
-        expanded_holding_id=expanded_holding_id,
-        holding_filter_mode=holding_filter_mode,
         manual_items=manual_items,
-        tavex_total=tavex_total,
-        manual_total=manual_total,
-        total_value=total_value,
         tavex_gold_price_per_gram=tavex_gold_price_per_gram,
         tavex_gold_buyback_prices=tavex_gold_buyback_prices,
         portfolio_range=portfolio_range,
@@ -890,28 +830,6 @@ def portfolio():
         chart_labels=chart_labels,
         chart_values=chart_values,
     )
-
-
-@app.route("/api/portfolio/holding-chart")
-def portfolio_holding_chart_api():
-    asset_id = request.args.get("asset_id", type=int)
-    selected_range = request.args.get("range", DEFAULT_CHART_RANGE)
-    selected_interval = request.args.get("interval", "hourly")
-
-    if not asset_id or not get_asset_by_id(asset_id):
-        return jsonify({"error": "Unknown asset."}), 404
-
-    if selected_range not in VALID_PORTFOLIO_RANGES:
-        return jsonify({"error": "Unknown chart range."}), 400
-
-    if selected_interval not in VALID_PORTFOLIO_INTERVALS:
-        return jsonify({"error": "Unknown chart interval."}), 400
-
-    return jsonify(get_holding_chart_payload(
-        asset_id,
-        selected_range,
-        selected_interval,
-    ))
 
 
 @app.route("/prices/import-tavex", methods=["POST"])

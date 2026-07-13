@@ -4,13 +4,15 @@
         let values = JSON.parse(chartCanvas.dataset.values || "[]");
         let selectedInterval = chartCanvas.dataset.interval || "daily";
         const chartInfo = chartCanvas.parentElement.querySelector(".chart-info");
+        const selectLatestByDefault = chartCanvas.dataset.selectLatest === "true";
         const context = chartCanvas.getContext("2d");
         let minValue = 0;
         let maxValue = 0;
         let valueRange = 1;
         let width = chartCanvas.width;
         let height = chartCanvas.height;
-        let horizontalPadding = 48;
+        let leftPadding = 72;
+        let rightPadding = 18;
         let topPadding = 48;
         let bottomPadding = 24;
         let fontSize = 12;
@@ -43,11 +45,9 @@
 
             width = Math.max(chartWidth, 280);
             height = isMobile ? 280 : 320;
-            horizontalPadding = isMobile ? 76 : 58;
             topPadding = isMobile ? 42 : 40;
             bottomPadding = 18;
-            fontSize = isMobile ? 15 : 12;
-            xStep = (width - horizontalPadding * 2) / Math.max(labels.length - 1, 1);
+            fontSize = isMobile ? 17 : 15;
 
             chartCanvas.style.width = `${width}px`;
             chartCanvas.style.height = `${height}px`;
@@ -55,10 +55,20 @@
             chartCanvas.height = Math.floor(height * pixelRatio);
 
             context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+            context.font = `600 ${fontSize}px Arial`;
+
+            const widestValueLabel = Math.max(
+                context.measureText(maxValue.toFixed(2)).width,
+                context.measureText(minValue.toFixed(2)).width
+            );
+            leftPadding = Math.ceil(widestValueLabel) + 20;
+            rightPadding = isMobile ? 14 : 18;
+            xStep = Math.max(width - leftPadding - rightPadding, 1)
+                / Math.max(labels.length - 1, 1);
         }
 
         function getPoint(index) {
-            const x = horizontalPadding + xStep * index;
+            const x = leftPadding + xStep * index;
             const value = values[index];
             const chartHeight = height - topPadding - bottomPadding;
             const y = height - bottomPadding - ((value - minValue) / valueRange) * chartHeight;
@@ -66,13 +76,25 @@
             return { x, y, value };
         }
 
+        function updateChartInfo() {
+            if (!chartInfo || selectedIndex === null || !values.length) {
+                return;
+            }
+
+            const label = ["recorded", "hourly"].includes(selectedInterval) ? "Time" : "Period";
+            const valueLabel = chartCanvas.dataset.valueLabel
+                || (selectedInterval === "recorded" ? "Price" : "Average price");
+
+            chartInfo.textContent = `${label}: ${labels[selectedIndex]} | ${valueLabel}: ${values[selectedIndex].toFixed(2)}`;
+        }
+
         function drawChart(selectedIndex = null) {
             context.clearRect(0, 0, width, height);
-            context.font = `${fontSize}px Arial`;
+            context.font = `600 ${fontSize}px Arial`;
 
             if (!values.length) {
                 context.fillStyle = "#52606d";
-                context.fillText("No price data available.", horizontalPadding, topPadding);
+                context.fillText("No price data available.", leftPadding, topPadding);
                 return;
             }
 
@@ -82,8 +104,8 @@
             for (let i = 0; i <= 4; i += 1) {
                 const y = topPadding + ((height - topPadding - bottomPadding) / 4) * i;
                 context.beginPath();
-                context.moveTo(horizontalPadding, y);
-                context.lineTo(width - horizontalPadding, y);
+                context.moveTo(leftPadding, y);
+                context.lineTo(width - rightPadding, y);
                 context.stroke();
             }
 
@@ -129,13 +151,17 @@
             }
 
             context.fillStyle = "#52606d";
-            context.fillText(maxValue.toFixed(2), 8, topPadding + 4);
-            context.fillText(minValue.toFixed(2), 8, height - bottomPadding + 4);
+            context.textAlign = "right";
+            context.fillText(maxValue.toFixed(2), leftPadding - 10, topPadding + 5);
+            context.fillText(minValue.toFixed(2), leftPadding - 10, height - bottomPadding + 5);
+            context.textAlign = "left";
         }
 
         refreshValueRange();
         resizeChart();
-        drawChart();
+        selectedIndex = selectLatestByDefault && values.length ? values.length - 1 : null;
+        drawChart(selectedIndex);
+        updateChartInfo();
 
         chartCanvas.addEventListener("click", (event) => {
             if (!values.length) {
@@ -144,18 +170,12 @@
 
             const rect = chartCanvas.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
-            const rawIndex = Math.round((clickX - horizontalPadding) / xStep);
+            const rawIndex = Math.round((clickX - leftPadding) / xStep);
             selectedIndex = Math.max(0, Math.min(values.length - 1, rawIndex));
 
             drawChart(selectedIndex);
 
-            if (chartInfo) {
-                const label = ["recorded", "hourly"].includes(selectedInterval) ? "Time" : "Period";
-                const valueLabel = chartCanvas.dataset.valueLabel
-                    || (selectedInterval === "recorded" ? "Price" : "Average price");
-
-                chartInfo.textContent = `${label}: ${labels[selectedIndex]} | ${valueLabel}: ${values[selectedIndex].toFixed(2)}`;
-            }
+            updateChartInfo();
         });
 
         window.addEventListener("resize", () => {
@@ -172,18 +192,22 @@
                 labels = nextLabels;
                 values = nextValues;
                 selectedInterval = nextInterval;
-                selectedIndex = null;
+                selectedIndex = selectLatestByDefault && values.length ? values.length - 1 : null;
                 chartCanvas.dataset.labels = JSON.stringify(labels);
                 chartCanvas.dataset.values = JSON.stringify(values);
                 chartCanvas.dataset.interval = selectedInterval;
                 refreshValueRange();
                 resizeChart();
-                drawChart();
+                drawChart(selectedIndex);
 
                 if (chartInfo) {
-                    chartInfo.textContent = values.length
-                        ? "Click on the chart to inspect price."
-                        : "No price data available for this item.";
+                    if (selectedIndex !== null) {
+                        updateChartInfo();
+                    } else {
+                        chartInfo.textContent = values.length
+                            ? "Click on the chart to inspect price."
+                            : "No price data available for this item.";
+                    }
                 }
             },
         };

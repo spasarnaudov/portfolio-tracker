@@ -26,14 +26,16 @@ demo_holdings AS (
     FROM demo_user
     CROSS JOIN demo_assets
 )
-INSERT INTO portfolio_holdings (user_id, asset_id, quantity)
-SELECT user_id, asset_id, quantity
+INSERT INTO portfolio_holdings (user_id, asset_id, quantity, include_in_chart)
+SELECT user_id, asset_id, quantity, TRUE
 FROM demo_holdings
 ON CONFLICT (user_id, asset_id)
-DO UPDATE SET quantity = EXCLUDED.quantity;
+DO UPDATE SET
+    quantity = EXCLUDED.quantity,
+    include_in_chart = EXCLUDED.include_in_chart;
 
-INSERT INTO portfolio_manual_items (user_id, name, quantity, unit_price)
-SELECT users.id, 'demo jewelry 14K', 12.50, 95.00
+INSERT INTO portfolio_manual_items (user_id, name, quantity, unit_price, include_in_chart)
+SELECT users.id, 'demo jewelry 14K', 12.50, 95.00, TRUE
 FROM users
 WHERE LOWER(users.username) = LOWER('demo')
     AND NOT EXISTS (

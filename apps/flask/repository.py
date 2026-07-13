@@ -256,6 +256,7 @@ def get_portfolio_holdings(user_id):
                     assets.symbol,
                     assets.name,
                     COALESCE(portfolio_holdings.quantity, 0) AS quantity,
+                    COALESCE(portfolio_holdings.include_in_chart, FALSE) AS include_in_chart,
                     latest_prices.price_date,
                     latest_prices.price,
                     ROUND(
@@ -280,10 +281,12 @@ def get_portfolio_holdings(user_id):
             return cur.fetchall()
 
 
-def save_portfolio_holdings(user_id, quantities_by_asset_id):
+def save_portfolio_holdings(user_id, quantities_by_asset_id, chart_asset_ids):
     with get_connection() as conn:
         with conn.cursor() as cur:
             for asset_id, quantity in quantities_by_asset_id.items():
+                include_in_chart = asset_id in chart_asset_ids
+
                 if quantity <= 0:
                     cur.execute("""
                         DELETE FROM portfolio_holdings
@@ -293,11 +296,13 @@ def save_portfolio_holdings(user_id, quantities_by_asset_id):
                     continue
 
                 cur.execute("""
-                    INSERT INTO portfolio_holdings (user_id, asset_id, quantity)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO portfolio_holdings (user_id, asset_id, quantity, include_in_chart)
+                    VALUES (%s, %s, %s, %s)
                     ON CONFLICT (user_id, asset_id)
-                    DO UPDATE SET quantity = EXCLUDED.quantity;
-                """, (user_id, asset_id, quantity))
+                    DO UPDATE SET
+                        quantity = EXCLUDED.quantity,
+                        include_in_chart = EXCLUDED.include_in_chart;
+                """, (user_id, asset_id, quantity, include_in_chart))
 
         conn.commit()
 
@@ -311,6 +316,7 @@ def get_portfolio_manual_items(user_id):
                     name,
                     quantity,
                     unit_price,
+                    include_in_chart,
                     ROUND(quantity * unit_price, 2) AS current_value
                 FROM portfolio_manual_items
                 WHERE user_id = %s
@@ -327,6 +333,10 @@ def save_portfolio_manual_items(user_id, items):
                 name = item.get("name", "").strip()
                 quantity = item.get("quantity", 0)
                 unit_price = item.get("unit_price", 0)
+                include_in_chart = (
+                    item.get("include_in_chart", False)
+                    and quantity > 0
+                )
                 should_delete = item.get("delete", False)
 
                 if item_id and (should_delete or not name):
@@ -342,30 +352,22 @@ def save_portfolio_manual_items(user_id, items):
                         UPDATE portfolio_manual_items
                         SET name = %s,
                             quantity = %s,
-                            unit_price = %s
+                            unit_price = %s,
+                            include_in_chart = %s
                         WHERE id = %s
                             AND user_id = %s;
-                    """, (name, quantity, unit_price, item_id, user_id))
+                    """, (name, quantity, unit_price, include_in_chart, item_id, user_id))
                     continue
 
                 if name:
                     cur.execute("""
-                        INSERT INTO portfolio_manual_items (user_id, name, quantity, unit_price)
-                        VALUES (%s, %s, %s, %s);
-                    """, (user_id, name, quantity, unit_price))
+                        INSERT INTO portfolio_manual_items (
+                            user_id, name, quantity, unit_price, include_in_chart
+                        )
+                        VALUES (%s, %s, %s, %s, %s);
+                    """, (user_id, name, quantity, unit_price, include_in_chart))
 
         conn.commit()
-
-
-def get_portfolio_manual_total(user_id):
-    with get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute("""
-                SELECT ROUND(COALESCE(SUM(quantity * unit_price), 0), 2) AS total
-                FROM portfolio_manual_items
-                WHERE user_id = %s;
-            """, (user_id,))
-            return cur.fetchone()["total"]
 
 
 def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hourly"):
@@ -385,6 +387,7 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                     SELECT COALESCE(SUM(quantity * unit_price), 0) AS value
                     FROM portfolio_manual_items
                     WHERE user_id = %s
+                        AND include_in_chart = TRUE
                 ),
                 asset_period_prices AS (
                     SELECT
@@ -397,6 +400,7 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                         ON asset_prices.asset_id = portfolio_holdings.asset_id
                     WHERE portfolio_holdings.quantity > 0
                         AND portfolio_holdings.user_id = %s
+                        AND portfolio_holdings.include_in_chart = TRUE
                         AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
                         AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
                     GROUP BY {group_expression}, asset_prices.asset_id, portfolio_holdings.quantity

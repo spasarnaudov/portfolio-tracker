@@ -46,6 +46,7 @@ CREATE TABLE portfolio_holdings (
     user_id INTEGER NOT NULL,
     asset_id INTEGER NOT NULL,
     quantity NUMERIC(18, 6) NOT NULL DEFAULT 0,
+    include_in_chart BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT portfolio_holdings_pkey
         PRIMARY KEY (user_id, asset_id),
@@ -67,6 +68,7 @@ CREATE TABLE portfolio_manual_items (
     name VARCHAR(200) NOT NULL,
     quantity NUMERIC(18, 6) NOT NULL DEFAULT 0,
     unit_price NUMERIC(18, 6) NOT NULL DEFAULT 0,
+    include_in_chart BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT fk_portfolio_manual_items_user
         FOREIGN KEY (user_id)

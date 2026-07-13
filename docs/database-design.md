@@ -42,11 +42,13 @@ Columns:
 - user_id: reference to users and part of the primary key
 - asset_id: reference to assets and primary key
 - quantity: owned quantity
+- include_in_chart: controls whether the holding contributes to the portfolio chart
 
 Notes:
 - If quantity is zero or lower, the holding is deleted by the application.
 - Latest asset prices are used for the current value.
 - Historical portfolio value uses average asset prices for the selected chart interval before multiplying by quantity.
+- Only holdings selected with `include_in_chart` contribute to the portfolio chart.
 - Holdings are scoped per user, so the same asset can have different quantities for different users.
 
 ### portfolio_manual_items
@@ -59,11 +61,12 @@ Columns:
 - name: item name
 - quantity: item quantity or weight
 - unit_price: current unit price
+- include_in_chart: controls whether the item contributes to the portfolio chart
 
 Notes:
 - Jewelry can use fractional quantity values, for example grams.
 - Tavex buyback prices by karat can be used to fill the unit price.
-- Manual items are added to the portfolio chart as a static value.
+- Selected manual items are added to the portfolio chart as a static value.
 
 ### users
 

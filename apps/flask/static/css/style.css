@@ -354,10 +354,6 @@ h2 {
     background: #084b8f;
 }
 
-.portfolio-actions {
-    margin-top: 12px;
-}
-
 .portfolio-chart-panel {
     margin-top: 14px;
 }
@@ -367,7 +363,7 @@ h2 {
 }
 
 .manual-items-panel ~ .manual-items-panel {
-    display: none;
+    display: none !important;
 }
 
 .manual-items-panel h3 {
@@ -558,6 +554,12 @@ h2 {
     margin: 0 0 10px;
 }
 
+#collapseAllHoldings,
+#expandAllHoldings,
+[data-holding-filter-mode] {
+    display: none !important;
+}
+
 .segmented-action-buttons {
     display: inline-flex;
     max-width: 100%;
@@ -607,58 +609,18 @@ h2 {
     background: #dcfae6;
 }
 
-.accordion-toggle-button {
-    align-items: center;
-    border: 1px solid #0b5cad;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #0b5cad;
+.chart-selection-checkbox {
+    accent-color: #0b5cad;
     cursor: pointer;
-    display: inline-flex;
-    font: inherit;
-    font-size: 18px;
-    font-weight: 700;
-    height: 30px;
-    justify-content: center;
-    line-height: 1;
-    padding: 0;
-    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-    width: 30px;
+    height: 20px;
+    margin: 0;
+    vertical-align: middle;
+    width: 20px;
 }
 
-.accordion-toggle-button:hover {
-    background: #e6f0fa;
-}
-
-.accordion-toggle-button[aria-expanded="true"] {
-    background: #0b5cad;
-    color: #ffffff;
-    transform: rotate(90deg);
-}
-
-.accordion-detail-row td {
-    background: #ffffff;
-    padding: 0;
-}
-
-.accordion-detail-row.is-chart-measuring {
-    visibility: hidden;
-}
-
-.accordion-chart-panel {
-    padding: 12px;
-    transition: opacity 0.18s ease;
-}
-
-.accordion-chart-panel.is-loading {
-    opacity: 0.72;
-}
-
-.accordion-chart-panel canvas {
-    display: block;
-    height: auto;
-    max-width: 100%;
-    width: 100%;
+.accordion-detail-row,
+.accordion-toggle-button {
+    display: none !important;
 }
 
 .quantity-input {
@@ -1093,6 +1055,30 @@ h2 {
     min-width: 0;
 }
 
+.portfolio-chart-panel .chart-panel-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.chart-empty-toggle {
+    align-items: center;
+    border: 1px solid #bcccdc;
+    border-radius: 8px;
+    background: #ffffff;
+    cursor: pointer;
+    display: flex;
+    font-weight: 700;
+    gap: 7px;
+    padding: 6px 10px;
+    white-space: nowrap;
+}
+
+.chart-empty-toggle input {
+    accent-color: #0b5cad;
+    height: 18px;
+    margin: 0;
+    width: 18px;
+}
+
 .chart-panel-select {
     border: 1px solid #bcccdc;
     border-radius: 8px;
@@ -1108,10 +1094,6 @@ h2 {
     border-color: #0b5cad;
     box-shadow: 0 0 0 3px rgba(11, 92, 173, 0.16);
     outline: none;
-}
-
-.locked-chart-controls {
-    opacity: 0.68;
 }
 
 .chart-panel-select:disabled {

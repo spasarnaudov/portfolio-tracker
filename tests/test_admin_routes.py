@@ -89,6 +89,65 @@ class AdminRouteTests(unittest.TestCase):
         self.assertIn(b"Log directory not found.", missing_response.data)
         self.assertIn(b"No log files found.", empty_response.data)
 
+    def test_portfolio_saves_chart_selection_for_tavex_and_manual_items(self):
+        self._set_session()
+        form_data = {
+            "quantity_7": "2",
+            "quantity_8": "3",
+            "holding_include_in_chart": "7",
+            "manual_item_id": "9",
+            "manual_item_name": "Gold ring",
+            "manual_item_quantity": "3.5",
+            "manual_item_unit_price": "80",
+            "manual_item_include_in_chart": "9",
+        }
+
+        with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
+                patch.object(application, "update_user_session"), \
+                patch.object(application, "save_portfolio_holdings") as save_holdings, \
+                patch.object(application, "save_portfolio_manual_items") as save_manual_items:
+            response = self.client.post("/portfolio", data=form_data)
+
+        self.assertEqual(response.status_code, 302)
+        save_holdings.assert_called_once_with(1, {7: 2.0, 8: 3.0}, {7})
+        save_manual_items.assert_called_once_with(1, [{
+            "id": 9,
+            "name": "Gold ring",
+            "quantity": 3.5,
+            "unit_price": 80.0,
+            "include_in_chart": True,
+            "delete": False,
+        }])
+
+    def test_portfolio_excludes_zero_quantity_items_from_chart(self):
+        self._set_session()
+        form_data = {
+            "quantity_7": "0",
+            "holding_include_in_chart": "7",
+            "manual_item_id": "9",
+            "manual_item_name": "Gold ring",
+            "manual_item_quantity": "0",
+            "manual_item_unit_price": "80",
+            "manual_item_include_in_chart": "9",
+        }
+
+        with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
+                patch.object(application, "update_user_session"), \
+                patch.object(application, "save_portfolio_holdings") as save_holdings, \
+                patch.object(application, "save_portfolio_manual_items") as save_manual_items:
+            response = self.client.post("/portfolio", data=form_data)
+
+        self.assertEqual(response.status_code, 302)
+        save_holdings.assert_called_once_with(1, {7: 0.0}, set())
+        save_manual_items.assert_called_once_with(1, [{
+            "id": 9,
+            "name": "Gold ring",
+            "quantity": 0.0,
+            "unit_price": 80.0,
+            "include_in_chart": False,
+            "delete": False,
+        }])
+
 
 if __name__ == "__main__":
     unittest.main()
