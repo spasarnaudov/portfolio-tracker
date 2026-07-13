@@ -55,12 +55,25 @@ class AdminRouteTests(unittest.TestCase):
             self.assertEqual(response.status_code, 302)
             self.assertTrue(response.location.endswith("/portfolio"))
 
+    def test_regular_user_home_redirects_to_portfolio(self):
+        response = self._get_as("/", "user")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.location.endswith("/portfolio"))
+
+    def test_charts_page_is_removed(self):
+        response = self._get_as("/charts", "user")
+
+        self.assertEqual(response.status_code, 404)
+
     def test_admin_can_view_users(self):
         with patch.object(application, "get_users", return_value=[]):
             response = self._get_as("/admin/users", "admin")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Users", response.data)
+        self.assertNotIn(b">Portfolio<", response.data)
+        self.assertNotIn(b">Charts<", response.data)
 
     def test_admin_can_view_logs_and_content_is_html_escaped(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

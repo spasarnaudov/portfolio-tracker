@@ -50,10 +50,7 @@ The current version includes:
 - Flask web interface
 - Dashboard summary
 - Asset, category, and price tables
-- Interactive charts
-- Multiple configurable charts on the same page
-- Per-chart asset, period, and price display settings
-- Saved chart filter settings in local runtime state
+- Interactive portfolio value chart
 - Tavex product and price import
 - Hourly Tavex price import and manual-item price snapshots through cron
 - Dashboard switch for enabling or disabling automatic Tavex imports
@@ -70,7 +67,6 @@ Some application state is intentionally stored locally and is not committed:
 
 - `.env.development`, `.env.test`, `.env.staging`, and `.env.production`
   store environment-specific settings and secrets.
-- `runtime/chart_filters.json` stores the selected chart layout and filters.
 - `runtime/auto_tavex_import.enabled` controls the Tavex part of the cron import.
   Manual-item price snapshots continue to run every hour.
 - `logs/tavex_import.log` stores automatic import output.

@@ -823,175 +823,6 @@ h2 {
     white-space: pre-wrap;
 }
 
-.chart-controls {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    margin-bottom: 12px;
-}
-
-.chart-control-section {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.chart-select-row {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 8px;
-}
-
-.chart-control-row,
-.range-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-}
-
-.chart-controls label {
-    font-weight: 700;
-}
-
-.control-section-title {
-    font-weight: 700;
-}
-
-.chart-controls select,
-.chart-controls input,
-.chart-controls button {
-    border: 1px solid #bcccdc;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #1f2933;
-    font: inherit;
-    padding: 6px 8px;
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.chart-controls select {
-    min-width: 0;
-    width: 100%;
-    max-width: 100%;
-}
-
-.asset-select,
-.interval-select {
-    flex: 1 1 0;
-}
-
-.chart-controls button {
-    background: #0b5cad;
-    border-color: #0b5cad;
-    color: #ffffff;
-    cursor: pointer;
-    font-weight: 700;
-}
-
-.add-chart-button {
-    align-items: center;
-    border-radius: 999px;
-    display: inline-flex;
-    font-size: 26px;
-    height: 52px;
-    justify-content: center;
-    min-width: 52px;
-    padding: 0;
-    width: 52px;
-}
-
-.add-chart-button:disabled {
-    background: #edf2f7;
-    border-color: #bcccdc;
-    color: #829ab1;
-    cursor: not-allowed;
-}
-
-.add-chart-row {
-    display: flex;
-    justify-content: center;
-    margin: 6px 0 20px;
-}
-
-.range-buttons button {
-    flex: 0 0 auto;
-}
-
-.range-buttons button,
-.range-buttons a {
-    background: #ffffff;
-    color: #0b5cad;
-}
-
-.range-buttons button:hover,
-.range-buttons a:hover {
-    background: #e6f0fa;
-}
-
-.range-buttons button.active,
-.range-buttons a.active {
-    background: #0b5cad;
-    color: #ffffff;
-}
-
-.range-buttons button.active:hover,
-.range-buttons a.active:hover {
-    background: #084b8f;
-}
-
-.chart-controls select:focus,
-.chart-controls input:focus,
-.chart-controls button:focus {
-    border-color: #0b5cad;
-    box-shadow: 0 0 0 3px rgba(11, 92, 173, 0.16);
-    outline: none;
-}
-
-.segmented-buttons {
-    flex-wrap: nowrap;
-    gap: 0;
-    max-width: 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-}
-
-.segmented-buttons button {
-    border-radius: 0;
-    flex: 0 0 auto;
-    margin-left: -1px;
-    white-space: nowrap;
-}
-
-.segmented-buttons a {
-    border: 1px solid #bcccdc;
-    flex: 0 0 auto;
-    font-weight: 700;
-    margin-left: -1px;
-    padding: 6px 8px;
-    text-decoration: none;
-    white-space: nowrap;
-}
-
-.segmented-buttons button:first-child,
-.segmented-buttons a:first-child {
-    margin-left: 0;
-    border-radius: 10px 0 0 10px;
-}
-
-.segmented-buttons button:last-child,
-.segmented-buttons a:last-child {
-    border-radius: 0 10px 10px 0;
-}
-
-.chart-controls input:disabled {
-    background: #edf2f7;
-    color: #829ab1;
-}
-
 .chart-panel {
     background: #ffffff;
     border: 1px solid #d9e2ec;
@@ -1006,44 +837,6 @@ h2 {
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
-}
-
-.chart-asset-row {
-    margin-bottom: 12px;
-}
-
-.chart-title-select {
-    border: 1px solid #bcccdc;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #1f2933;
-    font: inherit;
-    font-size: 18px;
-    font-weight: 700;
-    max-width: 100%;
-    min-width: 0;
-    padding: 6px 8px;
-    width: 100%;
-}
-
-.remove-chart-button {
-    border: 1px solid #d92d20;
-    border-radius: 8px;
-    background: #d92d20;
-    color: #ffffff;
-    cursor: pointer;
-    flex: 0 0 auto;
-    font: inherit;
-    font-weight: 700;
-    height: 36px;
-    line-height: 1;
-    width: 36px;
-}
-
-.remove-chart-button:hover {
-    background: #b42318;
-    border-color: #b42318;
-    color: #ffffff;
 }
 
 .chart-panel-controls {
@@ -1107,12 +900,6 @@ h2 {
     box-shadow: none;
 }
 
-.chart-title-select:focus {
-    border-color: #0b5cad;
-    box-shadow: 0 0 0 3px rgba(11, 92, 173, 0.16);
-    outline: none;
-}
-
 .chart-panel canvas {
     display: block;
     max-width: 100%;
@@ -1124,11 +911,6 @@ h2 {
     margin: 12px 0 0;
     color: #52606d;
     font-weight: 700;
-}
-
-.empty-charts-message {
-    color: #52606d;
-    margin: 12px 0 0;
 }
 
 .table-scroll {
@@ -1402,10 +1184,7 @@ ul {
         font-size: 26px;
     }
 
-    .page-actions button,
-    .chart-controls select,
-    .chart-controls input,
-    .chart-controls button {
+    .page-actions button {
         font-size: 16px;
         padding: 9px 10px;
     }
@@ -1416,10 +1195,6 @@ ul {
 
     .summary-card strong {
         font-size: 24px;
-    }
-
-    .chart-panel h3 {
-        font-size: 20px;
     }
 
     .chart-info {
