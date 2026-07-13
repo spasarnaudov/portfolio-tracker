@@ -59,7 +59,6 @@ The current version includes:
 - Dashboard switch for enabling or disabling automatic Tavex imports
 - Portfolio page with owned Tavex quantities
 - Jewelry and manual items with Tavex gold buyback price helpers
-- Cash and savings entries
 - Portfolio value chart with hourly, daily, and weekly aggregation
 - User login and registration with password hashing
 - User roles: admin, user, and demo

@@ -74,23 +74,8 @@ CREATE TABLE portfolio_manual_items (
         ON DELETE CASCADE
 );
 
-CREATE TABLE portfolio_cash_items (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    name VARCHAR(200) NOT NULL,
-    amount NUMERIC(18, 6) NOT NULL DEFAULT 0,
-
-    CONSTRAINT fk_portfolio_cash_items_user
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-);
-
 CREATE INDEX idx_portfolio_holdings_user_id
     ON portfolio_holdings(user_id);
 
 CREATE INDEX idx_portfolio_manual_items_user_id
     ON portfolio_manual_items(user_id);
-
-CREATE INDEX idx_portfolio_cash_items_user_id
-    ON portfolio_cash_items(user_id);

@@ -13,7 +13,6 @@ psql "$DATABASE_URL" -f database/postgresql/maintenance/001_truncate_all_data.sq
 
 This deletes all rows from:
 
-- `portfolio_cash_items`
 - `portfolio_manual_items`
 - `portfolio_holdings`
 - `asset_prices`

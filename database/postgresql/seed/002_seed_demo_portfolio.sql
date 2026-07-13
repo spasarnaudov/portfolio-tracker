@@ -42,14 +42,3 @@ WHERE LOWER(users.username) = LOWER('demo')
         WHERE portfolio_manual_items.user_id = users.id
             AND portfolio_manual_items.name = 'demo jewelry 14K'
     );
-
-INSERT INTO portfolio_cash_items (user_id, name, amount)
-SELECT users.id, 'demo bank savings', 1500.00
-FROM users
-WHERE LOWER(users.username) = LOWER('demo')
-    AND NOT EXISTS (
-        SELECT 1
-        FROM portfolio_cash_items
-        WHERE portfolio_cash_items.user_id = users.id
-            AND portfolio_cash_items.name = 'demo bank savings'
-    );

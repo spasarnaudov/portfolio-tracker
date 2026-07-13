@@ -366,6 +366,10 @@ h2 {
     margin-top: 16px;
 }
 
+.manual-items-panel ~ .manual-items-panel {
+    display: none;
+}
+
 .manual-items-panel h3 {
     font-size: 18px;
     margin: 0 0 8px;

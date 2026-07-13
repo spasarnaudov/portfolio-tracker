@@ -4,7 +4,7 @@
 
 ### asset_categories
 
-Stores asset categories such as Stocks, ETFs, Crypto, Cash, and Gold.
+Stores the Gold category used by imported Tavex products.
 
 Columns:
 - id: unique category ID
@@ -64,20 +64,6 @@ Notes:
 - Jewelry can use fractional quantity values, for example grams.
 - Tavex buyback prices by karat can be used to fill the unit price.
 - Manual items are added to the portfolio chart as a static value.
-
-### portfolio_cash_items
-
-Stores cash and bank savings entries.
-
-Columns:
-- id: unique cash item ID
-- user_id: reference to users
-- name: entry name
-- amount: current amount
-
-Notes:
-- Cash entries are added to the portfolio total and chart as a static value.
-- Cash entries are scoped per user.
 
 ### users
 

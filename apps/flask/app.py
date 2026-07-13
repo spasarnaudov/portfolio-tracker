@@ -29,8 +29,6 @@ from repository import (
     get_dashboard_summary,
     get_latest_price_date,
     get_prices,
-    get_portfolio_cash_items,
-    get_portfolio_cash_total,
     get_portfolio_history,
     get_portfolio_holdings,
     get_portfolio_manual_items,
@@ -40,7 +38,6 @@ from repository import (
     get_user_with_password_by_id,
     get_users,
     clear_user_session,
-    save_portfolio_cash_items,
     save_portfolio_holdings,
     save_portfolio_manual_items,
     update_user_active_status,
@@ -713,16 +710,11 @@ def portfolio():
     if request.method == "POST":
         quantities_by_asset_id = {}
         manual_items = []
-        cash_items = []
         manual_item_ids = request.form.getlist("manual_item_id")
         manual_item_names = request.form.getlist("manual_item_name")
         manual_item_quantities = request.form.getlist("manual_item_quantity")
         manual_item_unit_prices = request.form.getlist("manual_item_unit_price")
         deleted_manual_item_ids = set(request.form.getlist("manual_item_delete"))
-        cash_item_ids = request.form.getlist("cash_item_id")
-        cash_item_names = request.form.getlist("cash_item_name")
-        cash_item_amounts = request.form.getlist("cash_item_amount")
-        deleted_cash_item_ids = set(request.form.getlist("cash_item_delete"))
 
         for key, value in request.form.items():
             if not key.startswith("quantity_"):
@@ -770,43 +762,12 @@ def portfolio():
                 "delete": False,
             })
 
-        for index, raw_item_id in enumerate(cash_item_ids):
-            try:
-                item_id = int(raw_item_id)
-                amount = float(cash_item_amounts[index] or 0)
-            except (IndexError, ValueError):
-                continue
-
-            cash_items.append({
-                "id": item_id,
-                "name": cash_item_names[index] if index < len(cash_item_names) else "",
-                "amount": amount,
-                "delete": raw_item_id in deleted_cash_item_ids,
-            })
-
-        new_cash_item_name = request.form.get("new_cash_item_name", "").strip()
-
-        if new_cash_item_name:
-            try:
-                new_cash_item_amount = float(request.form.get("new_cash_item_amount") or 0)
-            except ValueError:
-                new_cash_item_amount = 0
-
-            cash_items.append({
-                "id": None,
-                "name": new_cash_item_name,
-                "amount": new_cash_item_amount,
-                "delete": False,
-            })
-
         save_portfolio_holdings(user_id, quantities_by_asset_id)
         save_portfolio_manual_items(user_id, manual_items)
-        save_portfolio_cash_items(user_id, cash_items)
         return redirect(url_for("portfolio"))
 
     holdings = get_portfolio_holdings(user_id)
     manual_items = get_portfolio_manual_items(user_id)
-    cash_items = get_portfolio_cash_items(user_id)
     dashboard = get_dashboard_summary()
     portfolio_range = request.args.get("portfolio_range", DEFAULT_CHART_RANGE)
     portfolio_interval = request.args.get("portfolio_interval", "hourly")
@@ -866,8 +827,7 @@ def portfolio():
         for holding in holdings
     )
     manual_total = float(get_portfolio_manual_total(user_id) or 0)
-    cash_total = float(get_portfolio_cash_total(user_id) or 0)
-    total_value = tavex_total + manual_total + cash_total
+    total_value = tavex_total + manual_total
 
     chart_labels = [
         format_chart_label(price["price_date"], portfolio_interval)
@@ -907,10 +867,8 @@ def portfolio():
         expanded_holding_id=expanded_holding_id,
         holding_filter_mode=holding_filter_mode,
         manual_items=manual_items,
-        cash_items=cash_items,
         tavex_total=tavex_total,
         manual_total=manual_total,
-        cash_total=cash_total,
         total_value=total_value,
         tavex_gold_price_per_gram=tavex_gold_price_per_gram,
         tavex_gold_buyback_prices=tavex_gold_buyback_prices,
