@@ -15,4 +15,4 @@ COPY . .
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "gunicorn --chdir apps/flask --bind ${HOST:-0.0.0.0}:${PORT:-5000} --log-level ${LOG_LEVEL:-info} app:app"]
+CMD ["sh", "-c", "gunicorn --chdir apps/flask --bind 0.0.0.0:${PORT:-5000} --log-level ${LOG_LEVEL:-info} app:app"]
