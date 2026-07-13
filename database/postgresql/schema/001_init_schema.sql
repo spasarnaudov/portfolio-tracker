@@ -39,7 +39,7 @@ CREATE TABLE users (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT ck_users_role
-        CHECK (role IN ('admin', 'user', 'demo'))
+        CHECK (role IN ('admin', 'user'))
 );
 
 CREATE TABLE portfolio_holdings (

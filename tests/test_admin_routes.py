@@ -74,6 +74,7 @@ class AdminRouteTests(unittest.TestCase):
         self.assertIn(b"Users", response.data)
         self.assertNotIn(b">Portfolio<", response.data)
         self.assertNotIn(b">Charts<", response.data)
+        self.assertNotIn(b'value="demo"', response.data)
 
     def test_admin_can_view_logs_and_content_is_html_escaped(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

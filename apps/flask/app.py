@@ -8,7 +8,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
 from config import (
     DEBUG,
-    DEMO_USERNAME,
     HOST,
     LOG_LEVEL,
     PORT,
@@ -79,7 +78,7 @@ ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
     "static",
 }
 PASSIVE_SESSION_ENDPOINTS = {"session_status", "static"}
-VALID_USER_ROLES = {"admin", "user", "demo"}
+VALID_USER_ROLES = {"admin", "user"}
 
 
 def is_admin(user):
@@ -90,15 +89,10 @@ def is_role_manager(user):
     return is_admin(user) and user["username"].lower() == ROLE_MANAGER_USERNAME
 
 
-def is_demo_user(user):
-    return user and user["role"] == "demo"
-
-
 @app.context_processor
 def inject_configured_usernames():
     return {
         "role_manager_username": ROLE_MANAGER_USERNAME,
-        "demo_username": DEMO_USERNAME,
     }
 
 
@@ -233,9 +227,6 @@ def require_login():
 
             if is_role_manager(user) and request.endpoint not in ROLE_MANAGER_ENDPOINTS:
                 return redirect(url_for("users"))
-
-            if is_demo_user(user) and request.endpoint == "change_password":
-                return redirect(url_for("portfolio"))
 
             if request.endpoint in USER_MANAGEMENT_ENDPOINTS and not is_admin(user):
                 return redirect(url_for("portfolio"))
@@ -454,7 +445,6 @@ def users():
         roles=[
             ("admin", "admin"),
             ("user", "user"),
-            ("demo", "demo"),
         ],
     )
 

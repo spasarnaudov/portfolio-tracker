@@ -1,6 +1,6 @@
 from psycopg.rows import dict_row
 
-from config import DEMO_USERNAME, ROLE_MANAGER_USERNAME
+from config import ROLE_MANAGER_USERNAME
 from db import get_connection
 
 
@@ -161,9 +161,9 @@ def update_user_role(user_id, role):
                 UPDATE users
                 SET role = %s
                 WHERE id = %s
-                    AND LOWER(username) NOT IN (LOWER(%s), LOWER(%s))
+                    AND LOWER(username) != LOWER(%s)
                 RETURNING id, username, role;
-            """, (role, user_id, DEMO_USERNAME, ROLE_MANAGER_USERNAME))
+            """, (role, user_id, ROLE_MANAGER_USERNAME))
             user = cur.fetchone()
 
         conn.commit()
@@ -178,9 +178,9 @@ def update_user_active_status(user_id, is_active):
                 UPDATE users
                 SET is_active = %s
                 WHERE id = %s
-                    AND LOWER(username) NOT IN (LOWER(%s), LOWER(%s))
+                    AND LOWER(username) != LOWER(%s)
                 RETURNING id, username, is_active;
-            """, (is_active, user_id, DEMO_USERNAME, ROLE_MANAGER_USERNAME))
+            """, (is_active, user_id, ROLE_MANAGER_USERNAME))
             user = cur.fetchone()
 
         conn.commit()

@@ -58,7 +58,7 @@ The current version includes:
 - Jewelry and manual items with Tavex gold buyback price helpers
 - Portfolio value chart with selectable Tavex and manual gold items
 - User login and registration with password hashing
-- User roles: admin, user, and demo
+- User roles: admin and user
 - Database maintenance scripts
 
 ## Local Runtime Files
@@ -126,13 +126,6 @@ Create the initial admin user:
 
 ```bash
 apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME" --password "$INITIAL_ADMIN_PASSWORD" --role admin
-```
-
-Create a demo user and seed demo portfolio data:
-
-```bash
-apps/flask/.venv/bin/python scripts/create_user.py "$DEMO_USERNAME" --password "$DEMO_PASSWORD" --role demo
-psql "$DATABASE_URL" -f database/postgresql/seed/002_seed_demo_portfolio.sql
 ```
 
 Create or update the role-management account:
@@ -228,15 +221,11 @@ Role behavior:
 
 - `admin`: sees all application tabs, imports, and global data tables.
 - `user`: sees own portfolio and chart data.
-- `demo`: behaves like `user`, but can be preloaded with demonstration data.
 
 The special `admin` account is intended only for role management. It can open
 the Users and Password tabs, but it cannot browse portfolio or market-data tabs.
-The `demo` account role is locked, cannot change its password, and cannot be
-changed from the Users page.
-Users can be activated or deactivated from the Users page. The `demo` account,
-the currently logged-in user, and the special `admin` account cannot be
-deactivated from that page.
+Users can be activated or deactivated from the Users page. The currently logged-in
+user and the special `admin` account cannot be deactivated from that page.
 
 Sessions use `SESSION_TIMEOUT_MINUTES` from the active environment file. When there is no
 user activity for that many minutes, the user is logged out. A user can have

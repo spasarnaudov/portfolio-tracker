@@ -90,7 +90,7 @@ Columns:
 - id: unique user ID
 - username: unique login username
 - password_hash: hashed password, never the plain password
-- role: application role, one of admin, user, or demo
+- role: application role, either admin or user
 - is_active: controls whether the user can log in
 - active_session_token: token for the currently active browser session
 - active_session_expires_at: timestamp when the active session expires
@@ -102,9 +102,8 @@ Notes:
 - Only one active session per user is allowed.
 - Inactivity timeout is configured through `SESSION_TIMEOUT_MINUTES`.
 - Users can be created from the registration page or from the terminal helper script.
-- Logged-in users can change their own password from the application, except demo users.
+- Logged-in users can change their own password from the application.
 - Admin users can access global management tabs.
-- User and demo accounts see their own portfolio data.
+- User accounts see their own portfolio data.
 - The special `admin` user is limited to role management.
-- The `demo` user's role is locked in the application.
 - Inactive users cannot log in.

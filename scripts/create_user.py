@@ -13,7 +13,7 @@ sys.path.insert(0, str(FLASK_APP_PATH))
 from repository import save_user  # noqa: E402
 
 
-VALID_ROLES = {"admin", "user", "demo"}
+VALID_ROLES = {"admin", "user"}
 
 
 def parse_args():
