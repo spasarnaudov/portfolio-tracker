@@ -113,14 +113,11 @@ set -a
 set +a
 ```
 
-Run schema migrations on the active database:
+Initialize an empty database schema:
 
 ```bash
-psql "$DATABASE_URL" -f database/postgresql/schema/002_price_date_to_timestamp.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/003_create_portfolio_holdings.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/004_create_portfolio_manual_items.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/005_create_portfolio_cash_items.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/006_create_users.sql
+psql "$DATABASE_URL" -f database/postgresql/schema/001_init_schema.sql
+psql "$DATABASE_URL" -f database/postgresql/seed/001_seed_basic_data.sql
 ```
 
 Create or update an application user from the terminal:
@@ -129,15 +126,10 @@ Create or update an application user from the terminal:
 apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME"
 ```
 
-Assign existing portfolio data to the initial user:
+Create the initial admin user:
 
 ```bash
 apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME" --password "$INITIAL_ADMIN_PASSWORD" --role admin
-psql "$DATABASE_URL" -f database/postgresql/schema/007_scope_portfolio_data_by_user.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/008_add_user_roles.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/009_rename_demo_user.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/010_add_user_session_tracking.sql
-psql "$DATABASE_URL" -f database/postgresql/schema/011_rename_spas_user.sql
 ```
 
 Create a demo user and seed demo portfolio data:
