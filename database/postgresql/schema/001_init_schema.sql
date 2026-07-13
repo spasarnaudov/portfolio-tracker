@@ -76,8 +76,26 @@ CREATE TABLE portfolio_manual_items (
         ON DELETE CASCADE
 );
 
+CREATE TABLE portfolio_manual_item_prices (
+    id SERIAL PRIMARY KEY,
+    manual_item_id INTEGER NOT NULL,
+    price_date TIMESTAMP NOT NULL,
+    price NUMERIC(18, 6) NOT NULL,
+
+    CONSTRAINT fk_portfolio_manual_item_prices_item
+        FOREIGN KEY (manual_item_id)
+        REFERENCES portfolio_manual_items(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_portfolio_manual_item_price_per_date
+        UNIQUE (manual_item_id, price_date)
+);
+
 CREATE INDEX idx_portfolio_holdings_user_id
     ON portfolio_holdings(user_id);
 
 CREATE INDEX idx_portfolio_manual_items_user_id
     ON portfolio_manual_items(user_id);
+
+CREATE INDEX idx_portfolio_manual_item_prices_item_date
+    ON portfolio_manual_item_prices(manual_item_id, price_date);

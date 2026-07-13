@@ -370,6 +370,27 @@ def save_portfolio_manual_items(user_id, items):
         conn.commit()
 
 
+def snapshot_portfolio_manual_item_prices(price_date):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO portfolio_manual_item_prices (
+                    manual_item_id,
+                    price_date,
+                    price
+                )
+                SELECT id, %s, unit_price
+                FROM portfolio_manual_items
+                ON CONFLICT (manual_item_id, price_date)
+                DO UPDATE SET price = EXCLUDED.price;
+            """, (price_date,))
+            imported_count = cur.rowcount
+
+        conn.commit()
+
+    return imported_count
+
+
 def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hourly"):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -383,13 +404,7 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                 group_expression = "DATE_TRUNC('hour', price_date)"
 
             cur.execute("""
-                WITH manual_total AS (
-                    SELECT COALESCE(SUM(quantity * unit_price), 0) AS value
-                    FROM portfolio_manual_items
-                    WHERE user_id = %s
-                        AND include_in_chart = TRUE
-                ),
-                asset_period_prices AS (
+                WITH asset_period_prices AS (
                     SELECT
                         {group_expression} AS price_date,
                         asset_prices.asset_id,
@@ -412,41 +427,59 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                     FROM asset_period_prices
                     GROUP BY price_date
                 ),
-                manual_only_history AS (
+                manual_period_prices AS (
                     SELECT
                         {group_expression} AS price_date,
-                        0 AS value
-                    FROM asset_prices
-                    WHERE (SELECT value FROM manual_total) > 0
-                        AND NOT EXISTS (SELECT 1 FROM tavex_history)
-                        AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
-                        AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
-                    GROUP BY {group_expression}
+                        portfolio_manual_items.id AS manual_item_id,
+                        portfolio_manual_items.quantity,
+                        AVG(portfolio_manual_item_prices.price) AS price
+                    FROM portfolio_manual_items
+                    JOIN portfolio_manual_item_prices
+                        ON portfolio_manual_item_prices.manual_item_id = portfolio_manual_items.id
+                    WHERE portfolio_manual_items.quantity > 0
+                        AND portfolio_manual_items.user_id = %s
+                        AND portfolio_manual_items.include_in_chart = TRUE
+                        AND (%s::timestamp IS NULL OR portfolio_manual_item_prices.price_date >= %s::timestamp)
+                        AND (%s::timestamp IS NULL OR portfolio_manual_item_prices.price_date <= %s::timestamp)
+                    GROUP BY
+                        {group_expression},
+                        portfolio_manual_items.id,
+                        portfolio_manual_items.quantity
                 ),
-                portfolio_history AS (
-                    SELECT price_date, value
+                manual_history AS (
+                    SELECT
+                        price_date,
+                        SUM(quantity * price) AS value
+                    FROM manual_period_prices
+                    GROUP BY price_date
+                ),
+                portfolio_dates AS (
+                    SELECT price_date
                     FROM tavex_history
-                    UNION ALL
-                    SELECT price_date, value
-                    FROM manual_only_history
+                    UNION
+                    SELECT price_date
+                    FROM manual_history
                 )
                 SELECT
-                    portfolio_history.price_date,
+                    portfolio_dates.price_date,
                     ROUND(
-                        portfolio_history.value
-                        + manual_total.value,
+                        COALESCE(tavex_history.value, 0)
+                        + COALESCE(manual_history.value, 0),
                         2
                     ) AS value
-                FROM portfolio_history
-                CROSS JOIN manual_total
-                ORDER BY portfolio_history.price_date;
+                FROM portfolio_dates
+                LEFT JOIN tavex_history
+                    ON tavex_history.price_date = portfolio_dates.price_date
+                LEFT JOIN manual_history
+                    ON manual_history.price_date = portfolio_dates.price_date
+                ORDER BY portfolio_dates.price_date;
             """.format(group_expression=group_expression), (
                 user_id,
+                start_date,
+                start_date,
+                end_date,
+                end_date,
                 user_id,
-                start_date,
-                start_date,
-                end_date,
-                end_date,
                 start_date,
                 start_date,
                 end_date,

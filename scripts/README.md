@@ -8,7 +8,7 @@ All commands below assume the project is deployed at:
 
 Adjust the path in cron when deploying to another directory.
 
-## Import Tavex Prices
+## Import Hourly Prices
 
 Run a single Tavex import:
 
@@ -16,10 +16,12 @@ Run a single Tavex import:
 apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 ```
 
-The script stores prices with the current round hour, for example `14:00:00`.
+The script stores Tavex prices and the current prices of all jewelry/manual items
+with the current round hour, for example `14:00:00`.
 
-The script imports prices only when automatic Tavex import is enabled from the Dashboard.
-Use the Dashboard button to enable or disable the automatic import without editing cron.
+Manual-item prices are stored every time the cron script runs. Tavex prices are
+imported only when automatic Tavex import is enabled from the Dashboard. Use the
+Dashboard button to enable or disable only the Tavex part without editing cron.
 
 Manual imports from the web interface use the current time. The cron script uses the current round hour.
 
@@ -37,7 +39,7 @@ Add this line:
 0 * * * * cd /home/spas/Projects/portfolio-tracker && apps/flask/.venv/bin/python scripts/import_tavex_prices.py >> /home/spas/Projects/portfolio-tracker/logs/tavex_import.log 2>&1
 ```
 
-This runs the import on every round hour.
+This stores manual-item prices and runs the enabled Tavex import on every round hour.
 
 Logs are written to:
 

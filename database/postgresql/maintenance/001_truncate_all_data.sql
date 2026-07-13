@@ -1,4 +1,5 @@
 TRUNCATE TABLE
+    portfolio_manual_item_prices,
     portfolio_manual_items,
     portfolio_holdings,
     asset_prices,

@@ -14,6 +14,7 @@ psql "$DATABASE_URL" -f database/postgresql/maintenance/001_truncate_all_data.sq
 This deletes all rows from:
 
 - `portfolio_manual_items`
+- `portfolio_manual_item_prices`
 - `portfolio_holdings`
 - `asset_prices`
 - `assets`
@@ -32,4 +33,4 @@ set +a
 psql "$DATABASE_URL" -f database/postgresql/maintenance/002_truncate_prices.sql
 ```
 
-This deletes all rows from `asset_prices` only.
+This deletes all rows from `asset_prices` and `portfolio_manual_item_prices` only.

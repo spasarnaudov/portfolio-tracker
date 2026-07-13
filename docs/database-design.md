@@ -66,7 +66,21 @@ Columns:
 Notes:
 - Jewelry can use fractional quantity values, for example grams.
 - Tavex buyback prices by karat can be used to fill the unit price.
-- Selected manual items are added to the portfolio chart as a static value.
+- Selected manual items use their recorded historical prices in the portfolio chart.
+
+### portfolio_manual_item_prices
+
+Stores the hourly unit-price history for jewelry and manually entered items.
+
+Columns:
+- id: unique price record ID
+- manual_item_id: reference to the manual item
+- price_date: round-hour snapshot timestamp
+- price: the item's unit price at that timestamp
+
+Notes:
+- Each item has at most one price per timestamp.
+- Price history is deleted automatically when its manual item is deleted.
 
 ### users
 

@@ -44,3 +44,20 @@ WHERE LOWER(users.username) = LOWER('demo')
         WHERE portfolio_manual_items.user_id = users.id
             AND portfolio_manual_items.name = 'demo jewelry 14K'
     );
+
+INSERT INTO portfolio_manual_item_prices (manual_item_id, price_date, price)
+SELECT
+    portfolio_manual_items.id,
+    hourly_prices.price_date,
+    portfolio_manual_items.unit_price
+FROM portfolio_manual_items
+CROSS JOIN (
+    SELECT DISTINCT DATE_TRUNC('hour', asset_prices.price_date) AS price_date
+    FROM asset_prices
+) AS hourly_prices
+JOIN users
+    ON users.id = portfolio_manual_items.user_id
+WHERE LOWER(users.username) = LOWER('demo')
+    AND portfolio_manual_items.name = 'demo jewelry 14K'
+ON CONFLICT (manual_item_id, price_date)
+DO UPDATE SET price = EXCLUDED.price;
