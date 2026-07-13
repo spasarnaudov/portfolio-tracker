@@ -106,4 +106,5 @@ Notes:
 - Admin users can access global management tabs.
 - User accounts see their own portfolio data.
 - The special `admin` user is limited to role management.
+- Roles are read-only in the application, and only one account can have the `admin` role.
 - Inactive users cannot log in.

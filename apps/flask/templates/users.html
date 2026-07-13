@@ -21,28 +21,13 @@
                     {% for user in users %}
                         {% set is_role_manager = user.username|lower == role_manager_username %}
                         {% set is_current_user = current_user and user.id == current_user.id %}
-                        {% set can_edit_role = not is_role_manager and not is_current_user %}
                         {% set can_edit_status = not is_current_user and not is_role_manager %}
                         <tr>
                             <td>
                                 {{ user.username }}
                                 <input type="hidden" name="user_id" value="{{ user.id }}">
                             </td>
-                            <td>
-                                <select
-                                    class="table-select"
-                                    name="role_{{ user.id }}"
-                                    data-original-value="{{ user.role }}"
-                                    data-confirm-message="Change role for {{ user.username }}?"
-                                    {% if not can_edit_role %}disabled{% endif %}
-                                >
-                                    {% for role_value, role_label in roles %}
-                                        <option value="{{ role_value }}" {% if user.role == role_value %}selected{% endif %}>
-                                            {{ role_label }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </td>
+                            <td>{{ user.role }}</td>
                             <td>
                                 <label class="table-checkbox-label">
                                     <input
@@ -73,17 +58,6 @@
 
     <script>
         const usersForm = document.getElementById("usersForm");
-
-        document.querySelectorAll(".users-table select").forEach((select) => {
-            select.addEventListener("change", () => {
-                if (!confirm(select.dataset.confirmMessage)) {
-                    select.value = select.dataset.originalValue;
-                    return;
-                }
-
-                usersForm.submit();
-            });
-        });
 
         document.querySelectorAll(".users-table input[type='checkbox']").forEach((checkbox) => {
             checkbox.addEventListener("change", () => {

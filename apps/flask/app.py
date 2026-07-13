@@ -35,7 +35,6 @@ from repository import (
     save_portfolio_manual_items,
     update_user_active_status,
     update_user_password,
-    update_user_role,
     update_user_session,
 )
 from log_reader import LOG_MAX_LINES, get_log_files
@@ -78,7 +77,6 @@ ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
     "static",
 }
 PASSIVE_SESSION_ENDPOINTS = {"session_status", "static"}
-VALID_USER_ROLES = {"admin", "user"}
 
 
 def is_admin(user):
@@ -379,7 +377,7 @@ def register():
         elif password != confirm_password:
             error = "Passwords do not match."
         else:
-            user = create_user(username, generate_password_hash(password), "user")
+            user = create_user(username, generate_password_hash(password))
 
             if user:
                 return start_user_session(user, url_for("home"))
@@ -442,10 +440,6 @@ def users():
     return render_template(
         "users.html",
         users=get_users(),
-        roles=[
-            ("admin", "admin"),
-            ("user", "user"),
-        ],
     )
 
 
@@ -463,11 +457,6 @@ def save_users():
 
         if user_id == session["user_id"]:
             continue
-
-        role = request.form.get(f"role_{user_id}", "")
-
-        if role in VALID_USER_ROLES:
-            update_user_role(user_id, role)
 
         update_user_active_status(user_id, str(user_id) in active_user_ids)
 

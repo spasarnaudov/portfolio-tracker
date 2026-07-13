@@ -79,8 +79,25 @@ class AdminRouteTests(unittest.TestCase):
         self.assertNotIn(b">Portfolio<", response.data)
         self.assertNotIn(b">Charts<", response.data)
         self.assertNotIn(b'value="demo"', response.data)
+        self.assertNotIn(b'name="role_', response.data)
+        self.assertIn(b"admin", response.data)
         self.assertIn(b"2026-07-14 12:34:56", response.data)
         self.assertNotIn(b"789123", response.data)
+
+    def test_user_role_cannot_be_changed_from_users_form(self):
+        self._set_session()
+
+        with patch.object(application, "get_user_by_id", return_value=self._user("admin")), \
+                patch.object(application, "update_user_session"), \
+                patch.object(application, "update_user_active_status") as update_status:
+            response = self.client.post("/admin/users/save", data={
+                "user_id": "2",
+                "role_2": "admin",
+                "is_active": "2",
+            })
+
+        self.assertEqual(response.status_code, 302)
+        update_status.assert_called_once_with(2, True)
 
     def test_admin_can_view_logs_and_content_is_html_escaped(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

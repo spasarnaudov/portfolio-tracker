@@ -42,6 +42,10 @@ CREATE TABLE users (
         CHECK (role IN ('admin', 'user'))
 );
 
+CREATE UNIQUE INDEX uq_users_single_admin_role
+    ON users(role)
+    WHERE role = 'admin';
+
 CREATE TABLE portfolio_holdings (
     user_id INTEGER NOT NULL,
     asset_id INTEGER NOT NULL,

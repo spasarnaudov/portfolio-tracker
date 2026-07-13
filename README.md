@@ -119,26 +119,20 @@ psql "$DATABASE_URL" -f database/postgresql/seed/001_seed_basic_data.sql
 Create or update an application user from the terminal:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME"
-```
-
-Create the initial admin user:
-
-```bash
-apps/flask/.venv/bin/python scripts/create_user.py "$INITIAL_ADMIN_USERNAME" --password "$INITIAL_ADMIN_PASSWORD" --role admin
+apps/flask/.venv/bin/python scripts/create_user.py username
 ```
 
 Create or update the role-management account:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --password "$ROLE_MANAGER_PASSWORD" --role admin
+apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --password "$ROLE_MANAGER_PASSWORD"
 ```
 
 ## Admin dashboards
 
 Users with the `admin` role can access the `Users` and `Logs` dashboards from
 the main navigation. Both pages require an authenticated admin account. The
-Users dashboard uses the existing role and account-status management features.
+The Users dashboard displays fixed roles and allows account-status management.
 
 The Logs dashboard reads regular `.log` files directly from the project-level
 `logs/` directory and displays at most the last 500 lines of each file. Log
@@ -219,11 +213,13 @@ docker run --env-file .env.production -p 5003:5000 portfolio-tracker:1.0.0
 
 Role behavior:
 
-- `admin`: sees all application tabs, imports, and global data tables.
-- `user`: sees own portfolio and chart data.
+- `admin`: reserved for the single configured role-management account.
+- `user`: assigned to every other account and sees its own portfolio data.
 
 The special `admin` account is intended only for role management. It can open
 the Users and Password tabs, but it cannot browse portfolio or market-data tabs.
+Roles cannot be changed from the application. The database permits only one
+account with the `admin` role.
 Users can be activated or deactivated from the Users page. The currently logged-in
 user and the special `admin` account cannot be deactivated from that page.
 

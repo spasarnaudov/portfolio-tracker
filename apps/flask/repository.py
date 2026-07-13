@@ -57,19 +57,26 @@ def get_user_by_username(username):
             return cur.fetchone()
 
 
-def save_user(username, password_hash, role="user"):
+def save_user(username, password_hash):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 INSERT INTO users (username, password_hash, role)
-                VALUES (%s, %s, %s)
+                VALUES (
+                    %s,
+                    %s,
+                    CASE
+                        WHEN LOWER(%s) = LOWER(%s) THEN 'admin'
+                        ELSE 'user'
+                    END
+                )
                 ON CONFLICT (username)
                 DO UPDATE SET
                     password_hash = EXCLUDED.password_hash,
                     role = EXCLUDED.role,
                     is_active = TRUE
                 RETURNING id, username, role;
-            """, (username, password_hash, role))
+            """, (username, password_hash, username, ROLE_MANAGER_USERNAME))
             user = cur.fetchone()
 
         conn.commit()
@@ -77,15 +84,15 @@ def save_user(username, password_hash, role="user"):
     return user
 
 
-def create_user(username, password_hash, role="user"):
+def create_user(username, password_hash):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("""
                 INSERT INTO users (username, password_hash, role)
-                VALUES (%s, %s, %s)
+                VALUES (%s, %s, 'user')
                 ON CONFLICT (username) DO NOTHING
                 RETURNING id, username, role;
-            """, (username, password_hash, role))
+            """, (username, password_hash))
             user = cur.fetchone()
 
         conn.commit()
@@ -152,23 +159,6 @@ def get_users():
                 ORDER BY LOWER(username);
             """)
             return cur.fetchall()
-
-
-def update_user_role(user_id, role):
-    with get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute("""
-                UPDATE users
-                SET role = %s
-                WHERE id = %s
-                    AND LOWER(username) != LOWER(%s)
-                RETURNING id, username, role;
-            """, (role, user_id, ROLE_MANAGER_USERNAME))
-            user = cur.fetchone()
-
-        conn.commit()
-
-    return user
 
 
 def update_user_active_status(user_id, is_active):
