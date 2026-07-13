@@ -12,7 +12,7 @@ def get_user_by_id(user_id):
                     id,
                     username,
                     role,
-                    is_active,
+                    is_deleted,
                     active_session_token,
                     active_session_expires_at
                 FROM users
@@ -30,7 +30,7 @@ def get_user_with_password_by_id(user_id):
                     username,
                     password_hash,
                     role,
-                    is_active,
+                    is_deleted,
                     active_session_token,
                     active_session_expires_at
                 FROM users
@@ -48,7 +48,7 @@ def get_user_by_username(username):
                     username,
                     password_hash,
                     role,
-                    is_active,
+                    is_deleted,
                     active_session_token,
                     active_session_expires_at
                 FROM users
@@ -73,8 +73,7 @@ def save_user(username, password_hash):
                 ON CONFLICT (username)
                 DO UPDATE SET
                     password_hash = EXCLUDED.password_hash,
-                    role = EXCLUDED.role,
-                    is_active = TRUE
+                    role = EXCLUDED.role
                 RETURNING id, username, role;
             """, (username, password_hash, username, ROLE_MANAGER_USERNAME))
             user = cur.fetchone()
@@ -171,7 +170,7 @@ def get_users():
                     users.id,
                     users.username,
                     users.role,
-                    users.is_active,
+                    users.is_deleted,
                     users.created_at,
                     COUNT(user_login_history.id) AS login_count,
                     MAX(user_login_history.logged_in_at) AS last_login_at
@@ -218,21 +217,25 @@ def get_user_login_users():
             return [row["username"] for row in cur.fetchall()]
 
 
-def update_user_active_status(user_id, is_active):
+def deactivate_user_account(user_id):
     with get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
+        with conn.cursor() as cur:
             cur.execute("""
                 UPDATE users
-                SET is_active = %s
+                SET
+                    is_deleted = TRUE,
+                    active_session_token = NULL,
+                    active_session_expires_at = NULL
                 WHERE id = %s
                     AND LOWER(username) != LOWER(%s)
-                RETURNING id, username, is_active;
-            """, (is_active, user_id, ROLE_MANAGER_USERNAME))
-            user = cur.fetchone()
+                    AND is_deleted = FALSE
+                RETURNING id;
+            """, (user_id, ROLE_MANAGER_USERNAME))
+            deactivated_user = cur.fetchone()
 
         conn.commit()
 
-    return user
+    return bool(deactivated_user)
 
 
 def get_dashboard_summary():

@@ -59,6 +59,7 @@ The current version includes:
 - Portfolio value chart with selectable Tavex and manual gold items
 - User login and registration with password hashing
 - Successful login history with last-login and usage counts
+- Self-service account deactivation with preserved user and portfolio data
 - User roles: admin and user
 - Database maintenance scripts
 

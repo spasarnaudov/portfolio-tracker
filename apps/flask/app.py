@@ -19,6 +19,7 @@ from config import (
 )
 from repository import (
     create_user,
+    deactivate_user_account,
     get_assets,
     get_categories,
     get_dashboard_summary,
@@ -36,7 +37,6 @@ from repository import (
     clear_user_session,
     save_portfolio_holdings,
     save_portfolio_manual_items,
-    update_user_active_status,
     update_user_password,
     update_user_session,
 )
@@ -70,7 +70,7 @@ ADMIN_ENDPOINTS = {
     "prices",
     "import_tavex_prices",
 }
-USER_MANAGEMENT_ENDPOINTS = {"users", "save_users"}
+USER_MANAGEMENT_ENDPOINTS = {"users"}
 ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
     "logs",
     "change_password",
@@ -209,7 +209,7 @@ def require_login():
     if user_id:
         user = get_user_by_id(user_id)
 
-        if user and user["is_active"]:
+        if user and not user["is_deleted"]:
             session_token = session.get("session_token")
             active_token = user["active_session_token"]
             expires_at = user["active_session_expires_at"]
@@ -317,7 +317,7 @@ def login():
             user = get_user_with_password_by_id(pending_user_id)
             pending_next_url = normalize_next_url(session.get("pending_login_next_url") or next_url)
 
-            if user and user["is_active"]:
+            if user and not user["is_deleted"]:
                 clear_user_session(user["id"])
                 return start_user_session(user, pending_next_url)
 
@@ -335,7 +335,7 @@ def login():
         password = request.form.get("password", "")
         user = get_user_by_username(username) if username else None
 
-        if user and user["is_active"] and check_password_hash(user["password_hash"], password):
+        if user and not user["is_deleted"] and check_password_hash(user["password_hash"], password):
             if has_active_session(user):
                 session["pending_login_user_id"] = user["id"]
                 session["pending_login_next_url"] = next_url
@@ -397,6 +397,17 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/delete-account", methods=["POST"])
+def delete_account():
+    user_id = session["user_id"]
+
+    if not deactivate_user_account(user_id):
+        return redirect(url_for("home"))
+
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/session-status")
 def session_status():
     return jsonify({"authenticated": True})
@@ -445,26 +456,6 @@ def users():
         "users.html",
         users=get_users(),
     )
-
-
-@app.route("/users/save", methods=["POST"])
-@app.route("/admin/users/save", methods=["POST"])
-def save_users():
-    user_ids = request.form.getlist("user_id")
-    active_user_ids = set(request.form.getlist("is_active"))
-
-    for raw_user_id in user_ids:
-        try:
-            user_id = int(raw_user_id)
-        except ValueError:
-            continue
-
-        if user_id == session["user_id"]:
-            continue
-
-        update_user_active_status(user_id, str(user_id) in active_user_ids)
-
-    return redirect(url_for("users"))
 
 
 @app.route("/admin/logs")

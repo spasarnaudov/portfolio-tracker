@@ -33,7 +33,7 @@ CREATE TABLE users (
     username VARCHAR(100) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     active_session_token TEXT,
     active_session_expires_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -45,6 +45,24 @@ CREATE TABLE users (
 CREATE UNIQUE INDEX uq_users_single_admin_role
     ON users(role)
     WHERE role = 'admin';
+
+CREATE FUNCTION prevent_deleted_user_state_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.is_deleted
+        AND NEW.is_deleted IS DISTINCT FROM OLD.is_deleted
+    THEN
+        RAISE EXCEPTION 'Deleted user state cannot be changed';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_prevent_deleted_user_state_change
+BEFORE UPDATE OF is_deleted ON users
+FOR EACH ROW
+EXECUTE FUNCTION prevent_deleted_user_state_change();
 
 CREATE TABLE user_login_history (
     id BIGSERIAL PRIMARY KEY,

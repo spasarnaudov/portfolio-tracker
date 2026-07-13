@@ -74,6 +74,21 @@ class PortfolioRepositoryTests(unittest.TestCase):
         self.assertIn("FROM user_login_history", query)
         self.assertEqual(usernames, ["admin", "deleted_user"])
 
+    def test_account_soft_deletion_protects_role_manager_and_preserves_user(self):
+        connection, cursor = self._connection_and_cursor()
+        cursor.fetchone.return_value = {"id": 7}
+
+        with patch.object(repository, "get_connection", return_value=connection):
+            deactivated = repository.deactivate_user_account(7)
+
+        query, parameters = cursor.execute.call_args.args
+        self.assertTrue(deactivated)
+        self.assertIn("UPDATE users", query)
+        self.assertIn("is_deleted = TRUE", query)
+        self.assertIn("LOWER(username) != LOWER(%s)", query)
+        self.assertEqual(parameters, (7, repository.ROLE_MANAGER_USERNAME))
+        connection.commit.assert_called_once_with()
+
     def test_portfolio_history_uses_recorded_manual_item_prices(self):
         connection, cursor = self._connection_and_cursor()
         cursor.fetchall.return_value = []

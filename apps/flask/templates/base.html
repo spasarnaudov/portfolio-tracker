@@ -35,6 +35,16 @@
                     <summary>{{ current_user.username }}</summary>
                     <div class="user-menu-content">
                         <button type="button" data-open-password-dialog>Password</button>
+                        {% if current_user.username|lower != role_manager_username %}
+                            <form
+                                class="account-action-form delete-account-form"
+                                method="post"
+                                action="{{ url_for('delete_account') }}"
+                                onsubmit="return confirm('Deactivate this account? You will no longer be able to log in.');"
+                            >
+                                <button type="submit">Delete</button>
+                            </form>
+                        {% endif %}
                         <form class="logout-form" method="post" action="{{ url_for('logout') }}">
                             <button type="submit">Logout</button>
                         </form>

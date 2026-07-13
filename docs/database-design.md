@@ -91,7 +91,7 @@ Columns:
 - username: unique login username
 - password_hash: hashed password, never the plain password
 - role: application role, either admin or user
-- is_active: controls whether the user can log in
+- is_deleted: marks a self-deleted account while preserving its data
 - active_session_token: token for the currently active browser session
 - active_session_expires_at: timestamp when the active session expires
 - created_at: timestamp when the user was created
@@ -102,12 +102,15 @@ Notes:
 - Only one active session per user is allowed.
 - Inactivity timeout is configured through `SESSION_TIMEOUT_MINUTES`.
 - Users can be created from the registration page or from the terminal helper script.
+- Users marked as deleted cannot log in again.
 - Logged-in users can change their own password from the application.
 - Admin users can access global management tabs.
 - User accounts see their own portfolio data.
 - The special `admin` user is limited to role management.
 - Roles are read-only in the application, and only one account can have the `admin` role.
 - Inactive users cannot log in.
+- Self-deletion marks the account as deleted and inactive without removing its data.
+- A database trigger permanently locks the active/deleted state after self-deletion.
 
 ### user_login_history
 
@@ -124,3 +127,5 @@ Notes:
 - The Users admin table displays the latest login and total login count.
 - Login history and the username remain available after a user is deleted.
 - The user filter includes current users and deleted users that have login history.
+- Regular users can deactivate their own account after confirmation; the account and its data remain stored.
+- The special admin account is protected, and admins cannot reactivate a self-deleted account.

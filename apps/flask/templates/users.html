@@ -4,7 +4,7 @@
 {% block body_class %}users-page{% endblock %}
 
 {% block content %}
-    <form id="usersForm" class="users-panel" method="post" action="{{ url_for('save_users') }}">
+    <div class="users-panel">
         <section class="data-table-card users-table-card">
             <div class="data-table-scroll" data-axis-locked-scroll>
                 <table class="data-table users-table">
@@ -12,7 +12,6 @@
                         <tr>
                             <th>Username</th>
                             <th>Role</th>
-                            <th>Active</th>
                             <th>Created</th>
                             <th>Last login</th>
                             <th>Logins</th>
@@ -21,28 +20,14 @@
 
                 <tbody>
                     {% for user in users %}
-                        {% set is_role_manager = user.username|lower == role_manager_username %}
-                        {% set is_current_user = current_user and user.id == current_user.id %}
-                        {% set can_edit_status = not is_current_user and not is_role_manager %}
                         <tr>
                             <td>
                                 {{ user.username }}
-                                <input type="hidden" name="user_id" value="{{ user.id }}">
+                                {% if user.is_deleted %}
+                                    <span class="deleted-user-badge">Deleted</span>
+                                {% endif %}
                             </td>
                             <td>{{ user.role }}</td>
-                            <td>
-                                <label class="table-checkbox-label">
-                                    <input
-                                        type="checkbox"
-                                        name="is_active"
-                                        value="{{ user.id }}"
-                                        data-original-checked="{% if user.is_active %}true{% else %}false{% endif %}"
-                                        data-confirm-message="Change active status for {{ user.username }}?"
-                                        {% if user.is_active %}checked{% endif %}
-                                        {% if not can_edit_status %}disabled{% endif %}
-                                    >
-                                </label>
-                            </td>
                             <td>
                                 {% if user.created_at %}
                                     {{ user.created_at.strftime("%Y-%m-%d %H:%M:%S") }}
@@ -64,20 +49,5 @@
                 </table>
             </div>
         </section>
-    </form>
-
-    <script>
-        const usersForm = document.getElementById("usersForm");
-
-        document.querySelectorAll(".users-table input[type='checkbox']").forEach((checkbox) => {
-            checkbox.addEventListener("change", () => {
-                if (!confirm(checkbox.dataset.confirmMessage)) {
-                    checkbox.checked = checkbox.dataset.originalChecked === "true";
-                    return;
-                }
-
-                usersForm.submit();
-            });
-        });
-    </script>
+    </div>
 {% endblock %}
