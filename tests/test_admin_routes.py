@@ -67,7 +67,11 @@ class AdminRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_admin_can_view_users(self):
-        with patch.object(application, "get_users", return_value=[]):
+        listed_user = self._user("admin") | {
+            "created_at": datetime(2026, 7, 14, 12, 34, 56, 789123),
+        }
+
+        with patch.object(application, "get_users", return_value=[listed_user]):
             response = self._get_as("/admin/users", "admin")
 
         self.assertEqual(response.status_code, 200)
@@ -75,6 +79,8 @@ class AdminRouteTests(unittest.TestCase):
         self.assertNotIn(b">Portfolio<", response.data)
         self.assertNotIn(b">Charts<", response.data)
         self.assertNotIn(b'value="demo"', response.data)
+        self.assertIn(b"2026-07-14 12:34:56", response.data)
+        self.assertNotIn(b"789123", response.data)
 
     def test_admin_can_view_logs_and_content_is_html_escaped(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
