@@ -23,9 +23,6 @@
             <div class="header-actions">
                 <nav class="site-nav">
                     {% if current_user.role == 'admin' %}
-                        {% if current_user.username|lower != role_manager_username %}
-                            <a class="{% if request.path == '/' %}active{% endif %}" href="/">Dashboard</a>
-                        {% endif %}
                         <a class="{% if request.path.startswith('/admin/users') or request.path == '/users' %}active{% endif %}" href="{{ url_for('users') }}">Users</a>
                         <a class="{% if request.path.startswith('/admin/logs') %}active{% endif %}" href="{{ url_for('logs') }}">Logs</a>
                     {% endif %}

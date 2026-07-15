@@ -128,11 +128,5 @@ CREATE TABLE portfolio_manual_item_prices (
         UNIQUE (manual_item_id, price_date)
 );
 
-CREATE INDEX idx_portfolio_holdings_user_id
-    ON portfolio_holdings(user_id);
-
 CREATE INDEX idx_portfolio_manual_items_user_id
     ON portfolio_manual_items(user_id);
-
-CREATE INDEX idx_portfolio_manual_item_prices_item_date
-    ON portfolio_manual_item_prices(manual_item_id, price_date);

@@ -66,38 +66,6 @@ def decimal_or_none(value):
         return None
 
 
-def find_gold_price_per_gram(products):
-    candidates = []
-
-    for product in products:
-        name = product["name"].casefold()
-        category_name = (product.get("category_name") or "").casefold()
-
-        if category_name != "gold":
-            continue
-
-        if "кюлче" not in name or "1 грам" not in name:
-            continue
-
-        if "абонамент" in name:
-            continue
-
-        buy_price = decimal_or_none(product.get("buy_price_eur"))
-
-        if buy_price is None:
-            continue
-
-        candidates.append({
-            "product_name": product["name"],
-            "price_per_gram": buy_price,
-        })
-
-    if not candidates:
-        return None
-
-    return min(candidates, key=lambda candidate: candidate["price_per_gram"])
-
-
 def parse_tavex_gold_buyback_prices(page_html):
     lines = html_to_lines(page_html)
     prices = []
@@ -159,16 +127,3 @@ def gold_buyback_prices_to_products(prices):
         }
         for price in prices
     ]
-
-
-def get_tavex_gold_price_per_gram(timeout=15, default_karat=14):
-    prices = get_tavex_gold_buyback_prices(timeout=timeout)
-
-    for price in prices:
-        if price["karat"] == default_karat:
-            return price
-
-    if prices:
-        return prices[0]
-
-    return None

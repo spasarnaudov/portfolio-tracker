@@ -24,13 +24,12 @@ class AdminRouteTests(unittest.TestCase):
     def _set_session(self):
         with self.client.session_transaction() as session:
             session["user_id"] = 1
-            session["username"] = "tester"
             session["session_token"] = "token"
 
     def _user(self, role):
         return {
             "id": 1,
-            "username": "tester",
+            "username": application.ROLE_MANAGER_USERNAME if role == "admin" else "tester",
             "role": role,
             "is_deleted": False,
             "active_session_token": "token",
@@ -141,8 +140,8 @@ class AdminRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Users", response.data)
-        self.assertIn(b">Portfolio<", response.data)
-        self.assertIn(b">Charts<", response.data)
+        self.assertNotIn(b">Portfolio<", response.data)
+        self.assertNotIn(b">Charts<", response.data)
         self.assertNotIn(b'value="demo"', response.data)
         self.assertNotIn(b'name="role_', response.data)
         self.assertNotIn(b">Active<", response.data)
@@ -152,8 +151,8 @@ class AdminRouteTests(unittest.TestCase):
         self.assertIn(b"2026-07-15 08:09:10", response.data)
         self.assertNotIn(b"654321", response.data)
         self.assertIn(b">12<", response.data)
-        self.assertIn(b"Deactivate this account", response.data)
-        self.assertLess(response.data.index(b">Delete<"), response.data.index(b">Logout<"))
+        self.assertNotIn(b"Deactivate this account", response.data)
+        self.assertNotIn(b">Delete<", response.data)
         self.assertLess(
             response.data.index(b"2026-07-14 12:34:56"),
             response.data.index(b"2026-07-15 08:09:10"),
@@ -171,6 +170,11 @@ class AdminRouteTests(unittest.TestCase):
         self.assertTrue(response.location.endswith("/portfolio"))
         update_session.assert_called_once()
         record_login.assert_called_once_with(1)
+
+    def test_legacy_market_data_pages_are_removed(self):
+        for path in ("/categories", "/assets", "/prices", "/prices/import-tavex"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 404)
 
     def test_regular_user_can_soft_delete_own_account(self):
         self._set_session()
@@ -322,9 +326,7 @@ class AdminRouteTests(unittest.TestCase):
                 patch.object(application, "update_user_session"), \
                 patch.object(application, "save_portfolio_holdings"), \
                 patch.object(application, "save_portfolio_manual_items"), \
-                patch.object(application, "get_dashboard_summary", return_value={
-                    "latest_price_date": price_date,
-                }), \
+                patch.object(application, "get_latest_price_date", return_value=price_date), \
                 patch.object(application, "get_portfolio_history", return_value=[{
                     "price_date": price_date,
                     "value": 123.45,

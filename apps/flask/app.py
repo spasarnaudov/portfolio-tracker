@@ -5,7 +5,6 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from automation import is_auto_tavex_import_enabled, set_auto_tavex_import_enabled
 from chart_settings import load_chart_filters, save_chart_filters
 from config import (
     DEBUG,
@@ -21,14 +20,9 @@ from config import (
 from repository import (
     create_user,
     deactivate_user_account,
-    get_asset_by_id,
     get_asset_prices,
-    get_assets,
-    get_categories,
     get_chart_assets,
-    get_dashboard_summary,
     get_latest_price_date,
-    get_prices,
     get_portfolio_history,
     get_portfolio_holdings,
     get_portfolio_manual_items,
@@ -46,11 +40,7 @@ from repository import (
     update_user_session,
 )
 from log_reader import LOG_MAX_LINES, get_log_files
-from tavex_import import (
-    current_timestamp,
-    get_tavex_gold_buyback_prices,
-    import_tavex_prices as run_tavex_import,
-)
+from tavex_import import get_tavex_gold_buyback_prices
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -61,7 +51,6 @@ app.logger.setLevel(LOG_LEVEL)
 SESSION_TIMEOUT = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 app.permanent_session_lifetime = SESSION_TIMEOUT
 
-TAVEX_IMPORT_LOG_PATH = PROJECT_ROOT / "logs" / "tavex_import.log"
 DEFAULT_CHART_RANGE = "1d"
 DEFAULT_CHART_INTERVAL = "recorded"
 VALID_CHART_RANGES = {"1d", "1w", "1m", "ytd", "1y", "all", "custom"}
@@ -70,15 +59,7 @@ DEFAULT_PORTFOLIO_RANGE = "1d"
 VALID_PORTFOLIO_RANGES = {"1d", "1w", "1m", "ytd", "1y", "all"}
 VALID_PORTFOLIO_INTERVALS = {"hourly", "daily", "weekly"}
 PUBLIC_ENDPOINTS = {"login", "register", "static"}
-ADMIN_ENDPOINTS = {
-    "home",
-    "logs",
-    "toggle_auto_tavex_import",
-    "categories",
-    "assets",
-    "prices",
-    "import_tavex_prices",
-}
+ADMIN_ENDPOINTS = {"logs"}
 USER_MANAGEMENT_ENDPOINTS = {"users"}
 ROLE_MANAGER_ENDPOINTS = USER_MANAGEMENT_ENDPOINTS | {
     "logs",
@@ -184,7 +165,6 @@ def start_user_session(user, next_url):
     session.clear()
     session.permanent = True
     session["user_id"] = user["id"]
-    session["username"] = user["username"]
     session["session_token"] = session_token
 
     update_user_session(user["id"], session_token, expires_at)
@@ -274,13 +254,6 @@ def format_chart_label(value, interval):
         return value.isoformat()
 
     return value
-
-
-def get_tavex_import_log_lines(limit=12):
-    if not TAVEX_IMPORT_LOG_PATH.exists():
-        return []
-
-    return TAVEX_IMPORT_LOG_PATH.read_text().splitlines()[-limit:]
 
 
 def get_chart_list_value(values, index, default=None):
@@ -612,49 +585,7 @@ def logs():
 
 @app.route("/")
 def home():
-    if not is_admin(g.current_user):
-        return redirect(url_for("portfolio"))
-
-    dashboard = get_dashboard_summary()
-    return render_template(
-        "index.html",
-        dashboard=dashboard,
-        auto_tavex_import_enabled=is_auto_tavex_import_enabled(),
-        tavex_import_log_lines=get_tavex_import_log_lines(),
-    )
-
-
-@app.route("/automation/tavex-import", methods=["POST"])
-def toggle_auto_tavex_import():
-    enabled = request.form.get("enabled") == "true"
-    set_auto_tavex_import_enabled(enabled)
-
-    return redirect(url_for("home"))
-
-
-@app.route("/categories")
-def categories():
-    categories = get_categories()
-    return render_template("categories.html", categories=categories)
-
-
-@app.route("/assets")
-def assets():
-    assets = get_assets()
-    return render_template("assets.html", assets=assets)
-
-
-@app.route("/prices")
-def prices():
-    prices = get_prices()
-    return render_template(
-        "prices.html",
-        prices=prices,
-        imported_count=request.args.get("imported", type=int),
-        missing_count=request.args.get("missing", type=int),
-        imported_assets_count=request.args.get("imported_assets", type=int),
-        skipped_assets_count=request.args.get("skipped_assets", type=int),
-    )
+    return redirect(url_for("portfolio"))
 
 
 def get_portfolio_chart_data(user_id, portfolio_range, portfolio_interval):
@@ -664,10 +595,9 @@ def get_portfolio_chart_data(user_id, portfolio_range, portfolio_interval):
     if portfolio_interval not in VALID_PORTFOLIO_INTERVALS:
         portfolio_interval = "hourly"
 
-    dashboard = get_dashboard_summary()
     portfolio_start_date, portfolio_end_date = get_portfolio_date_range(
         portfolio_range,
-        dashboard["latest_price_date"],
+        get_latest_price_date(),
     )
     portfolio_history = get_portfolio_history(
         user_id,
@@ -833,25 +763,11 @@ def portfolio():
     )
 
 
-@app.route("/prices/import-tavex", methods=["POST"])
-def import_tavex_prices():
-    result = run_tavex_import(price_time=current_timestamp())
-
-    return redirect(url_for(
-        "prices",
-        imported=result["imported_prices_count"],
-        missing=len(result["missing_products"]),
-        imported_assets=result["imported_assets_count"],
-        skipped_assets=result["skipped_assets_count"],
-    ))
-
-
 @app.route("/charts")
 def charts():
     assets = get_chart_assets()
     saved_filters = load_chart_filters()
     asset_ids = [asset["id"] for asset in assets]
-    assets_by_id = {asset["id"]: asset for asset in assets}
     chart_configs = get_requested_chart_configs(saved_filters, asset_ids)
     selected_asset_ids = [config["asset_id"] for config in chart_configs]
     selected_asset_id_set = set(selected_asset_ids)
@@ -859,7 +775,6 @@ def charts():
 
     for index, chart_config in enumerate(chart_configs):
         asset_id = chart_config["asset_id"]
-        selected_asset = assets_by_id.get(asset_id) or get_asset_by_id(asset_id)
         latest_price_date = get_latest_price_date(asset_id)
         start_date, end_date = get_chart_date_range(
             chart_config["range"],
@@ -881,7 +796,6 @@ def charts():
 
         chart_panels.append({
             "index": index,
-            "asset": selected_asset,
             "asset_id": asset_id,
             "selectable_assets": selectable_assets,
             "range": chart_config["range"],
@@ -898,11 +812,6 @@ def charts():
 
     save_chart_filters({
         "charts": chart_configs,
-        "asset_ids": selected_asset_ids,
-        "range": DEFAULT_CHART_RANGE,
-        "interval": DEFAULT_CHART_INTERVAL,
-        "start_date": None,
-        "end_date": None,
     })
 
     template_name = (
@@ -913,7 +822,6 @@ def charts():
 
     return render_template(
         template_name,
-        assets=assets,
         chart_panels=chart_panels,
         can_add_chart=len(selected_asset_ids) < len(assets),
         chart_ranges=[

@@ -48,8 +48,6 @@ The current version includes:
 - Assets
 - Historical asset prices with timestamp support
 - Flask web interface
-- Dashboard summary
-- Asset, category, and price tables
 - Interactive portfolio value chart
 - Multiple configurable asset price charts
 - All products stored in the database are selectable in Charts
@@ -58,7 +56,6 @@ The current version includes:
 - Saved chart filter settings in local runtime state
 - Tavex product and price import
 - Hourly Tavex price import and manual-item price snapshots through cron
-- Dashboard switch for enabling or disabling automatic Tavex imports
 - Portfolio page with owned Tavex quantities
 - Jewelry and manual items with Tavex gold buyback price helpers
 - Portfolio value chart with selectable Tavex and manual gold items
@@ -140,7 +137,7 @@ apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --pa
 
 Users with the `admin` role can access the `Users` and `Logs` dashboards from
 the main navigation. Both pages require an authenticated admin account. The
-The Users dashboard displays fixed roles and allows account-status management.
+Users dashboard displays fixed roles, creation dates, and login statistics.
 
 The Logs dashboard reads regular `.log` files directly from the project-level
 `logs/` directory and displays at most the last 500 lines of each file. Log
@@ -224,12 +221,12 @@ Role behavior:
 - `admin`: reserved for the single configured role-management account.
 - `user`: assigned to every other account and sees its own portfolio data.
 
-The special `admin` account is intended only for role management. It can open
-the Users and Password tabs, but it cannot browse portfolio or market-data tabs.
+The special `admin` account is intended only for user and login management. It can open
+Users and Logs and change its password, but it cannot browse portfolio or market-data tabs.
 Roles cannot be changed from the application. The database permits only one
 account with the `admin` role.
-Users can be activated or deactivated from the Users page. The currently logged-in
-user and the special `admin` account cannot be deactivated from that page.
+Regular users can deactivate their own account from the user menu. The special
+`admin` account cannot be deactivated.
 
 Sessions use `SESSION_TIMEOUT_MINUTES` from the active environment file. When there is no
 user activity for that many minutes, the user is logged out. A user can have

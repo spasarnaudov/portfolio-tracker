@@ -22,9 +22,17 @@ with the current round hour, for example `14:00:00`.
 Manual-item prices are stored every time the cron script runs. Tavex product
 prices and the gold buyback price per gram for every available karat are stored
 together at the same round-hour timestamp when automatic Tavex import is enabled.
-Use the Dashboard button to enable or disable only the Tavex part without editing cron.
+Enable the Tavex part of the cron import with:
 
-Manual imports from the web interface use the current time. The cron script uses the current round hour.
+```bash
+mkdir -p runtime
+touch runtime/auto_tavex_import.enabled
+```
+
+Disable it by removing `runtime/auto_tavex_import.enabled`. Manual-item snapshots
+continue even when the Tavex part is disabled.
+
+Both manual script runs and cron use the current round hour.
 
 ## Run Every Hour
 
@@ -47,8 +55,6 @@ Logs are written to:
 ```text
 logs/tavex_import.log
 ```
-
-The latest log lines are visible on the Dashboard.
 
 ## Database Backups
 

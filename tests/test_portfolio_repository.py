@@ -113,6 +113,23 @@ class PortfolioRepositoryTests(unittest.TestCase):
         self.assertNotIn("portfolio_holdings", query)
         self.assertNotIn("WHERE", query)
 
+    def test_latest_price_date_supports_global_and_per_asset_queries(self):
+        connection, cursor = self._connection_and_cursor()
+        cursor.fetchone.return_value = {"latest_price_date": datetime(2026, 7, 15, 8, 0)}
+
+        with patch.object(repository, "get_connection", return_value=connection):
+            repository.get_latest_price_date()
+
+        global_query = cursor.execute.call_args.args[0]
+        self.assertNotIn("WHERE asset_id", global_query)
+
+        with patch.object(repository, "get_connection", return_value=connection):
+            repository.get_latest_price_date(7)
+
+        asset_query, parameters = cursor.execute.call_args.args
+        self.assertIn("WHERE asset_id = %s", asset_query)
+        self.assertEqual(parameters, (7,))
+
     def test_gold_buyback_assets_are_hidden_from_portfolio_holdings(self):
         connection, cursor = self._connection_and_cursor()
         cursor.fetchall.return_value = []

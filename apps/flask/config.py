@@ -1,7 +1,6 @@
 import hashlib
 import os
 from pathlib import Path
-from urllib.parse import urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -43,7 +42,6 @@ if custom_env_file:
     load_env_file(Path(custom_env_file), override=True)
 else:
     load_env_file(PROJECT_ROOT / f".env.{get_app_environment()}", override=True)
-    load_env_file(Path(__file__).parent / ".env", override=True)
 
 APP_ENV = get_app_environment()
 
@@ -84,21 +82,11 @@ def get_database_config():
     }
 
 
-def get_database_name():
-    database_url = os.getenv("DATABASE_URL")
-
-    if database_url:
-        return urlparse(database_url).path.lstrip("/")
-
-    return os.getenv("DB_NAME", "")
-
-
 SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("APP_SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY must be set in the active environment file")
 
 DATABASE_CONFIG = get_database_config()
-DATABASE_NAME = get_database_name()
 DEBUG = get_bool_env("DEBUG", APP_ENV == "development")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 HOST = os.getenv("HOST", "127.0.0.1")
