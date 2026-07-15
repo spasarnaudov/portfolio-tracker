@@ -19,9 +19,10 @@ apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 The script stores Tavex prices and the current prices of all jewelry/manual items
 with the current round hour, for example `14:00:00`.
 
-Manual-item prices are stored every time the cron script runs. Tavex prices are
-imported only when automatic Tavex import is enabled from the Dashboard. Use the
-Dashboard button to enable or disable only the Tavex part without editing cron.
+Manual-item prices are stored every time the cron script runs. Tavex product
+prices and the gold buyback price per gram for every available karat are stored
+together at the same round-hour timestamp when automatic Tavex import is enabled.
+Use the Dashboard button to enable or disable only the Tavex part without editing cron.
 
 Manual imports from the web interface use the current time. The cron script uses the current round hour.
 

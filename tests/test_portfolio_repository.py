@@ -101,6 +101,29 @@ class PortfolioRepositoryTests(unittest.TestCase):
         self.assertIn("manual_history", query)
         self.assertNotIn("manual_total", query)
 
+    def test_all_database_assets_are_available_in_user_chart_products(self):
+        connection, cursor = self._connection_and_cursor()
+        cursor.fetchall.return_value = []
+
+        with patch.object(repository, "get_connection", return_value=connection):
+            repository.get_chart_assets()
+
+        query = cursor.execute.call_args.args[0]
+        self.assertIn("FROM assets", query)
+        self.assertNotIn("portfolio_holdings", query)
+        self.assertNotIn("WHERE", query)
+
+    def test_gold_buyback_assets_are_hidden_from_portfolio_holdings(self):
+        connection, cursor = self._connection_and_cursor()
+        cursor.fetchall.return_value = []
+
+        with patch.object(repository, "get_connection", return_value=connection):
+            repository.get_portfolio_holdings(7)
+
+        query, parameters = cursor.execute.call_args.args
+        self.assertIn("asset_categories.name != 'Gold buyback'", query)
+        self.assertEqual(parameters, (7,))
+
 
 if __name__ == "__main__":
     unittest.main()

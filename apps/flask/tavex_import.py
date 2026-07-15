@@ -21,6 +21,7 @@ from fetch_tavex_prices import (
 )
 
 TAVEX_BUYBACK_URL = "https://tavex.bg/izkupuvane-zlato-i-srebro/"
+GOLD_BUYBACK_CATEGORY = "Gold buyback"
 
 
 def current_timestamp():
@@ -33,6 +34,11 @@ def current_hour_timestamp():
 
 def import_tavex_prices(price_time=None, timeout=15):
     products, sources = fetch_products_from_urls(DEFAULT_CATEGORY_URLS, timeout=timeout)
+    buyback_products = gold_buyback_prices_to_products(
+        get_tavex_gold_buyback_prices(timeout=timeout),
+    )
+    products.extend(buyback_products)
+    sources.append(TAVEX_BUYBACK_URL)
     assets_result = import_assets_from_products(products)
     prices_result = import_asset_prices_by_name(
         products,
@@ -42,6 +48,7 @@ def import_tavex_prices(price_time=None, timeout=15):
     return {
         "sources": sources,
         "products_count": len(products),
+        "buyback_products_count": len(buyback_products),
         "imported_assets_count": assets_result["imported_count"],
         "skipped_assets_count": assets_result["skipped_count"],
         "imported_prices_count": prices_result["imported_count"],
@@ -137,6 +144,21 @@ def parse_tavex_gold_buyback_prices(page_html):
 def get_tavex_gold_buyback_prices(timeout=15):
     page_html = fetch_html(TAVEX_BUYBACK_URL, timeout)
     return parse_tavex_gold_buyback_prices(page_html)
+
+
+def gold_buyback_prices_to_products(prices):
+    return [
+        {
+            "name": (
+                f"1 грам злато изкупува - {price['karat']}K / "
+                f"проба {price['fineness']}"
+            ),
+            "category_name": GOLD_BUYBACK_CATEGORY,
+            "sell_price_eur": None,
+            "buy_price_eur": price["price_per_gram"],
+        }
+        for price in prices
+    ]
 
 
 def get_tavex_gold_price_per_gram(timeout=15, default_karat=14):

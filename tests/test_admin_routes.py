@@ -61,10 +61,17 @@ class AdminRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.location.endswith("/portfolio"))
 
-    def test_charts_page_is_removed(self):
-        response = self._get_as("/charts", "user")
+    def test_regular_user_can_view_charts(self):
+        with patch.object(application, "get_chart_assets", return_value=[]), \
+                patch.object(application, "load_chart_filters", return_value={"charts": []}), \
+                patch.object(application, "save_chart_filters") as save_filters:
+            response = self._get_as("/charts", "user")
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b">Charts<", response.data)
+        self.assertIn(b"Add a chart", response.data)
+        self.assertIn(b">Portfolio<", response.data)
+        save_filters.assert_called_once()
 
     def test_admin_can_view_users(self):
         listed_user = self._user("admin") | {
@@ -78,8 +85,8 @@ class AdminRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Users", response.data)
-        self.assertNotIn(b">Portfolio<", response.data)
-        self.assertNotIn(b">Charts<", response.data)
+        self.assertIn(b">Portfolio<", response.data)
+        self.assertIn(b">Charts<", response.data)
         self.assertNotIn(b'value="demo"', response.data)
         self.assertNotIn(b'name="role_', response.data)
         self.assertNotIn(b">Active<", response.data)

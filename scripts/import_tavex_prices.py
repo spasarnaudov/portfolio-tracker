@@ -27,6 +27,7 @@ def main():
     result = import_tavex_prices(price_time=price_time)
 
     print(f"Fetched products: {result['products_count']}")
+    print(f"Gold buyback price series: {result['buyback_products_count']}")
     print(f"Imported missing assets: {result['imported_assets_count']}")
     print(f"Skipped existing assets: {result['skipped_assets_count']}")
     print(f"Imported prices: {result['imported_prices_count']}")

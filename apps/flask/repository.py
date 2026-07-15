@@ -315,6 +315,8 @@ def get_portfolio_holdings(user_id):
                         2
                     ) AS current_value
                 FROM assets
+                JOIN asset_categories
+                    ON asset_categories.id = assets.category_id
                 LEFT JOIN portfolio_holdings
                     ON portfolio_holdings.asset_id = assets.id
                     AND portfolio_holdings.user_id = %s
@@ -326,6 +328,7 @@ def get_portfolio_holdings(user_id):
                     LIMIT 1
                 ) AS latest_prices ON TRUE
                 WHERE assets.symbol LIKE 'TAVEX-%%'
+                    AND asset_categories.name != 'Gold buyback'
                 ORDER BY assets.symbol, assets.name;
             """, (user_id,))
             return cur.fetchall()
@@ -636,3 +639,73 @@ def import_assets_from_products(products):
         "imported_count": imported_count,
         "skipped_count": skipped_count,
     }
+
+
+def get_chart_assets():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, symbol, name
+                FROM assets
+                ORDER BY assets.symbol;
+            """)
+            return cur.fetchall()
+
+
+def get_asset_by_id(asset_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, symbol, name
+                FROM assets
+                WHERE id = %s;
+            """, (asset_id,))
+            return cur.fetchone()
+
+
+def get_latest_price_date(asset_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT MAX(price_date) AS latest_price_date
+                FROM asset_prices
+                WHERE asset_id = %s;
+            """, (asset_id,))
+            result = cur.fetchone()
+            return result["latest_price_date"] if result else None
+
+
+def get_asset_prices(asset_id, start_date=None, end_date=None, interval="daily"):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            if interval == "recorded":
+                group_expression = "price_date"
+            elif interval == "hourly":
+                group_expression = "DATE_TRUNC('hour', price_date)"
+            elif interval == "weekly":
+                group_expression = "DATE_TRUNC('week', price_date)::date"
+            elif interval == "monthly":
+                group_expression = "DATE_TRUNC('month', price_date)::date"
+            else:
+                group_expression = "DATE_TRUNC('day', price_date)::date"
+
+            query = """
+                SELECT
+                    {group_expression} AS price_date,
+                    ROUND(AVG(price), 2) AS price
+                FROM asset_prices
+                WHERE asset_id = %s
+                    AND (%s::timestamp IS NULL OR price_date >= %s::timestamp)
+                    AND (%s::date IS NULL OR price_date < (%s::date + INTERVAL '1 day'))
+                GROUP BY {group_expression}
+                ORDER BY {group_expression};
+            """.format(group_expression=group_expression)
+
+            cur.execute(query, (
+                asset_id,
+                start_date,
+                start_date,
+                end_date,
+                end_date,
+            ))
+            return cur.fetchall()
