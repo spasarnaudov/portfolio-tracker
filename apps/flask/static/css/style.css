@@ -902,6 +902,52 @@ h2 {
     margin-bottom: 12px;
 }
 
+.custom-date-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.custom-date-fields[hidden] {
+    display: none;
+}
+
+.custom-date-fields label {
+    color: #52606d;
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 4px;
+    min-width: 0;
+}
+
+.custom-date-fields input {
+    border: 1px solid #bcccdc;
+    border-radius: 8px;
+    color: #1f2933;
+    font: inherit;
+    min-width: 0;
+    padding: 6px 8px;
+    width: 100%;
+}
+
+.custom-date-fields input:focus {
+    border-color: #0b5cad;
+    box-shadow: 0 0 0 3px rgba(11, 92, 173, 0.16);
+    outline: none;
+}
+
+#chartsContent {
+    transition: opacity 0.15s ease;
+}
+
+#chartsContent.charts-loading {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
 .chart-title-select {
     border: 1px solid #bcccdc;
     border-radius: 8px;
@@ -1315,6 +1361,10 @@ ul {
 
     .chart-info {
         font-size: 16px;
+    }
+
+    .custom-date-fields {
+        grid-template-columns: 1fr;
     }
 
     table {

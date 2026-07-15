@@ -291,6 +291,16 @@ def get_chart_list_value(values, index, default=None):
     return default if value in {None, ""} else value
 
 
+def normalize_chart_date(value):
+    if not value:
+        return None
+
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
 def normalize_chart_config(chart_config, valid_asset_ids):
     try:
         asset_id = int(chart_config.get("asset_id"))
@@ -309,12 +319,18 @@ def normalize_chart_config(chart_config, valid_asset_ids):
     if selected_interval not in VALID_CHART_INTERVALS:
         selected_interval = DEFAULT_CHART_INTERVAL
 
+    start_date = normalize_chart_date(chart_config.get("start_date"))
+    end_date = normalize_chart_date(chart_config.get("end_date"))
+
+    if start_date and end_date and start_date > end_date:
+        start_date, end_date = end_date, start_date
+
     return {
         "asset_id": asset_id,
         "range": selected_range,
         "interval": selected_interval,
-        "start_date": chart_config.get("start_date") or None,
-        "end_date": chart_config.get("end_date") or None,
+        "start_date": start_date,
+        "end_date": end_date,
     }
 
 
@@ -889,8 +905,14 @@ def charts():
         "end_date": None,
     })
 
+    template_name = (
+        "_charts_content.html"
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        else "charts.html"
+    )
+
     return render_template(
-        "charts.html",
+        template_name,
         assets=assets,
         chart_panels=chart_panels,
         can_add_chart=len(selected_asset_ids) < len(assets),

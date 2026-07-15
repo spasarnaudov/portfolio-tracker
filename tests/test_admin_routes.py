@@ -37,11 +37,11 @@ class AdminRouteTests(unittest.TestCase):
             "active_session_expires_at": datetime.now() + timedelta(minutes=5),
         }
 
-    def _get_as(self, path, role):
+    def _get_as(self, path, role, **request_kwargs):
         self._set_session()
         with patch.object(application, "get_user_by_id", return_value=self._user(role)), \
                 patch.object(application, "update_user_session"):
-            return self.client.get(path)
+            return self.client.get(path, **request_kwargs)
 
     def test_unauthenticated_user_is_redirected_from_admin_pages(self):
         for path in ("/admin/users", "/admin/logs"):
@@ -72,6 +72,62 @@ class AdminRouteTests(unittest.TestCase):
         self.assertIn(b"Add a chart", response.data)
         self.assertIn(b">Portfolio<", response.data)
         save_filters.assert_called_once()
+
+    def test_chart_filter_ajax_returns_custom_date_controls_and_filtered_data(self):
+        asset = {"id": 7, "symbol": "GOLD", "name": "Gold"}
+        saved_filters = {
+            "charts": [{
+                "asset_id": 7,
+                "range": "custom",
+                "interval": "daily",
+                "start_date": "2026-07-01",
+                "end_date": "2026-07-15",
+            }],
+        }
+
+        with patch.object(application, "get_chart_assets", return_value=[asset]), \
+                patch.object(application, "load_chart_filters", return_value=saved_filters), \
+                patch.object(application, "get_latest_price_date", return_value=None), \
+                patch.object(application, "get_asset_prices", return_value=[]) as get_prices, \
+                patch.object(application, "save_chart_filters"):
+            response = self._get_as(
+                "/charts",
+                "user",
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(b"<!DOCTYPE html>", response.data)
+        self.assertIn(b'name="chart_start_date"', response.data)
+        self.assertIn(b'value="2026-07-01"', response.data)
+        self.assertIn(b'name="chart_end_date"', response.data)
+        self.assertIn(b'value="2026-07-15"', response.data)
+        get_prices.assert_called_once_with(
+            7,
+            "2026-07-01",
+            "2026-07-15",
+            "daily",
+        )
+
+    def test_chart_custom_dates_are_validated_and_ordered(self):
+        chart_config = application.normalize_chart_config({
+            "asset_id": 7,
+            "range": "custom",
+            "interval": "daily",
+            "start_date": "2026-07-15",
+            "end_date": "2026-07-01",
+        }, [7])
+        invalid_config = application.normalize_chart_config({
+            "asset_id": 7,
+            "range": "custom",
+            "interval": "daily",
+            "start_date": "not-a-date",
+            "end_date": "2026-07-15",
+        }, [7])
+
+        self.assertEqual(chart_config["start_date"], "2026-07-01")
+        self.assertEqual(chart_config["end_date"], "2026-07-15")
+        self.assertIsNone(invalid_config["start_date"])
 
     def test_admin_can_view_users(self):
         listed_user = self._user("admin") | {

@@ -5,60 +5,93 @@
 {% block content %}
     <form id="chartFilters" method="get" action="{{ url_for('charts') }}"></form>
 
-    {% if chart_panels %}
-        {% for chart_panel in chart_panels %}
-            <section class="chart-panel">
-                <div class="chart-panel-header">
-                    <div class="chart-panel-controls">
-                        <select class="chart-panel-select" name="chart_range" aria-label="Period" form="chartFilters" onchange="this.form.submit()">
-                            {% for range_value, range_label in chart_ranges %}
-                                <option value="{{ range_value }}" {% if chart_panel.range == range_value %}selected{% endif %}>{{ range_label }}</option>
-                            {% endfor %}
-                        </select>
-
-                        <select class="chart-panel-select" name="chart_interval" aria-label="Price display" form="chartFilters" onchange="this.form.submit()">
-                            {% for interval_value, interval_label in chart_intervals %}
-                                <option value="{{ interval_value }}" {% if chart_panel.interval == interval_value %}selected{% endif %}>{{ interval_label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <button class="remove-chart-button" type="submit" name="remove_chart" value="{{ chart_panel.index }}" form="chartFilters" aria-label="Remove chart">x</button>
-                </div>
-
-                <div class="chart-asset-row">
-                    <select class="chart-title-select" name="chart_asset_id" aria-label="Asset" form="chartFilters" onchange="this.form.submit()">
-                        {% for asset in chart_panel.selectable_assets %}
-                            <option value="{{ asset.id }}" {% if asset.id == chart_panel.asset_id %}selected{% endif %}>
-                                {{ asset.symbol }} - {{ asset.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <input type="hidden" name="chart_start_date" value="{{ chart_panel.start_date }}" form="chartFilters">
-                <input type="hidden" name="chart_end_date" value="{{ chart_panel.end_date }}" form="chartFilters">
-
-                {% if chart_panel.has_prices %}
-                    <canvas
-                        class="price-chart"
-                        width="900"
-                        height="360"
-                        data-labels='{{ chart_panel["labels"] | tojson }}'
-                        data-values='{{ chart_panel["values"] | tojson }}'
-                        data-interval="{{ chart_panel.interval }}"
-                    ></canvas>
-                    <p class="chart-info">Click on the chart to inspect a point.</p>
-                {% else %}
-                    <p class="chart-info">No price data available for this asset.</p>
-                {% endif %}
-            </section>
-        {% endfor %}
-    {% else %}
-        <p class="empty-charts-message">Add a chart to start comparing assets.</p>
-    {% endif %}
-
-    <div class="add-chart-row">
-        <button class="add-chart-button" type="submit" name="add_chart" value="1" form="chartFilters" {% if not can_add_chart %}disabled{% endif %}>+</button>
+    <div id="chartsContent" aria-live="polite">
+        {% include "_charts_content.html" %}
     </div>
+
+    <script>
+        const chartFiltersForm = document.getElementById("chartFilters");
+        const chartsContent = document.getElementById("chartsContent");
+        let chartRequestController = null;
+
+        function setupChartContent() {
+            chartsContent.querySelectorAll("[data-chart-filter]").forEach((control) => {
+                control.addEventListener("change", () => submitChartFilters());
+            });
+
+            chartsContent.querySelectorAll(".custom-date-fields").forEach((dateFields) => {
+                const startInput = dateFields.querySelector('[name="chart_start_date"]');
+                const endInput = dateFields.querySelector('[name="chart_end_date"]');
+
+                if (startInput && endInput) {
+                    startInput.max = endInput.value;
+                    endInput.min = startInput.value;
+                }
+            });
+
+            chartsContent.querySelectorAll(".price-chart").forEach((chartCanvas) => {
+                window.PriceCharts.render(chartCanvas);
+            });
+        }
+
+        async function submitChartFilters(submitter = null) {
+            if (chartRequestController) {
+                chartRequestController.abort();
+            }
+
+            const requestController = new AbortController();
+            chartRequestController = requestController;
+            const formData = new FormData(chartFiltersForm);
+
+            if (submitter?.name) {
+                formData.append(submitter.name, submitter.value);
+            }
+
+            const query = new URLSearchParams(formData);
+            const requestUrl = `${chartFiltersForm.action}?${query.toString()}`;
+            chartsContent.classList.add("charts-loading");
+            chartsContent.setAttribute("aria-busy", "true");
+
+            try {
+                const response = await fetch(requestUrl, {
+                    headers: {
+                        "Accept": "text/html",
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    signal: requestController.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Chart update failed with status ${response.status}`);
+                }
+
+                if (response.redirected) {
+                    window.location.assign(response.url);
+                    return;
+                }
+
+                chartsContent.innerHTML = await response.text();
+                window.history.replaceState({}, "", requestUrl);
+                setupChartContent();
+            } catch (error) {
+                if (error.name !== "AbortError") {
+                    console.error(error);
+                    window.location.assign(requestUrl);
+                }
+            } finally {
+                if (chartRequestController === requestController) {
+                    chartRequestController = null;
+                    chartsContent.classList.remove("charts-loading");
+                    chartsContent.removeAttribute("aria-busy");
+                }
+            }
+        }
+
+        chartFiltersForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            submitChartFilters(event.submitter);
+        });
+
+        document.addEventListener("DOMContentLoaded", setupChartContent);
+    </script>
 {% endblock %}
