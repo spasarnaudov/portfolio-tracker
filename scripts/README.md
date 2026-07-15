@@ -10,7 +10,7 @@ Adjust the path in cron when deploying to another directory.
 
 ## Import Hourly Prices
 
-Run a single Tavex import:
+Run the hourly import job once:
 
 ```bash
 apps/flask/.venv/bin/python scripts/import_tavex_prices.py
@@ -29,8 +29,13 @@ mkdir -p runtime
 touch runtime/auto_tavex_import.enabled
 ```
 
-Disable it by removing `runtime/auto_tavex_import.enabled`. Manual-item snapshots
-continue even when the Tavex part is disabled.
+Disable it with:
+
+```bash
+rm runtime/auto_tavex_import.enabled
+```
+
+Manual-item snapshots continue even when the Tavex part is disabled.
 
 Both manual script runs and cron use the current round hour.
 
@@ -102,6 +107,26 @@ The verification script checks that:
 - the file exists
 - the file is not empty
 - `pg_restore --list` can read the dump structure inside the PostgreSQL container
+
+## Restore a Backup into the Test Database
+
+Restore a custom-format dump into the dedicated test database:
+
+```bash
+./scripts/restore_test_database.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
+```
+
+The script:
+
+- verifies Docker access and the supplied dump
+- targets the `postgresql` container
+- drops and recreates `portfolio_tracker_test`
+- restores with the `casaos` database user
+- cannot target production because the test database name is fixed
+- checks the restored tables and row counts
+
+The container, database user, and test database are currently fixed constants
+inside `scripts/restore_test_database.sh`.
 
 ## Env Backups
 

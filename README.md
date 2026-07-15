@@ -52,6 +52,8 @@ The current version includes:
 - Multiple configurable asset price charts
 - All products stored in the database are selectable in Charts
 - Per-chart asset, period, and price interval settings
+- Custom chart ranges with start and end dates
+- Asynchronous chart filtering without full-page reloads
 - Historical Tavex gold buyback prices per gram for each available karat
 - Saved chart filter settings in local runtime state
 - Tavex product and price import
@@ -100,11 +102,14 @@ Run the app against the test environment:
 APP_ENV=test apps/flask/.venv/bin/python apps/flask/app.py
 ```
 
-Run a manual Tavex import:
+Run the hourly import job manually:
 
 ```bash
 APP_ENV=development apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 ```
+
+Manual-item snapshots are always stored. Tavex product and gold-buyback prices
+are imported only when `runtime/auto_tavex_import.enabled` exists.
 
 Load an environment file before running database commands:
 
@@ -127,7 +132,7 @@ Create or update an application user from the terminal:
 apps/flask/.venv/bin/python scripts/create_user.py username
 ```
 
-Create or update the role-management account:
+Create or update the special admin account:
 
 ```bash
 apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --password "$ROLE_MANAGER_PASSWORD"
@@ -218,7 +223,7 @@ docker run --env-file .env.production -p 5003:5000 portfolio-tracker:1.0.0
 
 Role behavior:
 
-- `admin`: reserved for the single configured role-management account.
+- `admin`: reserved for the single configured user-management account.
 - `user`: assigned to every other account and sees its own portfolio data.
 
 The special `admin` account is intended only for user and login management. It can open

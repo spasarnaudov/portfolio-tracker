@@ -4,7 +4,8 @@
 
 ### asset_categories
 
-Stores the Gold category used by imported Tavex products.
+Stores categories used by imported Tavex products and generated price series,
+including Gold, Silver, and Gold buyback.
 
 Columns:
 - id: unique category ID
@@ -40,7 +41,7 @@ Stores quantities of owned tracked assets, currently used for Tavex products.
 
 Columns:
 - user_id: reference to users and part of the primary key
-- asset_id: reference to assets and primary key
+- asset_id: reference to assets and part of the primary key
 - quantity: owned quantity
 - include_in_chart: controls whether the holding contributes to the portfolio chart
 
@@ -102,15 +103,14 @@ Notes:
 - Only one active session per user is allowed.
 - Inactivity timeout is configured through `SESSION_TIMEOUT_MINUTES`.
 - Users can be created from the registration page or from the terminal helper script.
-- Users marked as deleted cannot log in again.
 - Logged-in users can change their own password from the application.
-- Admin users can access global management tabs.
+- The special admin account can access Users and Logs.
 - User accounts see their own portfolio data.
-- The special `admin` user is limited to role management.
+- The special `admin` user is limited to user and login-history management.
 - Roles are read-only in the application, and only one account can have the `admin` role.
-- Inactive users cannot log in.
-- Self-deletion marks the account as deleted and inactive without removing its data.
-- A database trigger permanently locks the active/deleted state after self-deletion.
+- Users marked as deleted cannot log in.
+- Self-deletion sets `is_deleted` without removing the account or its related data.
+- A database trigger prevents a deleted account from clearing its deleted state.
 
 ### user_login_history
 

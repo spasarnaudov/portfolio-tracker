@@ -1,6 +1,6 @@
 # Database Maintenance
 
-## Delete All Data
+## Delete Portfolio and Market Data
 
 Load local environment variables and run this command from the project root:
 
@@ -20,7 +20,8 @@ This deletes all rows from:
 - `assets`
 - `asset_categories`
 
-It keeps the table structure and restarts the ID counters.
+It keeps users, login history, and the table structure. It restarts the ID
+counters for the truncated portfolio and market-data tables.
 
 ## Delete Only Prices
 

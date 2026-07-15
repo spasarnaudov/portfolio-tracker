@@ -22,7 +22,8 @@ I want to understand what is happening and approve technical decisions.
 - Avoid unnecessary complex terminology.
 
 Important:
-- Source code must remain in English.
+- Source-code identifiers and comments must remain in English.
+- User-facing text may use the application's interface language.
 - File names must remain in English.
 - Function, class, and variable names must remain in English.
 - Database table names must remain in English.
@@ -43,7 +44,7 @@ Human:
 - reviews the code
 - tests the implementation
 - approves changes
-- creates commits
+- requests commits when the current changes are ready
 
 ---
 
@@ -51,10 +52,11 @@ Human:
 
 Always:
 
-1. Analyze first.
-2. Suggest an implementation plan.
-3. Wait for approval.
-4. Modify files only after approval.
+1. Analyze the requested change first.
+2. Implement changes that are clearly within the user's request.
+3. Ask before risky, destructive, or materially broader changes.
+4. Run relevant checks and explain the result.
+5. Create a commit only when the user explicitly requests one.
 
 Do not make major changes without a clear reason.
 
