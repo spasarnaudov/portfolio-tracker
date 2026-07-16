@@ -33,6 +33,7 @@ class PortfolioRepositoryTests(unittest.TestCase):
         self.assertEqual(imported_count, 3)
         query, parameters = cursor.execute.call_args.args
         self.assertIn("ON CONFLICT (manual_item_id, price_date)", query)
+        self.assertIn("WHERE price_asset_id IS NULL", query)
         self.assertEqual(parameters, (price_date,))
         connection.commit.assert_called_once_with()
 
@@ -100,6 +101,44 @@ class PortfolioRepositoryTests(unittest.TestCase):
         self.assertIn("JOIN portfolio_manual_item_prices", query)
         self.assertIn("manual_history", query)
         self.assertNotIn("manual_total", query)
+
+    def test_portfolio_history_carries_last_known_prices_forward(self):
+        connection, cursor = self._connection_and_cursor()
+        cursor.fetchall.return_value = []
+        start_date = datetime(2026, 7, 14, 9, 0)
+        end_date = datetime(2026, 7, 15, 9, 0)
+
+        with patch.object(repository, "get_connection", return_value=connection):
+            repository.get_portfolio_history(
+                7,
+                start_date=start_date,
+                end_date=end_date,
+                interval="hourly",
+            )
+
+        query, parameters = cursor.execute.call_args.args
+        self.assertEqual(
+            query.count("history.price_date <= portfolio_dates.price_date"),
+            2,
+        )
+        self.assertEqual(query.count("ORDER BY history.price_date DESC"), 2)
+        self.assertNotIn("COALESCE(tavex_history.value, 0)", query)
+        self.assertNotIn("COALESCE(manual_history.value, 0)", query)
+        self.assertEqual(parameters, (
+            7,
+            end_date,
+            end_date,
+            7,
+            end_date,
+            end_date,
+            7,
+            end_date,
+            end_date,
+            start_date,
+            start_date,
+            end_date,
+            end_date,
+        ))
 
     def test_all_database_assets_are_available_in_user_chart_products(self):
         connection, cursor = self._connection_and_cursor()

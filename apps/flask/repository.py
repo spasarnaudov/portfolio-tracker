@@ -310,11 +310,22 @@ def get_portfolio_manual_items(user_id):
                     name,
                     quantity,
                     unit_price,
+                    price_asset_id,
                     include_in_chart,
-                    ROUND(quantity * unit_price, 2) AS current_value
-                FROM portfolio_manual_items
-                WHERE user_id = %s
-                ORDER BY id;
+                    ROUND(
+                        quantity * COALESCE(latest_linked_price.price, unit_price),
+                        2
+                    ) AS current_value
+                FROM portfolio_manual_items AS manual_items
+                LEFT JOIN LATERAL (
+                    SELECT price
+                    FROM asset_prices
+                    WHERE asset_prices.asset_id = manual_items.price_asset_id
+                    ORDER BY price_date DESC
+                    LIMIT 1
+                ) AS latest_linked_price ON TRUE
+                WHERE manual_items.user_id = %s
+                ORDER BY manual_items.id;
             """, (user_id,))
             return cur.fetchall()
 
@@ -327,6 +338,7 @@ def save_portfolio_manual_items(user_id, items):
                 name = item.get("name", "").strip()
                 quantity = item.get("quantity", 0)
                 unit_price = item.get("unit_price", 0)
+                price_asset_id = item.get("price_asset_id")
                 include_in_chart = (
                     item.get("include_in_chart", False)
                     and quantity > 0
@@ -347,19 +359,36 @@ def save_portfolio_manual_items(user_id, items):
                         SET name = %s,
                             quantity = %s,
                             unit_price = %s,
+                            price_asset_id = %s,
                             include_in_chart = %s
                         WHERE id = %s
                             AND user_id = %s;
-                    """, (name, quantity, unit_price, include_in_chart, item_id, user_id))
+                    """, (
+                        name,
+                        quantity,
+                        unit_price,
+                        price_asset_id,
+                        include_in_chart,
+                        item_id,
+                        user_id,
+                    ))
                     continue
 
                 if name:
                     cur.execute("""
                         INSERT INTO portfolio_manual_items (
-                            user_id, name, quantity, unit_price, include_in_chart
+                            user_id, name, quantity, unit_price,
+                            price_asset_id, include_in_chart
                         )
-                        VALUES (%s, %s, %s, %s, %s);
-                    """, (user_id, name, quantity, unit_price, include_in_chart))
+                        VALUES (%s, %s, %s, %s, %s, %s);
+                    """, (
+                        user_id,
+                        name,
+                        quantity,
+                        unit_price,
+                        price_asset_id,
+                        include_in_chart,
+                    ))
 
         conn.commit()
 
@@ -375,6 +404,7 @@ def snapshot_portfolio_manual_item_prices(price_date):
                 )
                 SELECT id, %s, unit_price
                 FROM portfolio_manual_items
+                WHERE price_asset_id IS NULL
                 ON CONFLICT (manual_item_id, price_date)
                 DO UPDATE SET price = EXCLUDED.price;
             """, (price_date,))
@@ -410,7 +440,6 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                     WHERE portfolio_holdings.quantity > 0
                         AND portfolio_holdings.user_id = %s
                         AND portfolio_holdings.include_in_chart = TRUE
-                        AND (%s::timestamp IS NULL OR asset_prices.price_date >= %s::timestamp)
                         AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
                     GROUP BY {group_expression}, asset_prices.asset_id, portfolio_holdings.quantity
                 ),
@@ -422,23 +451,46 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                     GROUP BY price_date
                 ),
                 manual_period_prices AS (
-                    SELECT
-                        {group_expression} AS price_date,
-                        portfolio_manual_items.id AS manual_item_id,
-                        portfolio_manual_items.quantity,
-                        AVG(portfolio_manual_item_prices.price) AS price
-                    FROM portfolio_manual_items
-                    JOIN portfolio_manual_item_prices
-                        ON portfolio_manual_item_prices.manual_item_id = portfolio_manual_items.id
-                    WHERE portfolio_manual_items.quantity > 0
-                        AND portfolio_manual_items.user_id = %s
-                        AND portfolio_manual_items.include_in_chart = TRUE
-                        AND (%s::timestamp IS NULL OR portfolio_manual_item_prices.price_date >= %s::timestamp)
-                        AND (%s::timestamp IS NULL OR portfolio_manual_item_prices.price_date <= %s::timestamp)
-                    GROUP BY
-                        {group_expression},
-                        portfolio_manual_items.id,
-                        portfolio_manual_items.quantity
+                    SELECT *
+                    FROM (
+                        SELECT
+                            {group_expression} AS price_date,
+                            portfolio_manual_items.id AS manual_item_id,
+                            portfolio_manual_items.quantity,
+                            AVG(portfolio_manual_item_prices.price) AS price
+                        FROM portfolio_manual_items
+                        JOIN portfolio_manual_item_prices
+                            ON portfolio_manual_item_prices.manual_item_id = portfolio_manual_items.id
+                        WHERE portfolio_manual_items.quantity > 0
+                            AND portfolio_manual_items.user_id = %s
+                            AND portfolio_manual_items.include_in_chart = TRUE
+                            AND portfolio_manual_items.price_asset_id IS NULL
+                            AND (%s::timestamp IS NULL OR portfolio_manual_item_prices.price_date <= %s::timestamp)
+                        GROUP BY
+                            {group_expression},
+                            portfolio_manual_items.id,
+                            portfolio_manual_items.quantity
+
+                        UNION ALL
+
+                        SELECT
+                            {linked_group_expression} AS price_date,
+                            portfolio_manual_items.id AS manual_item_id,
+                            portfolio_manual_items.quantity,
+                            AVG(asset_prices.price) AS price
+                        FROM portfolio_manual_items
+                        JOIN asset_prices
+                            ON asset_prices.asset_id = portfolio_manual_items.price_asset_id
+                        WHERE portfolio_manual_items.quantity > 0
+                            AND portfolio_manual_items.user_id = %s
+                            AND portfolio_manual_items.include_in_chart = TRUE
+                            AND portfolio_manual_items.price_asset_id IS NOT NULL
+                            AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
+                        GROUP BY
+                            {linked_group_expression},
+                            portfolio_manual_items.id,
+                            portfolio_manual_items.quantity
+                    ) AS prices
                 ),
                 manual_history AS (
                     SELECT
@@ -457,28 +509,71 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                 SELECT
                     portfolio_dates.price_date,
                     ROUND(
-                        COALESCE(tavex_history.value, 0)
-                        + COALESCE(manual_history.value, 0),
+                        COALESCE((
+                            SELECT history.value
+                            FROM tavex_history AS history
+                            WHERE history.price_date <= portfolio_dates.price_date
+                            ORDER BY history.price_date DESC
+                            LIMIT 1
+                        ), 0)
+                        + COALESCE((
+                            SELECT history.value
+                            FROM manual_history AS history
+                            WHERE history.price_date <= portfolio_dates.price_date
+                            ORDER BY history.price_date DESC
+                            LIMIT 1
+                        ), 0),
                         2
                     ) AS value
                 FROM portfolio_dates
-                LEFT JOIN tavex_history
-                    ON tavex_history.price_date = portfolio_dates.price_date
-                LEFT JOIN manual_history
-                    ON manual_history.price_date = portfolio_dates.price_date
+                WHERE (%s::timestamp IS NULL OR portfolio_dates.price_date >= %s::timestamp)
+                    AND (%s::timestamp IS NULL OR portfolio_dates.price_date <= %s::timestamp)
                 ORDER BY portfolio_dates.price_date;
-            """.format(group_expression=group_expression), (
+            """.format(
+                group_expression=group_expression,
+                linked_group_expression=group_expression.replace(
+                    "price_date",
+                    "asset_prices.price_date",
+                ),
+            ), (
                 user_id,
-                start_date,
-                start_date,
                 end_date,
                 end_date,
                 user_id,
+                end_date,
+                end_date,
+                user_id,
+                end_date,
+                end_date,
                 start_date,
                 start_date,
                 end_date,
                 end_date,
             ))
+            return cur.fetchall()
+
+
+def get_gold_buyback_assets():
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT
+                    assets.id,
+                    assets.name,
+                    latest_prices.price
+                FROM assets
+                JOIN asset_categories
+                    ON asset_categories.id = assets.category_id
+                LEFT JOIN LATERAL (
+                    SELECT price
+                    FROM asset_prices
+                    WHERE asset_prices.asset_id = assets.id
+                    ORDER BY price_date DESC
+                    LIMIT 1
+                ) AS latest_prices ON TRUE
+                WHERE asset_categories.name = 'Gold buyback'
+                ORDER BY assets.name;
+            """)
             return cur.fetchall()
 
 

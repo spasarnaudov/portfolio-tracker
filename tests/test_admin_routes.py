@@ -269,11 +269,13 @@ class AdminRouteTests(unittest.TestCase):
             "manual_item_name": "Gold ring",
             "manual_item_quantity": "3.5",
             "manual_item_unit_price": "80",
+            "manual_item_price_asset_id": "12",
             "manual_item_include_in_chart": "9",
         }
 
         with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
                 patch.object(application, "update_user_session"), \
+                patch.object(application, "get_gold_buyback_assets", return_value=[{"id": 12}]), \
                 patch.object(application, "save_portfolio_holdings") as save_holdings, \
                 patch.object(application, "save_portfolio_manual_items") as save_manual_items:
             response = self.client.post("/portfolio", data=form_data)
@@ -285,6 +287,7 @@ class AdminRouteTests(unittest.TestCase):
             "name": "Gold ring",
             "quantity": 3.5,
             "unit_price": 80.0,
+            "price_asset_id": 12,
             "include_in_chart": True,
             "delete": False,
         }])
@@ -303,6 +306,7 @@ class AdminRouteTests(unittest.TestCase):
 
         with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
                 patch.object(application, "update_user_session"), \
+                patch.object(application, "get_gold_buyback_assets", return_value=[]), \
                 patch.object(application, "save_portfolio_holdings") as save_holdings, \
                 patch.object(application, "save_portfolio_manual_items") as save_manual_items:
             response = self.client.post("/portfolio", data=form_data)
@@ -314,6 +318,7 @@ class AdminRouteTests(unittest.TestCase):
             "name": "Gold ring",
             "quantity": 0.0,
             "unit_price": 80.0,
+            "price_asset_id": None,
             "include_in_chart": False,
             "delete": False,
         }])
@@ -324,6 +329,7 @@ class AdminRouteTests(unittest.TestCase):
 
         with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
                 patch.object(application, "update_user_session"), \
+                patch.object(application, "get_gold_buyback_assets", return_value=[]), \
                 patch.object(application, "save_portfolio_holdings"), \
                 patch.object(application, "save_portfolio_manual_items"), \
                 patch.object(application, "get_latest_price_date", return_value=price_date), \

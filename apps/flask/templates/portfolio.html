@@ -124,8 +124,8 @@
                             </th>
                             <th>Name</th>
                             <th>Quantity</th>
-                            <th>Unit price</th>
-                            <th>Tavex buyback</th>
+                            <th>Fixed unit price</th>
+                            <th>Price source</th>
                             <th>Current value</th>
                             <th></th>
                         </tr>
@@ -178,28 +178,21 @@
                                     >
                                 </td>
                                 <td>
-                                    {% if tavex_gold_buyback_prices %}
-                                        <div class="inline-price-picker">
-                                            <select class="tavex-gram-price-select">
-                                                {% for buyback_price in tavex_gold_buyback_prices %}
-                                                    <option
-                                                        value="{{ "%.2f"|format(buyback_price.price_per_gram|float) }}"
-                                                        {% if buyback_price.karat == 14 %}selected{% endif %}
-                                                    >
-                                                        {{ buyback_price.label }}
-                                                    </option>
-                                                {% endfor %}
-                                            </select>
-                                            <button
-                                                class="secondary-inline-button tavex-gram-price-button"
-                                                type="button"
+                                    <select
+                                        class="manual-price-source-select"
+                                        name="manual_item_price_asset_id"
+                                        aria-label="Price source for {{ item.name }}"
+                                    >
+                                        <option value="">Fixed price</option>
+                                        {% for asset in gold_buyback_assets %}
+                                            <option
+                                                value="{{ asset.id }}"
+                                                {% if item.price_asset_id == asset.id %}selected{% endif %}
                                             >
-                                                Use
-                                            </button>
-                                        </div>
-                                    {% else %}
-                                        -
-                                    {% endif %}
+                                                {{ asset.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
                                 </td>
                                 <td>{{ "%.2f"|format(item.current_value|float) }}</td>
                                 <td>
@@ -262,32 +255,20 @@
                                     step="0.01"
                                     min="0"
                                     name="new_manual_item_unit_price"
-                                    value="{% if tavex_gold_price_per_gram %}{{ "%.2f"|format(tavex_gold_price_per_gram.price_per_gram|float) }}{% else %}0.00{% endif %}"
+                                    value="0.00"
                                 >
                             </td>
                             <td>
-                                {% if tavex_gold_buyback_prices %}
-                                    <div class="inline-price-picker">
-                                        <select class="tavex-gram-price-select">
-                                            {% for buyback_price in tavex_gold_buyback_prices %}
-                                                <option
-                                                    value="{{ "%.2f"|format(buyback_price.price_per_gram|float) }}"
-                                                    {% if buyback_price.karat == 14 %}selected{% endif %}
-                                                >
-                                                    {{ buyback_price.label }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                        <button
-                                            class="secondary-inline-button tavex-gram-price-button"
-                                            type="button"
-                                        >
-                                            Use
-                                        </button>
-                                    </div>
-                                {% else %}
-                                    -
-                                {% endif %}
+                                <select
+                                    class="manual-price-source-select"
+                                    name="new_manual_item_price_asset_id"
+                                    aria-label="Price source for new manual item"
+                                >
+                                    <option value="">Fixed price</option>
+                                    {% for asset in gold_buyback_assets %}
+                                        <option value="{{ asset.id }}">{{ asset.name }}</option>
+                                    {% endfor %}
+                                </select>
                             </td>
                             <td>-</td>
                             <td></td>
@@ -341,6 +322,7 @@
                 formData.delete("new_manual_item_quantity");
                 formData.delete("new_manual_item_unit_price");
                 formData.delete("new_manual_item_include_in_chart");
+                formData.delete("new_manual_item_price_asset_id");
 
                 try {
                     const response = await fetch(saveUrl, {
@@ -402,23 +384,10 @@
             });
         }
 
-        document.querySelectorAll(".tavex-gram-price-button").forEach((button) => {
-            button.addEventListener("click", () => {
-                const row = button.closest("tr");
-                const unitPriceInput = row.querySelector("[name=manual_item_unit_price], [name=new_manual_item_unit_price]");
-                const priceSelect = row.querySelector(".tavex-gram-price-select");
-
-                if (unitPriceInput && priceSelect) {
-                    unitPriceInput.value = priceSelect.value;
-
-                    const newItemName = row.querySelector('[name="new_manual_item_name"]');
-                    if (newItemName && newItemName.value.trim()) {
-                        submitPortfolioWithScrollPreserved();
-                    } else if (!newItemName) {
-                        savePortfolioInBackground();
-                    }
-                }
-            });
+        document.querySelectorAll(
+            '.manual-price-source-select[name="manual_item_price_asset_id"]'
+        ).forEach((select) => {
+            select.addEventListener("change", () => savePortfolioInBackground());
         });
 
         function syncChartCheckboxWithQuantity(quantityInput) {

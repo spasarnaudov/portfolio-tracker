@@ -22,6 +22,7 @@ from repository import (
     deactivate_user_account,
     get_asset_prices,
     get_chart_assets,
+    get_gold_buyback_assets,
     get_latest_price_date,
     get_portfolio_history,
     get_portfolio_holdings,
@@ -40,7 +41,6 @@ from repository import (
     update_user_session,
 )
 from log_reader import LOG_MAX_LINES, get_log_files
-from tavex_import import get_tavex_gold_buyback_prices
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -623,6 +623,11 @@ def get_portfolio_chart_data(user_id, portfolio_range, portfolio_interval):
 @app.route("/portfolio", methods=["GET", "POST"])
 def portfolio():
     user_id = session["user_id"]
+    gold_buyback_assets = get_gold_buyback_assets()
+    valid_gold_buyback_asset_ids = {
+        asset["id"]
+        for asset in gold_buyback_assets
+    }
 
     if request.method == "POST":
         quantities_by_asset_id = {}
@@ -631,6 +636,7 @@ def portfolio():
         manual_item_names = request.form.getlist("manual_item_name")
         manual_item_quantities = request.form.getlist("manual_item_quantity")
         manual_item_unit_prices = request.form.getlist("manual_item_unit_price")
+        manual_item_price_asset_ids = request.form.getlist("manual_item_price_asset_id")
         deleted_manual_item_ids = set(request.form.getlist("manual_item_delete"))
         chart_asset_ids = {
             int(asset_id)
@@ -665,11 +671,24 @@ def portfolio():
             except (IndexError, ValueError):
                 continue
 
+            raw_price_asset_id = (
+                manual_item_price_asset_ids[index]
+                if index < len(manual_item_price_asset_ids)
+                else ""
+            )
+            price_asset_id = (
+                int(raw_price_asset_id)
+                if raw_price_asset_id.isdigit()
+                and int(raw_price_asset_id) in valid_gold_buyback_asset_ids
+                else None
+            )
+
             manual_items.append({
                 "id": item_id,
                 "name": manual_item_names[index] if index < len(manual_item_names) else "",
                 "quantity": quantity,
                 "unit_price": unit_price,
+                "price_asset_id": price_asset_id,
                 "include_in_chart": (
                     raw_item_id in chart_manual_item_ids
                     and quantity > 0
@@ -687,11 +706,20 @@ def portfolio():
                 new_manual_item_quantity = 0
                 new_manual_item_unit_price = 0
 
+            raw_new_price_asset_id = request.form.get("new_manual_item_price_asset_id", "")
+            new_price_asset_id = (
+                int(raw_new_price_asset_id)
+                if raw_new_price_asset_id.isdigit()
+                and int(raw_new_price_asset_id) in valid_gold_buyback_asset_ids
+                else None
+            )
+
             manual_items.append({
                 "id": None,
                 "name": new_manual_item_name,
                 "quantity": new_manual_item_quantity,
                 "unit_price": new_manual_item_unit_price,
+                "price_asset_id": new_price_asset_id,
                 "include_in_chart": (
                     request.form.get("new_manual_item_include_in_chart") == "1"
                     and new_manual_item_quantity > 0
@@ -720,29 +748,11 @@ def portfolio():
     )
     portfolio_range = chart_data["portfolio_range"]
     portfolio_interval = chart_data["portfolio_interval"]
-    tavex_gold_price_per_gram = None
-    tavex_gold_buyback_prices = []
-
-    try:
-        tavex_gold_buyback_prices = get_tavex_gold_buyback_prices()
-        tavex_gold_price_per_gram = next(
-            (
-                price
-                for price in tavex_gold_buyback_prices
-                if price["karat"] == 14
-            ),
-            tavex_gold_buyback_prices[0] if tavex_gold_buyback_prices else None,
-        )
-    except Exception:
-        tavex_gold_buyback_prices = []
-        tavex_gold_price_per_gram = None
-
     return render_template(
         "portfolio.html",
         holdings=holdings,
         manual_items=manual_items,
-        tavex_gold_price_per_gram=tavex_gold_price_per_gram,
-        tavex_gold_buyback_prices=tavex_gold_buyback_prices,
+        gold_buyback_assets=gold_buyback_assets,
         portfolio_range=portfolio_range,
         portfolio_interval=portfolio_interval,
         portfolio_ranges=[

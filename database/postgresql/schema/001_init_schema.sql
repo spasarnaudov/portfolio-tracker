@@ -105,12 +105,18 @@ CREATE TABLE portfolio_manual_items (
     name VARCHAR(200) NOT NULL,
     quantity NUMERIC(18, 6) NOT NULL DEFAULT 0,
     unit_price NUMERIC(18, 6) NOT NULL DEFAULT 0,
+    price_asset_id INTEGER,
     include_in_chart BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT fk_portfolio_manual_items_user
         FOREIGN KEY (user_id)
         REFERENCES users(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_portfolio_manual_items_price_asset
+        FOREIGN KEY (price_asset_id)
+        REFERENCES assets(id)
+        ON DELETE SET NULL
 );
 
 CREATE TABLE portfolio_manual_item_prices (
@@ -130,3 +136,6 @@ CREATE TABLE portfolio_manual_item_prices (
 
 CREATE INDEX idx_portfolio_manual_items_user_id
     ON portfolio_manual_items(user_id);
+
+CREATE INDEX idx_portfolio_manual_items_price_asset_id
+    ON portfolio_manual_items(price_asset_id);

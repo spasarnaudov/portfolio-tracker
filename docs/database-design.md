@@ -61,13 +61,16 @@ Columns:
 - user_id: reference to users
 - name: item name
 - quantity: item quantity or weight
-- unit_price: current unit price
+- unit_price: fixed unit price used when no automatic source is selected
+- price_asset_id: optional Gold buyback asset used as the automatic price source
 - include_in_chart: controls whether the item contributes to the portfolio chart
 
 Notes:
 - Jewelry can use fractional quantity values, for example grams.
-- Tavex buyback prices by karat can be used to fill the unit price.
-- Selected manual items use their recorded historical prices in the portfolio chart.
+- Jewelry can be linked to a Tavex Gold buyback series by karat/fineness.
+- Linked jewelry uses the latest asset price for its current value and the asset's
+  recorded prices for its historical portfolio value.
+- Fixed-price items continue to use their recorded manual price snapshots.
 
 ### portfolio_manual_item_prices
 
@@ -80,7 +83,9 @@ Columns:
 - price: the item's unit price at that timestamp
 
 Notes:
-- Each item has at most one price per timestamp.
+- Each fixed-price item has at most one price per timestamp.
+- Items linked to a Gold buyback asset use `asset_prices` and do not need duplicate
+  manual snapshots.
 - Price history is deleted automatically when its manual item is deleted.
 
 ### users
