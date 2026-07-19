@@ -63,6 +63,9 @@ logs/tavex_import.log
 
 ## Database Backups
 
+Database backups require the local PostgreSQL client tools `pg_dump` and
+`pg_restore`.
+
 Create and verify a PostgreSQL backup manually:
 
 ```bash
@@ -74,16 +77,15 @@ The backup script:
 - creates a custom-format PostgreSQL dump in `backups/database/`
 - removes database backups older than `RETENTION_DAYS`
 - runs `scripts/verify_backup.sh` against the created dump
-- loads deploy settings from `.env.development` by default, or from `ENV_FILE`
+- loads deploy settings from `.env`
 
 Backup files are runtime artifacts and must not be committed to git.
 
 The relevant `.env` values are:
 
 ```bash
-DB_CONTAINER_NAME=your_postgresql_container_name
+DATABASE_URL=postgresql://user:password@localhost:5432/database_name
 DB_NAME=your_database_name
-DB_USER=your_database_user
 BACKUP_DIR=/absolute/path/to/database/backups
 BACKUP_RETENTION_DAYS=30
 ```
@@ -91,7 +93,7 @@ BACKUP_RETENTION_DAYS=30
 You can override them from the shell or from cron:
 
 ```bash
-DB_CONTAINER_NAME=your_postgresql_container_name BACKUP_RETENTION_DAYS=30 ./scripts/backup_database.sh
+BACKUP_RETENTION_DAYS=30 ./scripts/backup_database.sh
 ```
 
 ## Verify Existing Backup
@@ -106,31 +108,11 @@ The verification script checks that:
 
 - the file exists
 - the file is not empty
-- `pg_restore --list` can read the dump structure inside the PostgreSQL container
-
-## Restore a Backup into the Test Database
-
-Restore a custom-format dump into the dedicated test database:
-
-```bash
-./scripts/restore_test_database.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
-```
-
-The script:
-
-- verifies Docker access and the supplied dump
-- targets the `postgresql` container
-- drops and recreates `portfolio_tracker_test`
-- restores with the `casaos` database user
-- cannot target production because the test database name is fixed
-- checks the restored tables and row counts
-
-The container, database user, and test database are currently fixed constants
-inside `scripts/restore_test_database.sh`.
+- local `pg_restore --list` can read the dump structure
 
 ## Env Backups
 
-Create a backup of the active environment file manually:
+Create a backup of `.env` manually:
 
 ```bash
 ./scripts/backup_env.sh
@@ -138,7 +120,7 @@ Create a backup of the active environment file manually:
 
 The env backup script:
 
-- loads settings from `.env.development` by default, or from `ENV_FILE`
+- loads settings from `.env`
 - copies the env file to `backups/env/`
 - stores the backup with file permissions `600`
 - removes env backups older than `ENV_BACKUP_RETENTION_DAYS`
@@ -151,13 +133,6 @@ ENV_BACKUP_RETENTION_DAYS=30
 ```
 
 Env backup files contain secrets and must not be committed to git.
-
-To back up a different environment file, pass `APP_ENV` or `ENV_FILE`:
-
-```bash
-APP_ENV=staging ./scripts/backup_env.sh
-ENV_FILE=/home/spas/Projects/portfolio-tracker/.env.production ./scripts/backup_env.sh
-```
 
 ## Backup Cron
 
@@ -173,12 +148,6 @@ Run the database backup every night at 03:00:
 0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
 ```
 
-With explicit deploy settings:
-
-```cron
-0 3 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/.env.production ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
-```
-
 Logs are written to:
 
 ```text
@@ -189,12 +158,6 @@ Run the env backup every night at 03:00:
 
 ```cron
 0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
-```
-
-With explicit deploy settings:
-
-```cron
-0 3 * * * cd /home/spas/Projects/portfolio-tracker && ENV_FILE=/home/spas/Projects/portfolio-tracker/.env.production ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
 ```
 
 Env backup logs are written to:

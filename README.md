@@ -13,9 +13,7 @@ Portfolio Tracker is a personal project for tracking investment assets and their
 
 - PostgreSQL 17
 - pgAdmin 4
-- Docker
 - Ubuntu 24.04
-- CasaOS
 - Python
 - Flask
 
@@ -71,8 +69,7 @@ The current version includes:
 
 Some application state is intentionally stored locally and is not committed:
 
-- `.env.development`, `.env.test`, `.env.staging`, and `.env.production`
-  store environment-specific settings and secrets.
+- `.env` stores application settings and secrets.
 - `runtime/chart_filters.json` stores the selected chart layout and filters.
 - `runtime/auto_tavex_import.enabled` controls the Tavex part of the cron import.
   Manual-item price snapshots continue to run every hour.
@@ -84,28 +81,18 @@ Some application state is intentionally stored locally and is not committed:
 
 ## Useful Commands
 
-Create a local environment file from an example:
-
-```bash
-cp .env.development.example .env.development
-```
+Create `.env` in the project root and add the required settings.
 
 Run the Flask development server from the project root:
 
 ```bash
-APP_ENV=development apps/flask/.venv/bin/python apps/flask/app.py
-```
-
-Run the app against the test environment:
-
-```bash
-APP_ENV=test apps/flask/.venv/bin/python apps/flask/app.py
+apps/flask/.venv/bin/python apps/flask/app.py
 ```
 
 Run the hourly import job manually:
 
 ```bash
-APP_ENV=development apps/flask/.venv/bin/python scripts/import_tavex_prices.py
+apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 ```
 
 Manual-item snapshots are always stored. Tavex product and gold-buyback prices
@@ -115,7 +102,7 @@ Load an environment file before running database commands:
 
 ```bash
 set -a
-. .env.development
+. .env
 set +a
 ```
 
@@ -148,78 +135,12 @@ The Logs dashboard reads regular `.log` files directly from the project-level
 `logs/` directory and displays at most the last 500 lines of each file. Log
 files are runtime data and are excluded from Git by `.gitignore`.
 
-## Environments
+## Configuration
 
-The same application code is used in every environment. Differences come from
-environment variables loaded from one of these local files:
-
-- `.env.development`
-- `.env.test`
-- `.env.staging`
-- `.env.production`
-
-The real files are ignored by git. Use the committed examples as templates:
-
-```bash
-cp .env.development.example .env.development
-cp .env.test.example .env.test
-cp .env.staging.example .env.staging
-cp .env.production.example .env.production
-```
-
-Each file must point to its own database through `DATABASE_URL`:
-
-- development: `portfolio_tracker_development`
-- test: `portfolio_tracker_test`
-- staging: `portfolio_tracker_staging`
-- production: `portfolio_tracker_production`
-
-## Docker
-
-Build one image:
-
-```bash
-docker build -t portfolio-tracker:1.0.0 .
-```
-
-Run the same image with different environment files:
-
-```bash
-docker run --env-file .env.staging -p 5002:5000 portfolio-tracker:1.0.0
-docker run --env-file .env.production -p 5003:5000 portfolio-tracker:1.0.0
-```
-
-Staging and production use Gunicorn from the Docker image default command.
-Development can use the Flask debug server:
-
-```bash
-APP_ENV=development apps/flask/.venv/bin/python apps/flask/app.py
-```
-
-Docker Compose profiles:
-
-```bash
-docker compose --profile development up --build
-docker compose --profile test up --build
-docker compose --profile staging up --build
-docker compose --profile production up --build
-```
-
-Start commands by environment:
-
-```bash
-# development
-APP_ENV=development apps/flask/.venv/bin/python apps/flask/app.py
-
-# test
-APP_ENV=test apps/flask/.venv/bin/python apps/flask/app.py
-
-# staging
-docker run --env-file .env.staging -p 5002:5000 portfolio-tracker:1.0.0
-
-# production
-docker run --env-file .env.production -p 5003:5000 portfolio-tracker:1.0.0
-```
+All application, database, backup, and runtime settings are loaded from the
+single `.env` file in the project root. The file is ignored by git because it
+contains secrets. `APP_ENV` inside it controls runtime behavior such as the
+default debug mode; it does not select another configuration file.
 
 Role behavior:
 
@@ -233,17 +154,13 @@ account with the `admin` role.
 Regular users can deactivate their own account from the user menu. The special
 `admin` account cannot be deactivated.
 
-Sessions use `SESSION_TIMEOUT_MINUTES` from the active environment file. When there is no
+Sessions use `SESSION_TIMEOUT_MINUTES` from `.env`. When there is no
 user activity for that many minutes, the user is logged out. A user can have
-only one active session in the same environment; a new login asks whether to log
+only one active session; a new login asks whether to log
 out the existing session first.
 
-When running two environments on the same host with different ports, the app
-uses a project-path-based default `SESSION_COOKIE_NAME`. Browsers separate
-cookies by host, not reliably by port, so separate cookie names prevent local
-environments from overwriting each other's login cookie. Set
-`SESSION_COOKIE_NAME` in `.env` only when you want an explicit stable cookie
-name for a deployment.
+The app uses a project-path-based default `SESSION_COOKIE_NAME`. Set it in
+`.env` only when you want an explicit stable cookie name for a deployment.
 
 ## Next Steps
 

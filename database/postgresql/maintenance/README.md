@@ -6,7 +6,7 @@ Load local environment variables and run this command from the project root:
 
 ```bash
 set -a
-. .env.development
+. .env
 set +a
 psql "$DATABASE_URL" -f database/postgresql/maintenance/001_truncate_all_data.sql
 ```
@@ -29,7 +29,7 @@ Run this command from the project root:
 
 ```bash
 set -a
-. .env.development
+. .env
 set +a
 psql "$DATABASE_URL" -f database/postgresql/maintenance/002_truncate_prices.sql
 ```

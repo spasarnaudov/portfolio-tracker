@@ -3,9 +3,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_ENV="${APP_ENV:-development}"
-DEFAULT_ENV_FILE="$PROJECT_DIR/.env.$APP_ENV"
-ENV_FILE="${ENV_FILE:-$DEFAULT_ENV_FILE}"
+ENV_FILE="$PROJECT_DIR/.env"
 
 if [[ -f "$ENV_FILE" ]]; then
     set -a
@@ -14,12 +12,9 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-CONTAINER_NAME="${CONTAINER_NAME:-${DB_CONTAINER_NAME:-postgresql}}"
-CONTAINER_DUMP_FILE="/tmp/verify_backup_$$.dump"
 VERIFY_RESULT_FILE="$(mktemp)"
 
 cleanup() {
-    docker exec "$CONTAINER_NAME" rm -f "$CONTAINER_DUMP_FILE" >/dev/null 2>&1 || true
     rm -f "$VERIFY_RESULT_FILE"
 }
 
@@ -56,22 +51,12 @@ echo "File exists"
 echo "Size: $SIZE"
 
 
-# Copy dump into PostgreSQL container
-
-echo
-echo "Copying backup to PostgreSQL container..."
-
-docker cp \
-    "$BACKUP_FILE" \
-    "$CONTAINER_NAME:$CONTAINER_DUMP_FILE"
-
-
 # Verify with pg_restore
 
 echo
 echo "Checking dump structure..."
 
-if docker exec "$CONTAINER_NAME" pg_restore --list "$CONTAINER_DUMP_FILE" > "$VERIFY_RESULT_FILE"; then
+if pg_restore --list "$BACKUP_FILE" > "$VERIFY_RESULT_FILE"; then
     echo "Dump is valid"
 else
     echo "ERROR: pg_restore failed"

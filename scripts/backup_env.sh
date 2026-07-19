@@ -3,9 +3,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_ENV="${APP_ENV:-development}"
-DEFAULT_ENV_FILE="$PROJECT_DIR/.env.$APP_ENV"
-ENV_FILE="${ENV_FILE:-$DEFAULT_ENV_FILE}"
+ENV_FILE="$PROJECT_DIR/.env"
 
 if [[ -f "$ENV_FILE" ]]; then
     set -a

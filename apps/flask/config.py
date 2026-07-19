@@ -37,11 +37,7 @@ def get_app_environment():
     return app_env
 
 
-custom_env_file = os.getenv("ENV_FILE")
-if custom_env_file:
-    load_env_file(Path(custom_env_file), override=True)
-else:
-    load_env_file(PROJECT_ROOT / f".env.{get_app_environment()}", override=True)
+load_env_file(PROJECT_ROOT / ".env")
 
 APP_ENV = get_app_environment()
 
@@ -84,7 +80,7 @@ def get_database_config():
 
 SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("APP_SECRET_KEY")
 if not SECRET_KEY:
-    raise RuntimeError("SECRET_KEY must be set in the active environment file")
+    raise RuntimeError("SECRET_KEY must be set in .env")
 
 DATABASE_CONFIG = get_database_config()
 DEBUG = get_bool_env("DEBUG", APP_ENV == "development")

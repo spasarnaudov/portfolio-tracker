@@ -3,9 +3,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_ENV="${APP_ENV:-development}"
-DEFAULT_ENV_FILE="$PROJECT_DIR/.env.$APP_ENV"
-ENV_FILE="${ENV_FILE:-$DEFAULT_ENV_FILE}"
+ENV_FILE="$PROJECT_DIR/.env"
 
 if [[ -f "$ENV_FILE" ]]; then
     set -a
@@ -14,12 +12,11 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-CONTAINER_NAME="${CONTAINER_NAME:-${DB_CONTAINER_NAME:-postgresql}}"
 BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups/database}"
 RETENTION_DAYS="${RETENTION_DAYS:-${BACKUP_RETENTION_DAYS:-30}}"
 
-: "${DB_NAME:?DB_NAME must be set in the active env file}"
-: "${DB_USER:?DB_USER must be set in the active env file}"
+: "${DATABASE_URL:?DATABASE_URL must be set in .env}"
+: "${DB_NAME:?DB_NAME must be set in .env}"
 
 TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
 BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump"
@@ -28,10 +25,8 @@ mkdir -p "$BACKUP_DIR"
 
 echo "Starting backup of database '$DB_NAME'..."
 
-docker exec "$CONTAINER_NAME" \
-    pg_dump \
-    --username="$DB_USER" \
-    --dbname="$DB_NAME" \
+pg_dump \
+    --dbname="$DATABASE_URL" \
     --format=custom \
     --no-owner \
     --no-privileges \
