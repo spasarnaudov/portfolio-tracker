@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "portfolio-tracker-mobile"
+rootProject.name = "portfolio-tracker-android"
 include(":app")
