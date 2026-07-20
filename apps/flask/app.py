@@ -41,12 +41,35 @@ from repository import (
     update_user_session,
 )
 from log_reader import LOG_MAX_LINES, get_log_files
+from api import api
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config["SESSION_COOKIE_NAME"] = SESSION_COOKIE_NAME
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.logger.setLevel(LOG_LEVEL)
+app.register_blueprint(api)
+
+
+@app.errorhandler(404)
+def api_not_found(error):
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "error": {"code": "not_found", "message": "API endpoint not found."},
+        }), 404
+    return error
+
+
+@app.errorhandler(405)
+def api_method_not_allowed(error):
+    if request.path.startswith("/api/"):
+        return jsonify({
+            "error": {
+                "code": "method_not_allowed",
+                "message": "HTTP method not allowed.",
+            },
+        }), 405
+    return error
 
 SESSION_TIMEOUT = timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 app.permanent_session_lifetime = SESSION_TIMEOUT
@@ -186,6 +209,9 @@ def clear_current_session():
 @app.before_request
 def require_login():
     g.current_user = None
+
+    if request.blueprint == "api":
+        return None
 
     if request.endpoint in PUBLIC_ENDPOINTS:
         return None

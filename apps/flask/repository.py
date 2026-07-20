@@ -21,6 +21,23 @@ def get_user_by_id(user_id):
             return cur.fetchone()
 
 
+def get_user_by_session_token(session_token):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT
+                    id,
+                    username,
+                    role,
+                    is_deleted,
+                    active_session_token,
+                    active_session_expires_at
+                FROM users
+                WHERE active_session_token = %s;
+            """, (session_token,))
+            return cur.fetchone()
+
+
 def get_user_with_password_by_id(user_id):
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
