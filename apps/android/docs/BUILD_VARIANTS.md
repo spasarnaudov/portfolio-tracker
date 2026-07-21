@@ -1,0 +1,81 @@
+# Android build variants and Google Play tracks
+
+The app has one `environment` flavor dimension and three product flavors. All
+release variants deliberately use the same application ID and belong in one Google
+Play Console application.
+
+| Variant | Purpose | Play track | API environment | Application ID | Version name |
+|---|---|---|---|---|---|
+| `alphaRelease` | Personal early testing | Internal testing | Development/internal | `io.github.spasarnaudov.portfoliotracker` | `0.1.0-alpha` |
+| `betaRelease` | External testers | Closed testing | Test | `io.github.spasarnaudov.portfoliotracker` | `0.1.0-beta` |
+| `productionRelease` | Official release | Production | Production | `io.github.spasarnaudov.portfoliotracker` | `0.1.0` |
+| `alphaDebug` | Local alpha development | Not uploaded | Local development | `io.github.spasarnaudov.portfoliotracker.alpha.debug` | `0.1.0-alpha-debug` |
+| `betaDebug` | Local beta development | Not uploaded | Test | `io.github.spasarnaudov.portfoliotracker.beta.debug` | `0.1.0-beta-debug` |
+| `productionDebug` | Local production checks | Not uploaded | Production | `io.github.spasarnaudov.portfoliotracker.production.debug` | `0.1.0-debug` |
+
+Internal, Closed, and Production are tracks in the same Play application, not
+separate applications. Because the three release variants have the same application
+ID, they cannot be installed next to each other. All three debug variants can coexist
+with each other and with the Play app because each has a flavor-specific package ID.
+
+## API environments
+
+- `alpha`: `http://piglet:5000/api/v1/`
+- `beta`: `https://test-api.example.com/api/v1/` — placeholder; replace it with the
+  real public HTTPS test API before upload.
+- `production`: `https://api.example.com/api/v1/` — placeholder; replace it with the
+  real public HTTPS production API before upload.
+
+Only `alphaDebug` includes a network security override for cleartext access to
+`piglet`. Every release variant and the other debug flavors keep cleartext disabled.
+Consequently, the current HTTP alpha URL is suitable only for local `alphaDebug`;
+configure an HTTPS internal backend before uploading `alphaRelease` if that build
+must contact a server.
+
+## Version codes
+
+Every AAB uploaded to this Play application must have a new, higher `versionCode`,
+regardless of track. Never upload two different AAB files with the same version code.
+Update the single value in `defaultConfig` manually before each upload. For example:
+
+```text
+versionCode 1 -> alphaRelease
+versionCode 2 -> alphaRelease
+versionCode 3 -> betaRelease
+versionCode 4 -> productionRelease
+versionCode 5 -> next alphaRelease
+```
+
+## Build commands and outputs
+
+```bash
+./gradlew assembleAlphaDebug
+./gradlew assembleBetaDebug
+./gradlew assembleProductionDebug
+
+./gradlew bundleAlphaRelease
+./gradlew bundleBetaRelease
+./gradlew bundleProductionRelease
+```
+
+APK outputs are written below `app/build/outputs/apk/<flavor>/debug/`. AAB outputs
+are written below `app/build/outputs/bundle/<flavor>Release/`.
+
+## Launcher icons
+
+The supplied production artwork is the common launcher-icon source. The white outer
+canvas was removed while preserving the rounded icon, shadows, and logo. Android
+density assets are generated at 48, 72, 96, 144, and 192 px, plus a 432 px adaptive
+foreground.
+
+Alpha adds a `#F44336` red dot, Beta adds a `#FFC107` yellow dot, and
+`productionDebug` adds a `#2196F3` blue dot. All dots share the same 11% diameter and
+position. `productionRelease` uses the untouched artwork. Adaptive icon XML and the
+background layer remain shared and unchanged.
+
+## Signing
+
+No signing secrets, credentials, or machine-specific paths are stored in this
+project. Configure Play App Signing and a secure upload-key signing configuration
+outside source control before uploading release AAB files. Do not commit keystores,
+store passwords, key aliases, or key passwords.

@@ -1,6 +1,7 @@
 package io.github.spasarnaudov.portfoliotracker.feature.login
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,11 +22,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.BuildConfig
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,17 +48,20 @@ fun LoginScreen(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
         ) {
-            Text(text = "Portfolio Tracker", style = MaterialTheme.typography.headlineMedium)
-            Text(text = "Sign in to continue", style = MaterialTheme.typography.bodyMedium)
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(text = "Portfolio Tracker", style = MaterialTheme.typography.headlineMedium)
+                Text(text = "Sign in to continue", style = MaterialTheme.typography.bodyMedium)
 
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 24.dp))
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 24.dp))
 
             OutlinedTextField(
                 value = state.username,
@@ -103,9 +110,18 @@ fun LoginScreen(
                 Text("Create an account")
             }
 
-            TextButton(onClick = onNavigateToConnectionSettings, modifier = Modifier.fillMaxWidth()) {
-                Text("Connection settings")
+                TextButton(onClick = onNavigateToConnectionSettings, modifier = Modifier.fillMaxWidth()) {
+                    Text("Connection settings")
+                }
             }
+
+            Text(
+                text = "Version ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+            )
         }
     }
 

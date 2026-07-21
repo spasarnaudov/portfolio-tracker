@@ -17,15 +17,34 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "environment"
+    productFlavors {
+        create("alpha") {
+            dimension = "environment"
+            versionNameSuffix = "-alpha"
+            buildConfigField("String", "API_BASE_URL", "\"http://piglet:5000/api/v1/\"")
+        }
+        create("beta") {
+            dimension = "environment"
+            versionNameSuffix = "-beta"
+            // TODO: Replace with the real public HTTPS test backend before Play upload.
+            buildConfigField("String", "API_BASE_URL", "\"http://piglet:5000/api/v1/\"")
+        }
+        create("production") {
+            dimension = "environment"
+            // TODO: Replace with the real public HTTPS production backend before Play upload.
+            buildConfigField("String", "API_BASE_URL", "\"http://piglet:5000/api/v1/\"")
+        }
+    }
+
     buildTypes {
         debug {
-            // Local development servers on the LAN are typically plain HTTP.
-            buildConfigField("String", "API_BASE_URL", "\"http://piglet:5000/api/v1/\"")
+            versionNameSuffix = "-debug"
         }
         release {
             isMinifyEnabled = false
@@ -33,8 +52,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Production deployments must use HTTPS; cleartext traffic is not permitted.
-            buildConfigField("String", "API_BASE_URL", "\"https://api.example.com/api/v1/\"")
         }
     }
     compileOptions {
@@ -55,6 +72,17 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        val environment = variant.productFlavors
+            .first { (dimension, _) -> dimension == "environment" }
+            .second
+        variant.applicationId.set(
+            "io.github.spasarnaudov.portfoliotracker.$environment.debug"
+        )
     }
 }
 
