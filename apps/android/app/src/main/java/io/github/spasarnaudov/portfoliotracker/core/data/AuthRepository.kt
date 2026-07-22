@@ -22,14 +22,6 @@ class AuthRepository @Inject constructor(
 ) {
     private val apiService: ApiService get() = apiServiceProvider.get()
 
-    suspend fun checkHealth(): ApiResult<Unit> {
-        val result = apiCall { apiService.health() }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(Unit)
-            is ApiResult.Error -> result
-        }
-    }
-
     suspend fun login(username: String, password: String, force: Boolean = false): ApiResult<User> {
         val result = apiCall { apiService.login(LoginRequestDto(username, password, if (force) true else null)) }
         return when (result) {

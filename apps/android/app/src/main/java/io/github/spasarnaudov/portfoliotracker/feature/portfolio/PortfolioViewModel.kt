@@ -13,7 +13,6 @@ import io.github.spasarnaudov.portfoliotracker.core.model.PortfolioHistoryInterv
 import io.github.spasarnaudov.portfoliotracker.core.model.PortfolioHistoryPoint
 import io.github.spasarnaudov.portfoliotracker.core.network.ApiResult
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LoadStatus
-import io.github.spasarnaudov.portfoliotracker.core.ui.format.details
 import io.github.spasarnaudov.portfoliotracker.core.ui.format.toUserMessage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -33,9 +32,7 @@ data class PortfolioUiState(
     val errorMessage: String? = null,
     val isSaving: Boolean = false,
     val saveError: String? = null,
-    val saveValidationErrors: List<String> = emptyList(),
     val goldBuybackAssets: List<Asset> = emptyList(),
-    val saveSucceeded: Boolean = false,
     val originalManualItemsById: Map<Long, ManualItemDraft> = emptyMap(),
     val historyStatus: LoadStatus = LoadStatus.LOADING,
     val historyRange: ChartRange = ChartRange.ONE_MONTH,
@@ -184,9 +181,6 @@ class PortfolioViewModel @Inject constructor(
         updateHoldingQuantityText(assetId, "0")
     }
 
-    fun findManualItemDraft(clientKey: String): ManualItemDraft? =
-        _uiState.value.manualItems.firstOrNull { it.clientKey == clientKey }
-
     fun upsertManualItem(draft: ManualItemDraft) {
         _uiState.update { state ->
             val exists = state.manualItems.any { it.clientKey == draft.clientKey }
@@ -251,33 +245,18 @@ class PortfolioViewModel @Inject constructor(
         }
         if (!state.hasUnsavedChanges) return
 
-        val invalidQuantityRow = state.holdings.firstOrNull { it.parsedQuantity == null }
-        if (invalidQuantityRow != null) {
-            _uiState.update {
-                it.copy(saveValidationErrors = listOf("Enter a valid quantity for ${invalidQuantityRow.assetSymbol}."))
-            }
-            return
-        }
+        if (state.holdings.any { it.parsedQuantity == null }) return
 
         val activeManualItems = state.manualItems.filter { !it.markedForDeletion || it.id != null }
-        val invalidManualQuantity = activeManualItems.firstOrNull {
+        val hasInvalidManualQuantity = activeManualItems.any {
             !it.markedForDeletion && it.quantityText.toBigDecimalOrNull() == null
         }
-        if (invalidManualQuantity != null) {
-            _uiState.update {
-                it.copy(saveValidationErrors = listOf("Enter a valid quantity for \"${invalidManualQuantity.name}\"."))
-            }
-            return
-        }
-        val invalidUnitPrice = activeManualItems.firstOrNull {
+        if (hasInvalidManualQuantity) return
+
+        val hasInvalidUnitPrice = activeManualItems.any {
             !it.markedForDeletion && it.unitPriceText.isNotBlank() && it.unitPriceText.toBigDecimalOrNull() == null
         }
-        if (invalidUnitPrice != null) {
-            _uiState.update {
-                it.copy(saveValidationErrors = listOf("Enter a valid unit price for \"${invalidUnitPrice.name}\"."))
-            }
-            return
-        }
+        if (hasInvalidUnitPrice) return
 
         val holdingsToSend = state.holdings.map {
             Holding(it.assetId, it.assetSymbol, it.assetName, it.parsedQuantity!!, it.includeInChart, it.price, it.value)
@@ -295,29 +274,21 @@ class PortfolioViewModel @Inject constructor(
             )
         }
 
-        _uiState.update { it.copy(isSaving = true, saveError = null, saveValidationErrors = emptyList()) }
+        _uiState.update { it.copy(isSaving = true, saveError = null) }
         viewModelScope.launch {
             when (val result = portfolioRepository.updatePortfolio(holdingsToSend, manualItemsToSend)) {
                 is ApiResult.Success -> {
                     val goldBuyback = state.goldBuybackAssets
                     applyPortfolio(result.data.holdings, result.data.manualItems, result.data.totalValue, goldBuyback)
-                    _uiState.update { it.copy(isSaving = false, saveSucceeded = true) }
+                    _uiState.update { it.copy(isSaving = false) }
                     loadHistory()
                 }
 
                 is ApiResult.Error -> _uiState.update {
-                    it.copy(
-                        isSaving = false,
-                        saveError = result.error.toUserMessage(),
-                        saveValidationErrors = result.error.details(),
-                    )
+                    it.copy(isSaving = false, saveError = result.error.toUserMessage())
                 }
             }
         }
-    }
-
-    fun consumeSaveSucceeded() {
-        _uiState.update { it.copy(saveSucceeded = false) }
     }
 }
 

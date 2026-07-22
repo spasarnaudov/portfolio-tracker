@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.spasarnaudov.portfoliotracker.navigation.AppNavHost
-import io.github.spasarnaudov.portfoliotracker.ui.theme.PortfoliotrackermobileTheme
+import io.github.spasarnaudov.portfoliotracker.ui.theme.PortfolioTrackerAndroidTheme
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -14,7 +14,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PortfoliotrackermobileTheme {
+            PortfolioTrackerAndroidTheme {
                 AppNavHost()
             }
         }
