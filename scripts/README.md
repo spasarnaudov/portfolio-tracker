@@ -61,6 +61,23 @@ Logs are written to:
 logs/tavex_import.log
 ```
 
+## Database Setup
+
+Requires an empty PostgreSQL database that already exists (create it and its
+role with `createdb`/`createuser` or your hosting provider's tools first) and
+a `.env` with `DATABASE_URL` pointing at it. Then, from the project root:
+
+```bash
+./scripts/init_database.sh
+```
+
+This applies `database/postgresql/schema/001_init_schema.sql` followed by
+`database/postgresql/seed/001_seed_basic_data.sql`. Running it against a
+database that already has tables is refused, so it never overwrites existing
+data — use `scripts/restore_database.sh` instead if you want to load a
+backup. Running this against a fresh database on every environment
+(development, test, production) is what keeps their schemas identical.
+
 ## Database Backups
 
 Database backups require the local PostgreSQL client tools `pg_dump` and
@@ -109,6 +126,20 @@ The verification script checks that:
 - the file exists
 - the file is not empty
 - local `pg_restore --list` can read the dump structure
+
+## Restore Database
+
+Restore a backup (schema and data) into the database `DATABASE_URL` points
+at:
+
+```bash
+./scripts/restore_database.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
+```
+
+This drops and recreates every table from the dump, so it replaces whatever
+is currently in the target database — it does not need
+`scripts/init_database.sh` to have run first. You'll be asked to confirm;
+pass `-y` to skip the prompt for scripted/cron use.
 
 ## Env Backups
 
