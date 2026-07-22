@@ -14,6 +14,9 @@ fi
 
 : "${DATABASE_URL:?DATABASE_URL must be set in .env}"
 
+# shellcheck disable=SC1091
+source "$PROJECT_DIR/scripts/lib/docker_postgres.sh"
+
 usage() {
     echo "Usage:"
     echo "  $0 [-y] /path/to/backup.dump"
@@ -68,16 +71,37 @@ if [[ "$ASSUME_YES" -ne 1 ]]; then
     fi
 fi
 
+require_postgres_container
+
+# The dump only exists on the host, so pg_restore (which runs inside the
+# container — see docker_postgres.sh) needs its own copy of it first.
+CONTAINER_DUMP="/tmp/restore_$(basename "$BACKUP_FILE")"
+
+cleanup() {
+    docker exec "$POSTGRES_CONTAINER_NAME" rm -f "$CONTAINER_DUMP" &> /dev/null || true
+}
+trap cleanup EXIT
+
 echo
+echo "Dropping existing schema..."
+
+# pg_restore --clean does not always compute a correct drop order for tables
+# linked by foreign keys (e.g. dropping a referenced primary key before the
+# foreign key that depends on it), so it can fail partway through on a
+# non-empty database. Dropping and recreating the schema first sidesteps
+# that entirely — pg_restore then just recreates everything from scratch.
+docker exec "$POSTGRES_CONTAINER_NAME" psql "$DATABASE_URL" --set ON_ERROR_STOP=1 \
+    --command "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
 echo "Restoring..."
 
-pg_restore \
+docker cp "$BACKUP_FILE" "$POSTGRES_CONTAINER_NAME:$CONTAINER_DUMP"
+
+docker exec "$POSTGRES_CONTAINER_NAME" pg_restore \
     --dbname="$DATABASE_URL" \
-    --clean \
-    --if-exists \
     --no-owner \
     --no-privileges \
-    "$BACKUP_FILE"
+    "$CONTAINER_DUMP"
 
 echo
 echo "Restore completed."

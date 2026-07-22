@@ -61,11 +61,36 @@ Logs are written to:
 logs/tavex_import.log
 ```
 
+## PostgreSQL Runs in Docker
+
+All database scripts (`init_database.sh`, `backup_database.sh`,
+`verify_backup.sh`, `restore_database.sh`) run `pg_dump`/`psql`/`pg_restore`
+**inside the PostgreSQL container** via `docker exec`/`docker cp`, instead of
+requiring `postgresql-client` on the host. This means:
+
+- the host never needs PostgreSQL client tools installed — only the `docker`
+  CLI and permission to use it
+- the tool version always matches the server exactly, since both come from
+  the same container image
+
+They expect a running container named `postgresql` (`docker ps` should show
+it). If yours is named differently, set it in `.env`:
+
+```bash
+POSTGRES_CONTAINER_NAME=your_container_name
+```
+
+`DATABASE_URL` still works exactly as before — it's passed straight through
+to `pg_dump`/`psql` inside the container, and since the container's own
+PostgreSQL listens on `localhost` internally too, a `DATABASE_URL` pointing
+at `localhost` resolves correctly from inside the container as well.
+
 ## Database Setup
 
-Requires an empty PostgreSQL database that already exists (create it and its
-role with `createdb`/`createuser` or your hosting provider's tools first) and
-a `.env` with `DATABASE_URL` pointing at it. Then, from the project root:
+Requires an empty PostgreSQL database that already exists (create it with
+`docker exec postgresql createdb ...` or however the container provisions
+databases) and a `.env` with `DATABASE_URL` pointing at it. Then, from the
+project root:
 
 ```bash
 ./scripts/init_database.sh
@@ -80,9 +105,6 @@ backup. Running this against a fresh database on every environment
 
 ## Database Backups
 
-Database backups require the local PostgreSQL client tools `pg_dump` and
-`pg_restore`.
-
 Create and verify a PostgreSQL backup manually:
 
 ```bash
@@ -91,9 +113,16 @@ Create and verify a PostgreSQL backup manually:
 
 The backup script:
 
-- creates a custom-format PostgreSQL dump in `backups/database/`
-- removes database backups older than `RETENTION_DAYS`
-- runs `scripts/verify_backup.sh` against the created dump
+- checks Docker is available, the `postgresql` container is running, and
+  PostgreSQL inside it is accepting connections, before doing anything else
+- runs `pg_dump` inside the container and writes its output to a hidden temp
+  file first, only renaming it to the final `.dump` name once the dump is
+  confirmed non-empty — a failed/interrupted run can never leave an empty or
+  partial file at that name
+- runs `scripts/verify_backup.sh` against the new backup
+- only once verification passes, removes backups older than
+  `RETENTION_DAYS` — a broken new backup can never cost you the last
+  known-good ones
 - loads deploy settings from `.env`
 
 Backup files are runtime artifacts and must not be committed to git.
@@ -105,6 +134,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/database_name
 DB_NAME=your_database_name
 BACKUP_DIR=/absolute/path/to/database/backups
 BACKUP_RETENTION_DAYS=30
+POSTGRES_CONTAINER_NAME=postgresql
 ```
 
 You can override them from the shell or from cron:
@@ -125,7 +155,8 @@ The verification script checks that:
 
 - the file exists
 - the file is not empty
-- local `pg_restore --list` can read the dump structure
+- `pg_restore --list`, run inside the PostgreSQL container against a
+  temporary copy of the file (`docker cp`), can read the dump structure
 
 ## Restore Database
 
@@ -136,10 +167,13 @@ at:
 ./scripts/restore_database.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
 ```
 
-This drops and recreates every table from the dump, so it replaces whatever
-is currently in the target database — it does not need
-`scripts/init_database.sh` to have run first. You'll be asked to confirm;
-pass `-y` to skip the prompt for scripted/cron use.
+This drops and recreates the `public` schema and then restores the dump into
+it, so it replaces whatever is currently in the target database — it does
+not need `scripts/init_database.sh` to have run first. (It deliberately
+doesn't use `pg_restore --clean`: that command can fail partway through on a
+database with foreign keys, because it doesn't always drop tables in a safe
+dependency order — dropping the whole schema first sidesteps that.) You'll
+be asked to confirm; pass `-y` to skip the prompt for scripted/cron use.
 
 ## Env Backups
 

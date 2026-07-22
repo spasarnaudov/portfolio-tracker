@@ -12,43 +12,49 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups/database}"
-RETENTION_DAYS="${RETENTION_DAYS:-${BACKUP_RETENTION_DAYS:-30}}"
+# shellcheck disable=SC1091
+source "$PROJECT_DIR/scripts/lib/docker_postgres.sh"
 
 : "${DATABASE_URL:?DATABASE_URL must be set in .env}"
 : "${DB_NAME:?DB_NAME must be set in .env}"
 
-TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
-BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump"
+BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups/database}"
+RETENTION_DAYS="${RETENTION_DAYS:-${BACKUP_RETENTION_DAYS:-30}}"
+
+require_postgres_container
 
 mkdir -p "$BACKUP_DIR"
 
-echo "Starting backup of database '$DB_NAME'..."
+TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
+BACKUP_FILE="$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump"
 
-pg_dump \
+# Written to a hidden temp file first, so a failed/interrupted pg_dump can
+# never leave an empty or partially-written file at the final backup name.
+TMP_FILE="$(mktemp "$BACKUP_DIR/.${DB_NAME}_${TIMESTAMP}.XXXXXX")"
+
+cleanup() {
+    rm -f "$TMP_FILE"
+}
+trap cleanup EXIT
+
+echo "Starting backup of database '$DB_NAME' via container '$POSTGRES_CONTAINER_NAME'..."
+
+docker exec "$POSTGRES_CONTAINER_NAME" pg_dump \
     --dbname="$DATABASE_URL" \
     --format=custom \
     --no-owner \
     --no-privileges \
-    > "$BACKUP_FILE"
+    > "$TMP_FILE"
 
-if [[ ! -s "$BACKUP_FILE" ]]; then
-    echo "Backup failed or created an empty file."
-    rm -f "$BACKUP_FILE"
+if [[ ! -s "$TMP_FILE" ]]; then
+    echo "ERROR: Backup failed or created an empty file."
     exit 1
 fi
 
+mv "$TMP_FILE" "$BACKUP_FILE"
+
 echo "Backup created:"
 echo "$BACKUP_FILE"
-
-find "$BACKUP_DIR" \
-    -maxdepth 1 \
-    -type f \
-    -name "${DB_NAME}_*.dump" \
-    -mtime "+$RETENTION_DAYS" \
-    -delete
-
-echo "Backups older than $RETENTION_DAYS days were removed."
 
 # ==========================
 # Verify created backup
@@ -70,3 +76,17 @@ else
     echo "Backup verification failed"
     exit 1
 fi
+
+# ==========================
+# Remove old backups — only once a fresh backup has been verified, so a
+# broken new backup can never cost us the last known-good ones.
+# ==========================
+
+find "$BACKUP_DIR" \
+    -maxdepth 1 \
+    -type f \
+    -name "${DB_NAME}_*.dump" \
+    -mtime "+$RETENTION_DAYS" \
+    -delete
+
+echo "Backups older than $RETENTION_DAYS days were removed."
