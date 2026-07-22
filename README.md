@@ -127,7 +127,7 @@ apps/flask/.venv/bin/python scripts/create_user.py username
 Create or update the special admin account:
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py "$ROLE_MANAGER_USERNAME" --password "$ROLE_MANAGER_PASSWORD"
+apps/flask/.venv/bin/python scripts/create_user.py admin
 ```
 
 ## Admin dashboards
