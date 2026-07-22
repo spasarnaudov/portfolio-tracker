@@ -81,7 +81,12 @@ Some application state is intentionally stored locally and is not committed:
 
 ## Useful Commands
 
-Create `.env` in the project root and add the required settings.
+Create the local configuration from the safe template, then replace its placeholder
+secrets and database credentials:
+
+```bash
+cp .env.example .env
+```
 
 Run the Flask development server from the project root:
 
