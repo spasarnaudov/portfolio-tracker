@@ -27,18 +27,20 @@ android {
         create("alpha") {
             dimension = "environment"
             versionNameSuffix = "-alpha"
-            buildConfigField("String", "API_BASE_URL", "\"http://piglet:5000/api/v1/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://piglet.tailf5e9c9.ts.net:5000/api/v1/\"")
         }
         create("beta") {
             dimension = "environment"
             versionNameSuffix = "-beta"
-            // TODO: Replace with the real public HTTPS test backend before Play upload.
-            buildConfigField("String", "API_BASE_URL", "\"http://piglet:5000/api/v1/\"")
+            // Reachable only over Tailscale (see network_security_config_release.xml);
+            // no public HTTPS backend is planned.
+            buildConfigField("String", "API_BASE_URL", "\"http://piglet.tailf5e9c9.ts.net:5000/api/v1/\"")
         }
         create("production") {
             dimension = "environment"
-            // TODO: Replace with the real public HTTPS production backend before Play upload.
-            buildConfigField("String", "API_BASE_URL", "\"http://piglet:5000/api/v1/\"")
+            // Reachable only over Tailscale (see network_security_config_release.xml);
+            // no public HTTPS backend is planned.
+            buildConfigField("String", "API_BASE_URL", "\"http://piglet.tailf5e9c9.ts.net:5000/api/v1/\"")
         }
     }
 
