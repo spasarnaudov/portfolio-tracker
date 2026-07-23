@@ -75,12 +75,16 @@ repositories map network DTOs to domain models.
 ### API base URL
 
 Never hardcoded into app logic — comes from `BuildConfig.API_BASE_URL`
-(`app/build.gradle.kts`, per build type), overridable at runtime via
+(`app/build.gradle.kts`, per product flavor: `alpha`/`beta`/`production`, all three
+currently pointing at the same Tailscale-only backend), overridable at runtime via
 **Login → Connection settings** (persisted in DataStore, takes priority over
 `BuildConfig`). Changing it at runtime rebuilds `DynamicApiServiceHolder` and clears
 the local session first — the app never sends a token from one server to another.
-Debug builds allow cleartext HTTP (`network_security_config_debug.xml`, debug-only);
-release never does.
+Cleartext HTTP is allowed only to that one Tailscale MagicDNS host, scoped by a
+network security config — one per flavor for debug
+(`app/src/<flavor>Debug/res/xml/network_security_config_<flavor>_debug.xml`), and one
+shared by all flavors' release build (`app/src/release/res/xml/network_security_config_release.xml`).
+No public HTTPS backend is planned; see `apps/android/README.md` for the full picture.
 
 ### Auth flow
 

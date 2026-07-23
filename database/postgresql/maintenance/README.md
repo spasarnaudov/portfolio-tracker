@@ -1,5 +1,10 @@
 # Database Maintenance
 
+PostgreSQL runs only in Docker (see
+[scripts/README.md](../../../scripts/README.md#postgresql-runs-in-docker)), so
+these commands pipe the `.sql` file into `psql` running inside the
+`postgresql` container rather than calling a local `psql`.
+
 ## Delete Portfolio and Market Data
 
 Load local environment variables and run this command from the project root:
@@ -8,7 +13,7 @@ Load local environment variables and run this command from the project root:
 set -a
 . .env
 set +a
-psql "$DATABASE_URL" -f database/postgresql/maintenance/001_truncate_all_data.sql
+docker exec -i postgresql psql "$DATABASE_URL" --set ON_ERROR_STOP=1 < database/postgresql/maintenance/001_truncate_all_data.sql
 ```
 
 This deletes all rows from:
@@ -31,7 +36,7 @@ Run this command from the project root:
 set -a
 . .env
 set +a
-psql "$DATABASE_URL" -f database/postgresql/maintenance/002_truncate_prices.sql
+docker exec -i postgresql psql "$DATABASE_URL" --set ON_ERROR_STOP=1 < database/postgresql/maintenance/002_truncate_prices.sql
 ```
 
 This deletes all rows from `asset_prices` and `portfolio_manual_item_prices` only.

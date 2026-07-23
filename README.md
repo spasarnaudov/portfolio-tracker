@@ -88,11 +88,16 @@ secrets and database credentials:
 cp .env.example .env
 ```
 
-Run the Flask development server from the project root:
+Run the Flask development server from the project root (foreground, stops
+with Ctrl+C):
 
 ```bash
 apps/flask/.venv/bin/python apps/flask/app.py
 ```
+
+To run it in the background instead — including automatically after a
+reboot — see `scripts/start_app.sh`/`stop_app.sh`/`restart_app.sh` in
+[scripts/README.md](scripts/README.md#run-the-app).
 
 Run the hourly import job manually:
 
@@ -103,20 +108,17 @@ apps/flask/.venv/bin/python scripts/import_tavex_prices.py
 Manual-item snapshots are always stored. Tavex product and gold-buyback prices
 are imported only when `runtime/auto_tavex_import.enabled` exists.
 
-Load an environment file before running database commands:
+Initialize an empty database schema (requires a running PostgreSQL Docker
+container — see [scripts/README.md](scripts/README.md#postgresql-runs-in-docker)):
 
 ```bash
-set -a
-. .env
-set +a
+./scripts/init_database.sh
 ```
 
-Initialize an empty database schema:
-
-```bash
-psql "$DATABASE_URL" -f database/postgresql/schema/001_init_schema.sql
-psql "$DATABASE_URL" -f database/postgresql/seed/001_seed_basic_data.sql
-```
+For the full new-environment walkthrough (venv, `.env`, database, cron,
+starting the app), see
+[Setting Up a New Environment](scripts/README.md#setting-up-a-new-environment)
+in `scripts/README.md`.
 
 Create or update an application user from the terminal:
 

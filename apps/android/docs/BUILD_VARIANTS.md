@@ -20,17 +20,23 @@ with each other and with the Play app because each has a flavor-specific package
 
 ## API environments
 
-- `alpha`: `http://piglet:5000/api/v1/`
-- `beta`: `https://test-api.example.com/api/v1/` — placeholder; replace it with the
-  real public HTTPS test API before upload.
-- `production`: `https://api.example.com/api/v1/` — placeholder; replace it with the
-  real public HTTPS production API before upload.
+All three flavors currently point at the same backend, reachable only over
+[Tailscale](https://tailscale.com) (MagicDNS name `piglet.tailf5e9c9.ts.net`) — see
+[`../README.md`](../README.md#using-the-tailscale-backend) for details:
 
-Only `alphaDebug` includes a network security override for cleartext access to
-`piglet`. Every release variant and the other debug flavors keep cleartext disabled.
-Consequently, the current HTTP alpha URL is suitable only for local `alphaDebug`;
-configure an HTTPS internal backend before uploading `alphaRelease` if that build
-must contact a server.
+- `alpha` / `beta` / `production`: `http://piglet.tailf5e9c9.ts.net:5000/api/v1/`
+
+No public HTTPS backend is planned currently. Every build variant — all three debug
+flavors and all three release variants — includes a network security override
+allowing cleartext HTTP to that one host only:
+`app/src/<flavor>Debug/res/xml/network_security_config_<flavor>_debug.xml` for debug,
+and `app/src/release/res/xml/network_security_config_release.xml` (shared by all
+three release variants) for release. Every other host stays blocked in every variant.
+
+If separate alpha/beta/production backends (with real HTTPS for beta/production)
+become necessary later — e.g. before a public Play upload — give each flavor its own
+`API_BASE_URL` in `app/build.gradle.kts`, remove the corresponding cleartext
+exceptions, and update this section.
 
 ## Version codes
 

@@ -1,12 +1,106 @@
 # Scripts
 
-All commands below assume the project is deployed at:
+Every script derives its own project root from its location on disk (nothing
+is hardcoded to a specific path or directory name), so cloning this repo
+into any directory works without editing any script, and running several
+independent checkouts side by side on the same machine (e.g.
+`portfolio-tracker`, `portfolio-tracker-alpha`, `portfolio-tracker-beta`) is
+fully supported — each checkout only ever touches its own `.env`,
+`runtime/`, `logs/`, `backups/`, and its own crontab lines.
 
-```text
-/home/spas/Projects/portfolio-tracker
+## Setting Up a New Environment
+
+1. Clone the repo into its own directory.
+2. Create the Python virtualenv and install dependencies:
+
+   ```bash
+   python3 -m venv apps/flask/.venv
+   apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt
+   ```
+
+3. Create the config from the template, then edit it:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   At minimum, set a `DATABASE_URL`/`DB_NAME` unique to this environment (a
+   distinct database inside the shared PostgreSQL container — see
+   [PostgreSQL Runs in Docker](#postgresql-runs-in-docker)) and a `PORT` not
+   already used by another environment on this machine.
+
+4. Create the empty database itself — the container needs to know about it
+   before `init_database.sh` can use it:
+
+   ```bash
+   docker exec postgresql createdb -U casaos your_db_name
+   ```
+
+5. Initialize the schema — see [Database Setup](#database-setup):
+
+   ```bash
+   ./scripts/init_database.sh
+   ```
+
+6. Install this environment's cron jobs (autostart on reboot, hourly import,
+   nightly backups) — see [Install Cron Jobs](#install-cron-jobs):
+
+   ```bash
+   ./scripts/install_cron.sh
+   ```
+
+7. Start the app:
+
+   ```bash
+   ./scripts/start_app.sh
+   ```
+
+## Run the App
+
+Start, stop, or restart the Flask app as a background process:
+
+```bash
+./scripts/start_app.sh
+./scripts/stop_app.sh
+./scripts/restart_app.sh
 ```
 
-Adjust the path in cron when deploying to another directory.
+`start_app.sh` refuses to start a second copy if one is already running (it
+tracks the process in `runtime/app.pid`), and reports a clear error instead
+of silently doing nothing if the app crashes immediately (for example, the
+port from `.env` is already in use). App output goes to `logs/app.log`.
+
+This runs `python apps/flask/app.py` in the background — it's a starting
+point, not a substitute for a real process supervisor (systemd, etc.): if
+the app crashes after startup, nothing currently restarts it automatically.
+To start it automatically after a reboot, see
+[Install Cron Jobs](#install-cron-jobs).
+
+## Install Cron Jobs
+
+Install every standard cron job for this checkout in one step:
+
+```bash
+./scripts/install_cron.sh
+```
+
+Safe to run more than once — it checks each line before adding, so nothing
+is ever duplicated, and it never touches another checkout's crontab lines
+(every line is built from this script's own project directory). It installs
+exactly these four lines (paths shown here for a checkout at
+`/home/spas/Projects/portfolio-tracker`; adjust automatically to wherever
+you actually cloned it):
+
+```cron
+@reboot cd /home/spas/Projects/portfolio-tracker && ./scripts/start_app.sh >> /home/spas/Projects/portfolio-tracker/logs/app.log 2>&1
+0 * * * * cd /home/spas/Projects/portfolio-tracker && apps/flask/.venv/bin/python scripts/import_tavex_prices.py >> /home/spas/Projects/portfolio-tracker/logs/tavex_import.log 2>&1
+0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
+0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
+```
+
+Prefer editing the crontab by hand? Run `crontab -e` and add the lines
+above yourself (with the path adjusted) — `install_cron.sh` is just a
+reliable way to do the same thing without copy-paste mistakes.
 
 ## Import Hourly Prices
 
@@ -37,25 +131,9 @@ rm runtime/auto_tavex_import.enabled
 
 Manual-item snapshots continue even when the Tavex part is disabled.
 
-Both manual script runs and cron use the current round hour.
-
-## Run Every Hour
-
-Open the crontab editor:
-
-```bash
-crontab -e
-```
-
-Add this line:
-
-```cron
-0 * * * * cd /home/spas/Projects/portfolio-tracker && apps/flask/.venv/bin/python scripts/import_tavex_prices.py >> /home/spas/Projects/portfolio-tracker/logs/tavex_import.log 2>&1
-```
-
-This stores manual-item prices and runs the enabled Tavex import on every round hour.
-
-Logs are written to:
+Both manual script runs and cron use the current round hour. The cron job
+that runs this hourly is installed by
+[`install_cron.sh`](#install-cron-jobs). Logs are written to:
 
 ```text
 logs/tavex_import.log
@@ -85,12 +163,16 @@ to `pg_dump`/`psql` inside the container, and since the container's own
 PostgreSQL listens on `localhost` internally too, a `DATABASE_URL` pointing
 at `localhost` resolves correctly from inside the container as well.
 
+This also means multiple environments can all share the same PostgreSQL
+container, as long as each one's `.env` has its own `DATABASE_URL`/`DB_NAME`
+pointing at its own database inside that container (see
+[Setting Up a New Environment](#setting-up-a-new-environment)).
+
 ## Database Setup
 
 Requires an empty PostgreSQL database that already exists (create it with
-`docker exec postgresql createdb ...` or however the container provisions
-databases) and a `.env` with `DATABASE_URL` pointing at it. Then, from the
-project root:
+`docker exec postgresql createdb -U casaos your_db_name`) and a `.env` with
+`DATABASE_URL` pointing at it. Then, from the project root:
 
 ```bash
 ./scripts/init_database.sh
@@ -141,6 +223,13 @@ You can override them from the shell or from cron:
 
 ```bash
 BACKUP_RETENTION_DAYS=30 ./scripts/backup_database.sh
+```
+
+The nightly cron job for this is installed by
+[`install_cron.sh`](#install-cron-jobs). Logs are written to:
+
+```text
+logs/database_backup.log
 ```
 
 ## Verify Existing Backup
@@ -197,38 +286,10 @@ ENV_BACKUP_DIR=/absolute/path/to/env/backups
 ENV_BACKUP_RETENTION_DAYS=30
 ```
 
-Env backup files contain secrets and must not be committed to git.
-
-## Backup Cron
-
-Open the crontab editor:
-
-```bash
-crontab -e
-```
-
-Run the database backup every night at 03:00:
-
-```cron
-0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
-```
-
-Logs are written to:
-
-```text
-logs/database_backup.log
-```
-
-Run the env backup every night at 03:00:
-
-```cron
-0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
-```
-
-Env backup logs are written to:
+Env backup files contain secrets and must not be committed to git. The
+nightly cron job for this is installed by
+[`install_cron.sh`](#install-cron-jobs). Logs are written to:
 
 ```text
 logs/env_backup.log
 ```
-
-`logs/*.log`, `backups/database/*.dump`, and `backups/env/*.backup` are ignored by git.

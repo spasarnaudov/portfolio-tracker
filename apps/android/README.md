@@ -64,17 +64,29 @@ Gradle installed separately.
 ## Configuring the API base URL
 
 The base URL is **never hardcoded** into application logic — it comes from
-`BuildConfig.API_BASE_URL`, generated per build type in `app/build.gradle.kts`:
+`BuildConfig.API_BASE_URL`, generated per product flavor in `app/build.gradle.kts`.
+The `environment` flavor dimension has three flavors — `alpha`, `beta`,
+`production` — each combined with the `debug`/`release` build type (6 build
+variants total: `alphaDebug`, `alphaRelease`, `betaDebug`, ...). All three
+flavors currently point at the same backend:
 
-| Build type | Default `API_BASE_URL` | Cleartext (HTTP) |
-|---|---|---|
-| `debug` | `http://piglet:5000/api/v1/` | Allowed (see [`network_security_config_debug.xml`](app/src/debug/res/xml/network_security_config_debug.xml), debug-only) |
-| `release` | `https://api.example.com/api/v1/` (placeholder — change before shipping) | **Not allowed** anywhere in the app |
+| Flavor | Default `API_BASE_URL` |
+|---|---|
+| `alpha` / `beta` / `production` | `http://piglet.tailf5e9c9.ts.net:5000/api/v1/` |
+
+That hostname is a [Tailscale](https://tailscale.com) MagicDNS name — see
+[Using the Tailscale backend](#using-the-tailscale-backend) below. No public
+HTTPS backend is planned currently, so cleartext HTTP is allowed, but scoped
+narrowly to that one host, in **every** build variant including release —
+see `app/src/<flavor>Debug/res/xml/network_security_config_*_debug.xml` for
+the debug network security configs, and
+[`network_security_config_release.xml`](app/src/release/res/xml/network_security_config_release.xml)
+for the one release shares across all three flavors.
 
 To point at your own server without touching Kotlin code:
 
 1. Edit the `buildConfigField("String", "API_BASE_URL", "\"...\"")` line for the
-   relevant build type in `app/build.gradle.kts`, **or**
+   relevant flavor in `app/build.gradle.kts`, **or**
 2. Run the app, open **Login → Connection settings**, type a base URL (must start with
    `http://` or `https://` and end with `/`), and tap **Test connection** then **Save**.
    A DataStore-persisted override always takes priority over `BuildConfig.API_BASE_URL`
@@ -88,10 +100,12 @@ another.
 ## Running the app
 
 1. Open the project root in Android Studio and let it sync.
-2. Make sure a device/emulator can reach your API base URL (for the debug default,
-   that means a host reachable as `piglet` on your network, or edit Connection
-   Settings after first launch).
-3. Run the `app` debug configuration.
+2. Pick a build variant (e.g. `alphaDebug`) from the Build Variants panel.
+3. Make sure the device/emulator can reach the API base URL — for the current
+   default that means being connected to the Tailscale tailnet the backend is
+   on (see [Using the Tailscale backend](#using-the-tailscale-backend)), or
+   override it via Connection Settings after first launch.
+4. Run the `app` configuration.
 
 ## Tests
 
@@ -108,41 +122,53 @@ so no network access or backend is needed to run them.
 ## Debug build
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleAlphaDebug     # or assembleBetaDebug / assembleProductionDebug
 ```
 
-Produces `app/build/outputs/apk/debug/app-debug.apk`. Cleartext HTTP is allowed only in
-this build type, scoped to the debug network security config.
+Produces an APK per flavor under `app/build/outputs/apk/<flavor>/debug/`. Cleartext
+HTTP is allowed only to the exact host in that flavor's `API_BASE_URL`, scoped by its
+own debug network security config (`network_security_config_<flavor>_debug.xml`).
 
 ## Release build
 
 ```bash
-./gradlew assembleRelease
+./gradlew assembleAlphaRelease   # or assembleBetaRelease / assembleProductionRelease
 ```
 
-Before shipping:
+Before shipping to a public audience:
 
-- Change the `release` build type's `API_BASE_URL` in `app/build.gradle.kts` to your
-  real HTTPS endpoint.
+- Point `API_BASE_URL` in `app/build.gradle.kts` at a real HTTPS endpoint, for
+  whichever flavor(s) you're shipping.
+- Remove the cleartext exception in `app/src/release/` (currently there because no
+  public HTTPS backend exists yet — see
+  [Using the Tailscale backend](#using-the-tailscale-backend)) once you no longer
+  need it.
 - Configure a real signing config (this project ships without one — Android Studio's
   default debug signing is used for local `assembleRelease` runs).
-- The release manifest never sets `usesCleartextTraffic="true"` and does not reference
-  the debug network security config, so plain HTTP is rejected everywhere.
 
-## Using a local HTTP development server
+## Using the Tailscale backend
 
-The default debug `API_BASE_URL` (`http://piglet:5000/api/v1/`) assumes a server
-reachable by hostname on your LAN. If that doesn't resolve from your device, open
-**Connection settings** and enter an IP-based address instead, e.g.
-`http://192.168.1.50:5000/api/v1/`, then **Test connection** before **Save**.
-`app/src/debug/res/xml/network_security_config_debug.xml` permits cleartext traffic
-in debug builds only.
+No public HTTPS backend is planned right now. The API server runs on a machine
+reachable only over [Tailscale](https://tailscale.com) (MagicDNS name
+`piglet.tailf5e9c9.ts.net`), so:
 
-## Using an HTTPS production server
+- the device (physical phone or emulator host) needs the Tailscale app installed and
+  connected to the same tailnet as the server;
+- cleartext HTTP is allowed **only** for that exact hostname — every other host is
+  still blocked, in both debug and release builds.
 
-Set (or override via Connection Settings) an `https://` base URL. No cleartext
-exception applies outside of debug builds; the OS's standard TLS/certificate
-validation is used as-is — this app never disables SSL/TLS verification.
+If your device can't resolve the MagicDNS name, open **Connection settings** and
+enter the Tailscale IP directly (`http://100.x.y.z:5000/api/v1/`), then **Test
+connection** before **Save** — note a raw IP isn't in the network security config's
+domain allowlist, so cleartext to it would still be blocked unless you add it there
+too.
+
+## Switching to a public HTTPS backend later
+
+Set (or override via Connection Settings) an `https://` base URL, and remove the
+cleartext exception in `app/src/release/` (and the per-flavor debug ones, if no
+longer needed) — no other change is required. The OS's standard TLS/certificate
+validation is used as-is; this app never disables SSL/TLS verification.
 
 ## Token storage
 
