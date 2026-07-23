@@ -1,3 +1,5 @@
+import com.android.build.api.artifact.SingleArtifact
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -85,6 +87,27 @@ androidComponents {
         variant.applicationId.set(
             "io.github.spasarnaudov.portfoliotracker.$environment.debug"
         )
+    }
+
+    onVariants(selector().withBuildType("release")) { variant ->
+        val environment = variant.productFlavors
+            .first { (dimension, _) -> dimension == "environment" }
+            .second
+        val variantNameCapitalized = variant.name.replaceFirstChar(Char::uppercaseChar)
+
+        val versionName = android.defaultConfig.versionName
+
+        val renameBundleTask = tasks.register<Copy>("rename${variantNameCapitalized}Bundle") {
+            group = "build"
+            description = "Copies the $environment/${variant.buildType} .aab with the app name, environment, and version name in the file name"
+            from(variant.artifacts.get(SingleArtifact.BUNDLE))
+            into(layout.buildDirectory.dir("outputs/bundle-renamed"))
+            rename { "portfolio-tracker-android-$environment-$versionName.aab" }
+        }
+
+        tasks.matching { it.name == "bundle$variantNameCapitalized" }.configureEach {
+            finalizedBy(renameBundleTask)
+        }
     }
 }
 
