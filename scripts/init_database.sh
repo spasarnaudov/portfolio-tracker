@@ -43,5 +43,19 @@ docker exec -i "$POSTGRES_CONTAINER_NAME" psql "$DATABASE_URL" --set ON_ERROR_ST
 echo "Applying seed data..."
 docker exec -i "$POSTGRES_CONTAINER_NAME" psql "$DATABASE_URL" --set ON_ERROR_STOP=1 < "$SEED_FILE"
 
+PYTHON="$PROJECT_DIR/apps/flask/.venv/bin/python"
+
+if [[ -x "$PYTHON" ]]; then
+    echo
+    echo "Creating default admin account (admin/admin — change the password after first login"
+    echo "if this environment is reachable by anyone other than you)..."
+    "$PYTHON" "$PROJECT_DIR/scripts/create_user.py" admin --password=admin
+else
+    echo
+    echo "Skipping admin account creation: $PYTHON not found."
+    echo "Create the venv (see scripts/README.md), then run:"
+    echo "  apps/flask/.venv/bin/python scripts/create_user.py admin --password=admin"
+fi
+
 echo
 echo "Database initialized."

@@ -36,7 +36,8 @@ fully supported — each checkout only ever touches its own `.env`,
    docker exec postgresql createdb -U casaos your_db_name
    ```
 
-5. Initialize the schema — see [Database Setup](#database-setup):
+5. Initialize the schema — see [Database Setup](#database-setup). This also
+   creates the default `admin`/`admin` account:
 
    ```bash
    ./scripts/init_database.sh
@@ -184,6 +185,14 @@ database that already has tables is refused, so it never overwrites existing
 data — use `scripts/restore_database.sh` instead if you want to load a
 backup. Running this against a fresh database on every environment
 (development, test, production) is what keeps their schemas identical.
+
+It then creates the default admin account — username `admin`, password
+`admin` — by running `scripts/create_user.py` through
+`apps/flask/.venv/bin/python`, so the venv (see
+[Setting Up a New Environment](#setting-up-a-new-environment)) must already
+exist; if it doesn't, this step is skipped with a message telling you the
+command to run manually afterward. Change the password after first login if
+the environment is reachable by anyone other than you.
 
 ## Database Backups
 

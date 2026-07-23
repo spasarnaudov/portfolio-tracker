@@ -109,7 +109,10 @@ Manual-item snapshots are always stored. Tavex product and gold-buyback prices
 are imported only when `runtime/auto_tavex_import.enabled` exists.
 
 Initialize an empty database schema (requires a running PostgreSQL Docker
-container — see [scripts/README.md](scripts/README.md#postgresql-runs-in-docker)):
+container — see [scripts/README.md](scripts/README.md#postgresql-runs-in-docker)).
+This also creates the default admin account (username `admin`, password
+`admin` — change it after first login if the environment is reachable by
+anyone other than you):
 
 ```bash
 ./scripts/init_database.sh
@@ -126,10 +129,11 @@ Create or update an application user from the terminal:
 apps/flask/.venv/bin/python scripts/create_user.py username
 ```
 
-Create or update the special admin account:
+Reset the special admin account's password (`init_database.sh` already
+creates it on a fresh environment — this is for changing it afterward):
 
 ```bash
-apps/flask/.venv/bin/python scripts/create_user.py admin
+apps/flask/.venv/bin/python scripts/create_user.py admin --password=admin
 ```
 
 ## Admin dashboards
