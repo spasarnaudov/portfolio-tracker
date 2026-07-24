@@ -28,11 +28,13 @@ android {
     productFlavors {
         create("alpha") {
             dimension = "environment"
+            applicationIdSuffix = ".alpha"
             versionNameSuffix = "-alpha"
             buildConfigField("String", "API_BASE_URL", "\"http://piglet.tailf5e9c9.ts.net:5002/api/v1/\"")
         }
         create("beta") {
             dimension = "environment"
+            applicationIdSuffix = ".beta"
             versionNameSuffix = "-beta"
             // Reachable only over Tailscale (see network_security_config_release.xml);
             // no public HTTPS backend is planned.
@@ -48,6 +50,7 @@ android {
 
     buildTypes {
         debug {
+            applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
@@ -80,15 +83,6 @@ android {
 }
 
 androidComponents {
-    onVariants(selector().withBuildType("debug")) { variant ->
-        val environment = variant.productFlavors
-            .first { (dimension, _) -> dimension == "environment" }
-            .second
-        variant.applicationId.set(
-            "io.github.spasarnaudov.portfoliotracker.$environment.debug"
-        )
-    }
-
     onVariants(selector().withBuildType("release")) { variant ->
         val environment = variant.productFlavors
             .first { (dimension, _) -> dimension == "environment" }
