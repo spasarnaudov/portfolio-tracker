@@ -6,3 +6,7 @@
 /alpha
 /beta
 /production
+
+# A stray nested IDE project — this module has no business having its own
+# .idea; the real project root is apps/android, one level up.
+/.idea
