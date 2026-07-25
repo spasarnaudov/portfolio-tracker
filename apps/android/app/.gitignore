@@ -1,1 +1,8 @@
 /build
+
+# Android Studio's "Generate Signed Bundle/APK" wizard defaults its output
+# folder to <module>/<flavor>/<buildType> (e.g. /beta/release/*.aab) — outside
+# /build, so it isn't covered by the rule above.
+/alpha
+/beta
+/production
