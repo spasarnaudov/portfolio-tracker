@@ -1,5 +1,10 @@
 # Database Design
 
+The data model: tables, columns, and constraints. Role behavior, session
+rules, and other application-level behavior live in
+[README.md → Configuration](../README.md#configuration) — this document
+only covers what the database itself enforces.
+
 ## Tables
 
 ### asset_categories
@@ -104,15 +109,11 @@ Columns:
 
 Notes:
 - Passwords are hashed by the Flask application before they are stored.
-- The application uses a session cookie after successful login.
-- Only one active session per user is allowed.
-- Inactivity timeout is configured through `SESSION_TIMEOUT_MINUTES`.
 - Users can be created from the registration page or from the terminal helper script.
-- Logged-in users can change their own password from the application.
-- The special admin account can access Users and Logs.
-- User accounts see their own portfolio data.
-- The special `admin` user is limited to user and login-history management.
-- Roles are read-only in the application, and only one account can have the `admin` role.
+- Only one account can have the `admin` role, enforced by a unique partial
+  index (`uq_users_single_admin_role`) on `role` where `role = 'admin'`. See
+  [README.md → Configuration](../README.md#configuration) for role and
+  session behavior.
 - Users marked as deleted cannot log in.
 - Self-deletion sets `is_deleted` without removing the account or its related data.
 - A database trigger prevents a deleted account from clearing its deleted state.
@@ -129,8 +130,9 @@ Columns:
 - logged_in_at: timestamp of the successful login
 
 Notes:
-- The Users admin table displays the latest login and total login count.
-- Login history and the username remain available after a user is deleted.
+- `username` is a snapshot, not a live reference, specifically so login history and
+  the username remain available after a user is deleted.
 - The user filter includes current users and deleted users that have login history.
-- Regular users can deactivate their own account after confirmation; the account and its data remain stored.
-- The special admin account is protected, and admins cannot reactivate a self-deleted account.
+- See [README.md → Admin dashboards](../README.md#admin-dashboards) for how this
+  data is displayed, and [README.md → Configuration](../README.md#configuration)
+  for account deactivation behavior.

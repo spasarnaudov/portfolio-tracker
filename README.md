@@ -22,11 +22,12 @@ Portfolio Tracker is a personal project for tracking investment assets and their
 ```text
 portfolio-tracker/
 ├── apps/
-│   └── flask/
-│       ├── app.py
-│       ├── repository.py
-│       ├── static/
-│       └── templates/
+│   ├── flask/
+│   │   ├── app.py
+│   │   ├── repository.py
+│   │   ├── static/
+│   │   └── templates/
+│   └── android/            # native Android client — see apps/android/README.md
 ├── database/
 │   └── postgresql/
 │       ├── maintenance/
@@ -37,6 +38,13 @@ portfolio-tracker/
 ├── README.md
 └── .gitignore
 ```
+
+## Documentation
+
+- [docs/database-design.md](docs/database-design.md) — the data model: tables, columns, constraints.
+- [docs/database-operations.md](docs/database-operations.md) — database setup, backups, restore, maintenance.
+- [scripts/README.md](scripts/README.md) — environment setup and day-to-day operation (app process, cron, price imports).
+- [apps/android/README.md](apps/android/README.md) — the native Android client.
 
 ## Current Version
 
@@ -109,7 +117,7 @@ Manual-item snapshots are always stored. Tavex product and gold-buyback prices
 are imported only when `runtime/auto_tavex_import.enabled` exists.
 
 Initialize an empty database schema (requires a running PostgreSQL Docker
-container — see [scripts/README.md](scripts/README.md#postgresql-runs-in-docker)).
+container — see [Database Operations](docs/database-operations.md#postgresql-runs-in-docker)).
 This also creates the default admin account (username `admin`, password
 `admin` — change it after first login if the environment is reachable by
 anyone other than you):
@@ -163,7 +171,8 @@ Users and Logs and change its password, but it cannot browse portfolio or market
 Roles cannot be changed from the application. The database permits only one
 account with the `admin` role.
 Regular users can deactivate their own account from the user menu. The special
-`admin` account cannot be deactivated.
+`admin` account cannot be deactivated. Admins cannot reactivate a self-deleted
+account.
 
 Sessions use `SESSION_TIMEOUT_MINUTES` from `.env`. When there is no
 user activity for that many minutes, the user is logged out. A user can have

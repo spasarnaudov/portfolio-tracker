@@ -1,8 +1,11 @@
 # Portfolio Tracker — Android
 
-A native Android client for the Portfolio Tracker `/api/v1` REST API (see
-[`API.md`](API.md) at the repository root — it is the source of truth for every
-endpoint this app calls). Built with Kotlin, Jetpack Compose and Material 3.
+A native Android client for the Portfolio Tracker `/api/v1` REST API. `API.md` at
+the repository root is documented as the source of truth for every endpoint this
+app calls, but it does not currently exist in this checkout — see
+[Known limitations](#known-limitations) and
+[`docs/API_INTEGRATION.md`](docs/API_INTEGRATION.md) for how that gap is handled.
+Built with Kotlin, Jetpack Compose and Material 3.
 
 ## Architecture
 
@@ -68,11 +71,9 @@ The base URL is **never hardcoded** into application logic — it comes from
 The `environment` flavor dimension has three flavors — `alpha`, `beta`,
 `production` — each combined with the `debug`/`release` build type (6 build
 variants total: `alphaDebug`, `alphaRelease`, `betaDebug`, ...). All three
-flavors currently point at the same backend:
-
-| Flavor | Default `API_BASE_URL` |
-|---|---|
-| `alpha` / `beta` / `production` | `http://piglet.tailf5e9c9.ts.net:5000/api/v1/` |
+flavors currently point at the same backend — see
+[`docs/BUILD_VARIANTS.md`](docs/BUILD_VARIANTS.md#api-environments) for the
+full variant-to-URL table.
 
 That hostname is a [Tailscale](https://tailscale.com) MagicDNS name — see
 [Using the Tailscale backend](#using-the-tailscale-backend) below. No public
@@ -210,7 +211,7 @@ a plain JVM).
 - **`connectedAndroidTest` was written but not executed** in the environment this app
   was built in (no attached device/emulator). The tests compile
   (`./gradlew compileDebugAndroidTestKotlin`) and follow the same patterns validated by
-  the 54 passing JVM unit tests; run them on a real device/emulator before relying on
+  the 53 passing JVM unit tests; run them on a real device/emulator before relying on
   them as a merge gate.
 - **No pagination** is implemented for admin users/login-history lists, since API.md
   doesn't document pagination parameters for any endpoint.

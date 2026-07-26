@@ -1,4 +1,5 @@
 # Android build variants and Google Play tracks
+# Android build variants and Google Play tracks
 
 The app has one `environment` flavor dimension and three product flavors. All
 release variants deliberately use the same application ID and belong in one Google
@@ -66,6 +67,12 @@ versionCode 5 -> next alphaRelease
 
 APK outputs are written below `app/build/outputs/apk/<flavor>/debug/`. AAB outputs
 are written below `app/build/outputs/bundle/<flavor>Release/`.
+
+Every `bundle<Flavor>Release` task also triggers a `rename<Flavor>Release` task
+(`app/build.gradle.kts`) that copies the `.aab` to
+`app/build/outputs/bundle-renamed/portfolio-tracker-android-<environment>-<versionName>.aab`
+— use this copy for uploads; its name identifies the environment and version
+without opening the file.
 
 ## Launcher icons
 
