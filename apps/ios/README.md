@@ -61,15 +61,55 @@ to reach it. `Info.plist` allows cleartext HTTP only for that exact host (`NSApp
 To point at a different server without touching code, open **Login → Connection**, enter
 a base URL (must start with `http://` or `https://` and end with `/`), tap **Test
 connection**, then **Save**. The override is stored in `UserDefaults` and always takes
-priority over the default; there's no equivalent of Android's per-flavor build config here
-since this starter has one build configuration.
+priority over the compiled-in default described below.
+
+## Build configurations
+
+Three build configurations mirror the debug half of Android's `alpha`/`beta`/`production`
+flavors (`apps/android/docs/BUILD_VARIANTS.md`) — release counterparts aren't set up yet
+since only debug builds are needed for now:
+
+| Configuration | Bundle identifier | `API_BASE_URL` | Display name |
+|---|---|---|---|
+| Alpha Debug | `io.github.spasarnaudov.portfoliotracker.alpha.debug` | `…:5002/api/v1/` | Portfolio Tracker Alpha |
+| Beta Debug | `io.github.spasarnaudov.portfoliotracker.beta.debug` | `…:5001/api/v1/` | Portfolio Tracker Beta |
+| Production Debug | `io.github.spasarnaudov.portfoliotracker.debug` | `…:5000/api/v1/` | Portfolio Tracker |
+
+Each has a matching shared scheme (Xcode's scheme picker, next to the run/stop buttons) —
+pick one and Run to install that variant. Distinct bundle identifiers mean all three can
+be installed on the same simulator/device side by side, same as Android's per-flavor
+`applicationIdSuffix`. The original `PortfolioTracker` scheme/`Debug` configuration is
+unchanged and still points at production, kept as a plain default.
+
+`API_BASE_URL` is a build setting, threaded into the app via the `APIBaseURL` Info.plist
+key (`$(API_BASE_URL)`) and read by `AppSettings.defaultBaseURL` — the same mechanism as
+Android's per-flavor `BuildConfig.API_BASE_URL`, just expressed with Xcode's own tools
+instead of Gradle's. `APP_DISPLAY_NAME` follows the same pattern for `CFBundleDisplayName`.
+All three point at the same Tailscale host as the existing ATS exception in `Info.plist`
+(only the port differs), so no ATS changes were needed to add them.
+
+Each configuration also gets its own app icon (`ASSETCATALOG_COMPILER_APPICON_NAME`),
+carried over from the Android client's per-variant launcher icons
+(`apps/android/app/src/{alphaDebug,betaDebug,productionDebug}/res/drawable-nodpi/ic_launcher_foreground_image.png`):
+same compass artwork, with the same colored double-letter badges (red "A A", yellow
+"B B", blue "P P") in the same corner. Android composites these onto a separate
+adaptive-icon background layer and lets the launcher's mask crop a 108dp canvas down to
+a 72dp safe zone; there's no equivalent background layer or OS-side safe-zone crop on
+iOS, so each source image was center-cropped to that same 66.7%-of-canvas region before
+scaling up to a flat 1024×1024 (`AppIcon-Alpha`/`AppIcon-Beta`/`AppIcon-Production` in
+`Assets.xcassets`) — otherwise the icon would show extra dark padding around it that
+Android's launcher mask normally hides. The plain `AppIcon` (no badge, used by the
+original `PortfolioTracker` scheme) is Android's unbadged default the same way. Source
+art is 432×432, so these are upscaled — fine for on-device/simulator use, but swap in
+higher-resolution originals before an eventual App Store submission.
 
 ## Running the app
 
 1. Open `PortfolioTracker.xcodeproj` in Xcode.
 2. Confirm a Development Team is set under the target's **Signing & Capabilities**
    (Automatic signing).
-3. Pick a simulator or device and run.
+3. Pick a scheme (`PortfolioTracker`, or one of the three above) and a simulator or
+   device, then run.
 4. If the simulator/device isn't on the backend's Tailscale tailnet, open **Connection**
    on the Login screen and point it at a reachable address.
 
