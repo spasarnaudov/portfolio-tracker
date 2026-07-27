@@ -27,7 +27,8 @@ portfolio-tracker/
 │   │   ├── repository.py
 │   │   ├── static/
 │   │   └── templates/
-│   └── android/            # native Android client — see apps/android/README.md
+│   ├── android/            # native Android client — see apps/android/README.md
+│   └── ios/                # native iOS client — see apps/ios/README.md
 ├── database/
 │   └── postgresql/
 │       ├── maintenance/
@@ -45,6 +46,7 @@ portfolio-tracker/
 - [docs/database-operations.md](docs/database-operations.md) — database setup, backups, restore, maintenance.
 - [scripts/README.md](scripts/README.md) — environment setup and day-to-day operation (app process, cron, price imports).
 - [apps/android/README.md](apps/android/README.md) — the native Android client.
+- [apps/ios/README.md](apps/ios/README.md) — the native iOS client.
 
 ## Current Version
 
