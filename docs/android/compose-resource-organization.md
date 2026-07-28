@@ -27,7 +27,7 @@ This document applies only to Jetpack Compose code. It must not be used to migra
 3. Screen-specific values must remain close to the screen that owns them.
 4. Repeated or meaningful UI literals must be replaced with named values.
 5. Names must describe purpose rather than numeric value.
-6. Values inside resource groups and Kotlin objects must be ordered alphabetically.
+6. Values inside resource groups and Kotlin objects must be ordered alphabetically. Kotlin object properties may deviate when execution order is materially important (see Alphabetical Ordering).
 7. Existing project architecture and terminology must be preserved.
 8. Values must not be moved between XML resources, theme definitions, and Kotlin objects unless explicitly requested.
 
@@ -786,7 +786,7 @@ Before completing a change, verify that:
 * repeated or meaningful `dp` and `sp` literals are named;
 * direct `Color(...)` values are not scattered across composables;
 * meaningful elevations and animation values are named;
-* values inside Kotlin objects are alphabetically ordered;
+* values inside Kotlin objects are alphabetically ordered, unless execution order is materially important;
 * names describe purpose rather than numeric value;
 * shared values are not duplicated;
 * unrelated values are not moved into shared objects;
