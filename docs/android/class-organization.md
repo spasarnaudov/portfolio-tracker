@@ -22,7 +22,7 @@ It applies to:
 
 This document defines only class structure.
 
-It does not define architecture, dependency injection, naming conventions, Compose organization, or XML resources.
+It does not define architecture, dependency injection, project-wide naming conventions, Compose organization, or XML resources.
 
 ## Applicability in This Project
 
@@ -395,8 +395,8 @@ Example:
 ```kotlin
 companion object {
 
-    private const val AnimationDurationMillis = 250
-    private const val RequestCode = 100
+    private const val ANIMATION_DURATION_MILLIS = 250
+    private const val REQUEST_CODE = 100
 }
 ```
 
