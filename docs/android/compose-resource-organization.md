@@ -67,7 +67,7 @@ A shared feature-level object may be used only when its values genuinely apply t
 
 ## User-Visible Strings
 
-All user-visible text must use Android string resources.
+All static, app-authored user-visible text must use Android string resources.
 
 Use:
 
