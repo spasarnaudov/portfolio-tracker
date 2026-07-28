@@ -26,16 +26,18 @@ It does not define architecture, dependency injection, naming conventions, Compo
 
 ## Applicability in This Project
 
-This project currently has ViewModel and Repository classes only. It has no Fragment,
-Service, BroadcastReceiver, Worker, Custom View, or use case classes, and a single
-Activity (`MainActivity`) that only hosts Compose content — it has no View Binding,
-Activity Result Launchers, or menu callbacks.
+This project currently has ViewModel, Repository, and manager classes. It has no
+Fragment, Service, BroadcastReceiver, Worker, Custom View, or use case classes, and a
+single Activity (`MainActivity`) that only hosts Compose content — it has no View
+Binding, Activity Result Launchers, or menu callbacks.
 
-**ViewModel Organization** and **Repository Organization** are the sections in active
-use today. The Activity, Fragment, Service, Worker, BroadcastReceiver, Custom View, and
-Use Case sections apply only if a class of that kind is introduced later — do not use
-them to justify restructuring `MainActivity` or adding classes that don't otherwise
-belong in this project.
+**ViewModel Organization**, **Repository Organization**, and **Manager / Helper
+Organization** are the sections in active use today — for example,
+`core/auth/SessionManager.kt` is a manager class and should follow Manager / Helper
+Organization. The Activity, Fragment, Service, Worker, BroadcastReceiver, Custom View,
+and Use Case sections apply only if a class of that kind is introduced later — do not
+use them to justify restructuring `MainActivity` or adding classes that don't
+otherwise belong in this project.
 
 ## Core Principles
 
@@ -45,12 +47,20 @@ belong in this project.
 4. Lifecycle methods must appear before event handlers.
 5. Helper methods must remain private unless they belong to the public API.
 6. Visibility should be as restrictive as possible.
-7. Members inside each section must be ordered alphabetically unless execution order requires otherwise.
+7. Members inside each section must be ordered alphabetically unless execution order, or an established UI/data-flow order, requires otherwise.
 8. Existing project architecture and terminology must be preserved.
 
 ## Member Ordering
 
 Unless the project already defines another convention, class members must appear in the following order.
+
+This is the default ordering for a class that has no more specific structure below.
+When a type-specific section (Activity, Fragment, ViewModel, Service, Worker,
+BroadcastReceiver, Custom View, Repository, Use Case, or Manager / Helper
+Organization) applies to a class, that section's ordering — including any
+visibility-crossing rule it states, such as ViewModel Organization's private-state-
+before-public-state pairing — takes precedence over this general list where the two
+disagree.
 
 1. Companion object
 2. Constants (declared inside the companion object from step 1, not a separate location)
@@ -66,32 +76,32 @@ Unless the project already defines another convention, class members must appear
 12. Private helper functions
 13. Member extension functions (see Extension Functions below — only when a member extension is actually needed)
 
-Example:
+Example — this project uses constructor injection exclusively (see ViewModel
+Organization below), so "Dependency injection" at position 3 is expressed as
+constructor parameters, not body properties:
 
 ```kotlin
-class LoginFragment : Fragment() {
+@HiltViewModel
+class LoginViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+) : ViewModel() {
 
-    companion object {
+    private val _uiState = MutableStateFlow(LoginUiState())
+    val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
-        private const val RequestCode = 100
-    }
-
-    @Inject
-    lateinit var loginRepository: LoginRepository
-
-    private lateinit var binding: FragmentLoginBinding
-
-    override fun onCreate(...) {}
-
-    override fun onViewCreated(...) {}
+    fun onUsernameChange(value: String) {}
 
     fun submit() {}
 
-    private fun validateInput() {}
-
-    private fun updateUi() {}
+    private fun attemptLogin(force: Boolean) {}
 }
 ```
+
+Field injection (`@Inject lateinit var ...`) is a valid pattern for classes the
+platform instantiates for you (e.g. Fragments, Activities without Hilt's
+constructor-injection entry points) and is not used anywhere in this project today.
+Prefer constructor injection — as position 3 above assumes — unless a specific
+framework class requires field injection.
 
 ## Activity Organization
 
@@ -246,6 +256,24 @@ Recommended order:
 2. invoke()
 3. Private helper methods
 
+## Manager / Helper Organization
+
+A manager or helper class owns a single piece of shared, cross-cutting state or
+behavior (for example, this project's `SessionManager`, which holds the
+currently-signed-in user for navigation and admin gating) — not a screen's UI state
+(that's a ViewModel) and not persistence/network access (that's a Repository).
+
+Recommended order:
+
+1. Dependencies
+2. Mutable state
+3. Public state
+4. Public API
+5. Private helper methods
+
+This mirrors ViewModel Organization: private mutable state must appear immediately
+before the corresponding public state it backs.
+
 ## Method Grouping
 
 Methods performing similar responsibilities should remain together.
@@ -370,7 +398,8 @@ Constants should be ordered alphabetically.
 
 ## Alphabetical Ordering
 
-Members inside the same logical section must be ordered alphabetically unless execution order requires another arrangement.
+Members inside the same logical section must be ordered alphabetically unless
+execution order, or an established UI/data-flow order, requires another arrangement.
 
 Correct:
 
@@ -389,6 +418,15 @@ hideLoading()
 navigateHome()
 showError()
 ```
+
+A UI/data-flow order — for example, `onUsernameChange()` before `onPasswordChange()`
+because that's the order the fields appear on screen, or `submit()` before
+`confirmForceLogin()` because confirming only makes sense after a submit — is a valid
+non-alphabetical arrangement when it already exists in a class. Do not reorder such a
+class into alphabetical order; when adding a new member to it, place the addition
+where it fits that same flow rather than alphabetically. This exception does not
+license arbitrary ordering — apply alphabetical order by default, and deviate from it
+only when execution order or an existing, genuine flow already dictates the sequence.
 
 ## Region Comments
 
