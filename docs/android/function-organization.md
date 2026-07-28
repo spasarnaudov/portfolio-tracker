@@ -16,7 +16,7 @@ It applies to:
 
 This document defines function organization only.
 
-It does not define architecture, class organization, naming conventions, Compose resources, or XML resources.
+It does not define architecture, class organization, project-wide naming conventions, Compose resources, or XML resources.
 
 ## Core Principles
 
