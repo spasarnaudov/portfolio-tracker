@@ -332,7 +332,8 @@ internal object LoginScreenDimens {
 }
 ```
 
-Properties inside each object must be ordered alphabetically by property name.
+Properties inside each object must be ordered alphabetically by property name (see
+Alphabetical Ordering below for the execution-order exception).
 
 ## Naming Kotlin Values
 
@@ -439,7 +440,7 @@ internal object ChartScreenTypography {
 }
 ```
 
-Properties must be alphabetically ordered.
+Properties must be alphabetically ordered (see Alphabetical Ordering below).
 
 Do not duplicate an existing theme typography style under a screen-specific name.
 
@@ -502,7 +503,7 @@ internal object LoginScreenShapes {
 }
 ```
 
-Shape properties must be ordered alphabetically.
+Shape properties must be ordered alphabetically (see Alphabetical Ordering below).
 
 Do not create a screen-specific alias for a theme shape without additional semantic value.
 
@@ -591,7 +592,7 @@ internal object AppSpacing {
 }
 ```
 
-Properties must be alphabetically ordered.
+Properties must be alphabetically ordered (see Alphabetical Ordering below).
 
 A value may become shared only when it represents the same design decision and purpose across multiple screens.
 
