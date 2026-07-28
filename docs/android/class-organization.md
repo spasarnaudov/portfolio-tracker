@@ -39,6 +39,12 @@ and Use Case sections apply only if a class of that kind is introduced later —
 use them to justify restructuring `MainActivity` or adding classes that don't
 otherwise belong in this project.
 
+Dialog classes and reusable UI classes (listed in Purpose above) have no class
+instances in this project today and no dedicated section below. If one is introduced,
+follow Custom View Organization for a Dialog class, or Manager / Helper Organization
+for a reusable UI helper class that owns shared state — do not invent a new structure
+for a single class.
+
 ## Core Principles
 
 1. Every class must have a predictable structure.
@@ -483,7 +489,8 @@ Before completing a change, verify that:
 - helper methods are private whenever possible;
 - visibility is as restrictive as possible;
 - constants are grouped together;
-- members inside each section are alphabetically ordered;
+- members inside each section follow alphabetical order, unless execution order or an
+  established UI/data-flow order already in that class requires otherwise;
 - unrelated responsibilities are not mixed;
 - extension functions are placed appropriately;
 - the existing project architecture has not been changed without an explicit request.

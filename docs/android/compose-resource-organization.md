@@ -22,7 +22,7 @@ This document applies only to Jetpack Compose code. It must not be used to migra
 
 ## Core Principles
 
-1. User-visible text must use Android string resources.
+1. Static, app-authored user-visible text must use Android string resources.
 2. Shared design values must use the project theme or design system.
 3. Screen-specific values must remain close to the screen that owns them.
 4. Repeated or meaningful UI literals must be replaced with named values.
@@ -106,7 +106,7 @@ Technical values that are not shown to users do not belong in string resources.
 This rule does not apply to dynamic runtime content, which cannot be a string
 resource because it doesn't exist until the app is running: usernames, asset or item
 names, server-provided error messages (for example, an `AppError`'s own `message`
-field shown via `errorMessage ?: stringResource(R.string....)`), other database or
+field shown via `errorMessage ?: stringResource(R.string.screen_portfolio_error_fallback)`), other database or
 API content, log output, and user-entered text. Only the static, app-authored
 fallback/label text around such values belongs in a string resource — the dynamic
 value itself is passed in as a formatting argument (see Plurals and Formatted Strings
@@ -116,11 +116,14 @@ below) or displayed as received.
 
 Screen-specific string resources must use lowercase `snake_case`.
 
-Required format:
+Recommended format:
 
 ```text
 screen_<screen_name>_<element>_<purpose>
 ```
+
+`<element>` may be omitted when the resource describes the screen as a whole rather
+than one of its elements (for example `screen_login_title`).
 
 Examples:
 
@@ -533,25 +536,32 @@ Animation durations, delays, thresholds, and other behaviorally meaningful anima
 ```kotlin
 internal object LoginScreenDefaults {
 
-    const val ErrorAnimationDurationMillis = 250
-    const val SuccessAnimationDelayMillis = 150
+    val ErrorAnimationDurationMillis = 250
+    val SuccessAnimationDelayMillis = 150
 }
 ```
 
 Do not scatter unexplained numbers such as `150`, `250`, or `300` across animation code.
+
+Use plain `val`, not `const val`, here: these are design-token values covered by
+Naming Kotlin Values' upper-camel-case convention above, not true compile-time
+constants. Marking them `const` would put them under the official Kotlin
+`SCREAMING_SNAKE_CASE` convention for constants instead (see Naming Kotlin Values) —
+which is what every real `const val` in this project already uses (for example
+`AUTOSAVE_DEBOUNCE_MS`). None of the usages here require a compile-time constant.
 
 The unit must be clear from the property name when the type does not express it.
 
 Use:
 
 ```kotlin
-const val ErrorAnimationDurationMillis = 250
+val ErrorAnimationDurationMillis = 250
 ```
 
 Avoid:
 
 ```kotlin
-const val ErrorAnimationDuration = 250
+val ErrorAnimationDuration = 250
 ```
 
 unless the type or API makes the unit unambiguous.
@@ -760,7 +770,9 @@ When existing code conflicts with this document, apply the rules to new or modif
 
 Before completing a change, verify that:
 
-* all user-visible text uses string resources;
+* all static, app-authored user-visible text uses string resources (dynamic runtime
+  content — usernames, asset/item names, server-provided messages, database/API
+  content, logs, user-entered text — is exempt, see User-Visible Strings);
 * strings are grouped by screen;
 * string groups are alphabetically ordered;
 * strings inside each group are alphabetically ordered by resource name;

@@ -57,6 +57,14 @@ private fun login() {
 
 A function that performs multiple unrelated responsibilities should be split.
 
+This does not forbid a coordinator function that sequences the steps of one cohesive
+workflow — for example, a ViewModel's `attemptLogin()`, which reads state, updates
+it, launches a coroutine, calls a repository, and updates state again based on the
+result, all in service of a single login attempt. That is one responsibility carried
+out in steps, not multiple unrelated ones. The anti-pattern above is mixing genuinely
+unrelated concerns (validation, persistence, navigation, UI feedback, analytics) in
+one function, not calling several steps toward one goal.
+
 ## Function Size
 
 Functions should remain reasonably small.
