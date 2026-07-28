@@ -656,18 +656,21 @@ private object LoginScreenDimens {
 
 Shared theme and design-system values should remain in the existing theme or design-system package.
 
-Example:
+The project's theme package currently contains:
 
 ```text
 ui/
 └── theme/
     ├── Color.kt
-    ├── Elevation.kt
-    ├── Shape.kt
-    ├── Spacing.kt
     ├── Theme.kt
     └── Type.kt
 ```
+
+New shared abstractions introduced by this document (`AppElevations`, `AppShapes`,
+`AppSpacing`, and similar) belong in that same package, in their own file named after
+the abstraction — for example `ui/theme/Elevation.kt` for `AppElevations`, or
+`ui/theme/Spacing.kt` for `AppSpacing`. Do not create these files speculatively; add one
+only when the corresponding shared value is actually introduced.
 
 Do not create a parallel package when the project already has an authoritative location for these values.
 
