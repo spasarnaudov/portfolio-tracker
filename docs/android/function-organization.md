@@ -82,7 +82,10 @@ Recommended order within a band:
 5. Mapping
 
 Functions within the same responsibility group are further ordered alphabetically,
-per `class-organization.md`'s Core Principle on alphabetical ordering.
+per `class-organization.md`'s Core Principle on alphabetical ordering — unless an
+established UI/data-flow order already exists for that group (see
+`class-organization.md`'s Alphabetical Ordering section), in which case that order
+takes precedence.
 
 Related functions should remain together.
 
@@ -144,6 +147,11 @@ if (error == null) { ... }
 ```
 
 Avoid returning `Unit` when the caller naturally expects a result.
+
+This rule does not apply to functions whose entire purpose is to perform an action
+rather than compute one: event handlers (`onUsernameChange()`), callbacks, state
+mutations (`_uiState.update { ... }`), navigation actions, and `@Composable`
+functions all naturally return `Unit` and are not a violation of this rule.
 
 ## Early Returns
 
@@ -306,6 +314,18 @@ runCatching {
 ```
 
 when it improves readability.
+
+In coroutine or `suspend` code, `runCatching` also catches `CancellationException`,
+which silently breaks structured concurrency (a cancelled `viewModelScope`, for
+example, would be treated as an ordinary failure instead of propagating). Re-throw it:
+
+```kotlin
+runCatching {
+    repository.load()
+}.onFailure {
+    if (it is CancellationException) throw it
+}
+```
 
 Avoid empty catch blocks.
 

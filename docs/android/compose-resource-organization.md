@@ -91,7 +91,8 @@ This rule applies to:
 * labels;
 * buttons;
 * hints;
-* error messages;
+* static error copy (for example, the app-authored fallback text a validation
+  message falls back to);
 * empty states;
 * accessibility descriptions;
 * dialog content;
@@ -101,6 +102,15 @@ This rule applies to:
 * pluralized messages.
 
 Technical values that are not shown to users do not belong in string resources.
+
+This rule does not apply to dynamic runtime content, which cannot be a string
+resource because it doesn't exist until the app is running: usernames, asset or item
+names, server-provided error messages (for example, an `AppError`'s own `message`
+field shown via `errorMessage ?: stringResource(R.string....)`), other database or
+API content, log output, and user-entered text. Only the static, app-authored
+fallback/label text around such values belongs in a string resource — the dynamic
+value itself is passed in as a formatting argument (see Plurals and Formatted Strings
+below) or displayed as received.
 
 ## String Naming
 
@@ -343,7 +353,8 @@ val Space12 = 12.dp
 
 A name must remain correct when the underlying value changes.
 
-Follow the existing Kotlin capitalization convention when the project has one. Otherwise, use standard Kotlin property naming:
+Follow this project's existing capitalization convention for these values: upper
+camel case, precedented in `ui/theme/Color.kt` (`val Purple80 = Color(0xFFD0BCFF)`):
 
 ```kotlin
 val ContentPadding = 16.dp
@@ -352,8 +363,13 @@ val ContentPadding = 16.dp
 Do not mix `ContentPadding` and `contentPadding` conventions within the same project.
 
 This casing rule applies only to properties holding deeply-immutable design constants
-(dimensions, colors, durations, and similar values covered by this document) — the
-Kotlin convention that allows upper camel case for "properties holding constants."
+(dimensions, colors, durations, and similar values covered by this document), and is
+this project's own convention, not the official Kotlin one — the official Kotlin
+coding conventions specify `SCREAMING_SNAKE_CASE` (for example `MAX_COUNT`) for
+`const val` and other true compile-time constants; upper camel case there is reserved
+for class/object names and for properties holding singleton-like objects. Follow the
+project's upper-camel-case precedent for the design-token values covered by this
+document; use standard `SCREAMING_SNAKE_CASE` for an actual `const val` elsewhere.
 Regular stateful properties (for example `uiState`, `binding`) and all function names
 are unaffected and always use standard lower camel case, per `class-organization.md`
 and `function-organization.md`.
