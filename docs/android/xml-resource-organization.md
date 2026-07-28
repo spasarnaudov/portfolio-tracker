@@ -13,15 +13,22 @@ It applies to XML resources such as:
 * `bools.xml`
 * `styles.xml`
 
-This document does **not** apply to Jetpack Compose projects. Compose projects should follow `compose-resource-organization.md`.
+This document does **not** apply to Jetpack Compose code — Compose code should follow
+`compose-resource-organization.md` instead. In a project that mixes the View system
+and Compose, apply this document per file (to the View-system files) and the Compose
+document per file (to the Compose files), not one document to the whole project.
 
 ## Resource Extraction
 
-UI values must be stored as Android resources whenever an appropriate resource type exists.
+Static, app-authored UI values must be stored as Android resources whenever an
+appropriate resource type exists (see Allowed Exceptions below for values this does
+not cover, such as non-UI technical constants).
 
 This includes:
 
-* user-visible text;
+* static, app-authored user-visible text — not dynamic runtime content such as
+  usernames, server-provided messages, or database/API content, which cannot be a
+  string resource because it doesn't exist until the app is running;
 * colors;
 * dimensions;
 * spacing;
@@ -36,7 +43,7 @@ This includes:
 * integers;
 * booleans.
 
-Do not hardcode user-visible text, colors, or UI dimensions in XML layouts or Java/Kotlin source code.
+Do not hardcode static, app-authored user-visible text, colors, or UI dimensions in XML layouts or Java/Kotlin source code.
 
 ## Screen Definition
 
@@ -182,7 +189,7 @@ Layout behavior values such as `match_parent`, `wrap_content`, and `0dp` may rem
 
 Before completing a change, verify that:
 
-* user-visible text is stored in string resources;
+* static, app-authored user-visible text is stored in string resources;
 * colors are stored in color resources;
 * UI dimensions are stored in dimension resources;
 * resources are grouped by screen;
