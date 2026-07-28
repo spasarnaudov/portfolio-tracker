@@ -1,5 +1,4 @@
 # Android build variants and Google Play tracks
-# Android build variants and Google Play tracks
 
 The app has one `environment` flavor dimension and three product flavors. All
 release variants deliberately use the same application ID and belong in one Google
@@ -21,21 +20,26 @@ with each other and with the Play app because each has a flavor-specific package
 
 ## API environments
 
-All three flavors currently point at the same backend, reachable only over
-[Tailscale](https://tailscale.com) (MagicDNS name `piglet.tailf5e9c9.ts.net`) — see
+Each flavor points at its own port on the same Tailscale-only host (MagicDNS name
+`piglet.tailf5e9c9.ts.net`) — see
 [`../README.md`](../README.md#using-the-tailscale-backend) for details:
 
-- `alpha` / `beta` / `production`: `http://piglet.tailf5e9c9.ts.net:5000/api/v1/`
+| Flavor | `API_BASE_URL` |
+|---|---|
+| `alpha` | `http://piglet.tailf5e9c9.ts.net:5002/api/v1/` |
+| `beta` | `http://piglet.tailf5e9c9.ts.net:5001/api/v1/` |
+| `production` | `http://piglet.tailf5e9c9.ts.net:5000/api/v1/` |
 
 No public HTTPS backend is planned currently. Every build variant — all three debug
 flavors and all three release variants — includes a network security override
-allowing cleartext HTTP to that one host only:
+allowing cleartext HTTP to that one host only (the exception is scoped by hostname,
+not port, so it covers all three flavors' ports the same way):
 `app/src/<flavor>Debug/res/xml/network_security_config_<flavor>_debug.xml` for debug,
 and `app/src/release/res/xml/network_security_config_release.xml` (shared by all
 three release variants) for release. Every other host stays blocked in every variant.
 
-If separate alpha/beta/production backends (with real HTTPS for beta/production)
-become necessary later — e.g. before a public Play upload — give each flavor its own
+If separate backend **hosts** (with real HTTPS for beta/production) become necessary
+later — e.g. before a public Play upload — give each flavor its own host in
 `API_BASE_URL` in `app/build.gradle.kts`, remove the corresponding cleartext
 exceptions, and update this section.
 

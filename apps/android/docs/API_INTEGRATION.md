@@ -3,8 +3,8 @@
 This document maps every network call the app makes back to `API.md`, flags what is
 an assumption rather than a documented fact, and describes the authentication,
 error-handling, and portfolio-update flows in detail. It complements — it does not
-replace — [`API.md`](../API.md), which remains the source of truth for anything
-documented there.
+replace — `API.md`, which is documented as the source of truth for anything it
+covers, but does not currently exist in this checkout (see the note below).
 
 > **Why some endpoints are "ASSUMED":** `API.md` says the complete contract lives in
 > `openapi.yaml`, but that file was not available while this app was built. Rather than

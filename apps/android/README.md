@@ -70,8 +70,8 @@ The base URL is **never hardcoded** into application logic — it comes from
 `BuildConfig.API_BASE_URL`, generated per product flavor in `app/build.gradle.kts`.
 The `environment` flavor dimension has three flavors — `alpha`, `beta`,
 `production` — each combined with the `debug`/`release` build type (6 build
-variants total: `alphaDebug`, `alphaRelease`, `betaDebug`, ...). All three
-flavors currently point at the same backend — see
+variants total: `alphaDebug`, `alphaRelease`, `betaDebug`, ...). Each flavor
+points at its own port on the same Tailscale-only host — see
 [`docs/BUILD_VARIANTS.md`](docs/BUILD_VARIANTS.md#api-environments) for the
 full variant-to-URL table.
 
@@ -159,7 +159,9 @@ reachable only over [Tailscale](https://tailscale.com) (MagicDNS name
   still blocked, in both debug and release builds.
 
 If your device can't resolve the MagicDNS name, open **Connection settings** and
-enter the Tailscale IP directly (`http://100.x.y.z:5000/api/v1/`), then **Test
+enter the Tailscale IP directly (`http://100.x.y.z:<port>/api/v1/`, using your
+flavor's port — see
+[`docs/BUILD_VARIANTS.md`](docs/BUILD_VARIANTS.md#api-environments)), then **Test
 connection** before **Save** — note a raw IP isn't in the network security config's
 domain allowlist, so cleartext to it would still be blocked unless you add it there
 too.
