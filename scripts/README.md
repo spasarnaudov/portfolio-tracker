@@ -11,6 +11,28 @@ fully supported — each checkout only ever touches its own `.env`,
 Database setup, backups, restore, and maintenance are covered separately in
 [Database Operations](../docs/database-operations.md).
 
+## New Server Setup
+
+Before the first checkout on a brand-new machine, run this once
+(machine-wide, not per-checkout — written for macOS/Apple Silicon with
+Homebrew and Docker Desktop):
+
+```bash
+./scripts/setup_server.sh
+```
+
+It checks for and installs Homebrew, git, python3, and Docker Desktop;
+verifies Tailscale is installed and connected; and creates the shared
+`postgresql` container (`postgres:17.4`, matching every other checkout of
+this project), prompting interactively for a superuser password it never
+stores or generates itself. Safe to re-run — every step checks whether it's
+already done before acting.
+
+This machine can then host multiple environments (e.g. `alpha`, `beta`,
+`production`) side by side, each in its own checkout, sharing this one
+PostgreSQL container — continue with Setting Up a New Environment below for
+each one.
+
 ## Setting Up a New Environment
 
 1. Clone the repo into its own directory.
@@ -21,14 +43,18 @@ Database setup, backups, restore, and maintenance are covered separately in
    apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt
    ```
 
-3. Create the config from the template, then edit it:
+3. Generate the config interactively:
 
    ```bash
-   cp .env.example .env
+   ./scripts/init_env.sh
    ```
 
-   At minimum, set a `DATABASE_URL`/`DB_NAME` unique to this environment (a
-   distinct database inside the shared PostgreSQL container — see
+   Prompts for the environment name, port, database name, and the
+   PostgreSQL password set in [New Server Setup](#new-server-setup) above,
+   and writes `.env` with a freshly generated `SECRET_KEY`. Alternatively,
+   copy `.env.example` to `.env` and edit it by hand — at minimum set a
+   `DATABASE_URL`/`DB_NAME` unique to this environment (a distinct database
+   inside the shared PostgreSQL container — see
    [PostgreSQL Runs in Docker](../docs/database-operations.md#postgresql-runs-in-docker))
    and a `PORT` not already used by another environment on this machine.
 

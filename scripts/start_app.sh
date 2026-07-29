@@ -22,6 +22,25 @@ if [[ ! -x "$PYTHON" ]]; then
     exit 1
 fi
 
+# On a fresh boot, cron's @reboot line can fire before Docker Desktop (and the
+# postgresql container inside it) has finished starting. Wait briefly instead
+# of racing it — harmless if Postgres is already up, since pg_isready then
+# succeeds on the first try.
+if command -v docker &>/dev/null; then
+    POSTGRES_CONTAINER_NAME="${POSTGRES_CONTAINER_NAME:-postgresql}"
+    if [[ -f "$PROJECT_DIR/.env" ]]; then
+        ENV_CONTAINER_NAME="$(grep -m1 '^POSTGRES_CONTAINER_NAME=' "$PROJECT_DIR/.env" | cut -d= -f2-)"
+        POSTGRES_CONTAINER_NAME="${ENV_CONTAINER_NAME:-$POSTGRES_CONTAINER_NAME}"
+    fi
+    if docker inspect "$POSTGRES_CONTAINER_NAME" &>/dev/null; then
+        echo "Waiting for PostgreSQL container '$POSTGRES_CONTAINER_NAME' to be ready..."
+        for _ in $(seq 1 30); do
+            docker exec "$POSTGRES_CONTAINER_NAME" pg_isready --quiet 2>/dev/null && break
+            sleep 1
+        done
+    fi
+fi
+
 echo "Starting app..."
 
 cd "$APP_DIR"
