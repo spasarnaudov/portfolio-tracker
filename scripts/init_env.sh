@@ -3,8 +3,12 @@
 set -Eeuo pipefail
 
 # Interactively generates .env for this checkout from .env.example, instead
-# of hand-copying and editing it. Run once per checkout, after
-# scripts/setup_server.sh has created the shared PostgreSQL container.
+# of hand-copying and editing it, then carries on through the rest of
+# environment setup (create the database, apply the schema, install cron
+# jobs, start the app) so a person can go from a fresh checkout to a
+# running app with just this one command in one terminal. Run once per
+# checkout, after scripts/setup_server.sh has created the shared
+# PostgreSQL container and the venv has been created (see scripts/README.md).
 #
 # Prompts for the PostgreSQL password chosen in scripts/setup_server.sh — it
 # is never stored, guessed, or hardcoded by this script. SECRET_KEY is
@@ -70,7 +74,26 @@ chmod 600 "$ENV_FILE"
 
 echo
 echo "Wrote $ENV_FILE (permissions 600, not committed to git)."
+
 echo
-echo "Next:"
-echo "  docker exec postgresql createdb -U casaos $DB_NAME"
-echo "  ./scripts/init_database.sh"
+if docker exec postgresql psql -U casaos -lqt 2>/dev/null | cut -d'|' -f1 | grep -qw "$DB_NAME"; then
+    echo "Database '$DB_NAME' already exists, skipping creation."
+else
+    echo "Creating database '$DB_NAME'..."
+    docker exec postgresql createdb -U casaos "$DB_NAME"
+fi
+
+echo
+"$PROJECT_DIR/scripts/init_database.sh"
+
+echo
+"$PROJECT_DIR/scripts/install_cron.sh"
+
+echo
+"$PROJECT_DIR/scripts/start_app.sh"
+
+echo
+echo "=== Environment setup complete ==="
+echo "App running on http://localhost:$PORT (default login: admin/admin — change"
+echo "the password after first login if this environment is reachable by anyone"
+echo "other than you)."

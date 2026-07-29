@@ -49,48 +49,32 @@ each one.
    apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt
    ```
 
-3. Generate the config interactively:
+3. Generate the config and let it carry the rest of the setup through —
+   create the database, apply the schema (also creating the default
+   `admin`/`admin` account, see
+   [Database Setup](../docs/database-operations.md#database-setup)), install
+   this environment's cron jobs (see [Install Cron Jobs](#install-cron-jobs)),
+   and start the app:
 
    ```bash
    ./scripts/init_env.sh
    ```
 
    Prompts for the port, database name, and the PostgreSQL password set in
-   [New Server Setup](#new-server-setup) above,
-   and writes `.env` with a freshly generated `SECRET_KEY`. Alternatively,
-   copy `.env.example` to `.env` and edit it by hand — at minimum set a
-   `DATABASE_URL`/`DB_NAME` unique to this environment (a distinct database
-   inside the shared PostgreSQL container — see
+   [New Server Setup](#new-server-setup) above, then writes `.env` with a
+   freshly generated `SECRET_KEY` and runs `init_database.sh`,
+   `install_cron.sh`, and `start_app.sh` in sequence — one command, run by a
+   person in one terminal (it needs a real tty for the password prompt),
+   takes you from a fresh checkout to a running app.
+
+   Prefer doing it by hand instead? Copy `.env.example` to `.env` and edit
+   it — at minimum set a `DATABASE_URL`/`DB_NAME` unique to this environment
+   (a distinct database inside the shared PostgreSQL container — see
    [PostgreSQL Runs in Docker](../docs/database-operations.md#postgresql-runs-in-docker))
-   and a `PORT` not already used by another environment on this machine.
-
-4. Create the empty database itself — the container needs to know about it
-   before `init_database.sh` can use it:
-
-   ```bash
-   docker exec postgresql createdb -U casaos your_db_name
-   ```
-
-5. Initialize the schema — see
-   [Database Setup](../docs/database-operations.md#database-setup). This
-   also creates the default `admin`/`admin` account:
-
-   ```bash
-   ./scripts/init_database.sh
-   ```
-
-6. Install this environment's cron jobs (autostart on reboot, hourly import,
-   nightly backups) — see [Install Cron Jobs](#install-cron-jobs):
-
-   ```bash
-   ./scripts/install_cron.sh
-   ```
-
-7. Start the app:
-
-   ```bash
-   ./scripts/start_app.sh
-   ```
+   and a `PORT` not already used by another environment on this machine —
+   then run `docker exec postgresql createdb -U casaos your_db_name`,
+   `./scripts/init_database.sh`, `./scripts/install_cron.sh`, and
+   `./scripts/start_app.sh` yourself, in that order.
 
 ## Run the App
 
