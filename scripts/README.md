@@ -36,21 +36,11 @@ each one.
 ## Setting Up a New Environment
 
 1. Clone the repo into its own directory.
-2. Create the Python virtualenv and install dependencies. Requires
-   **Python 3.10 or newer** — on macOS the plain `python3` on PATH is often
-   the older Xcode Command Line Tools stub, which is too old for the pinned
-   dependencies in `apps/flask/requirements.txt`. [`setup_server.sh`](#new-server-setup)
-   checks for a suitable interpreter and installs `python@3.12` via Homebrew
-   if needed; use that specific interpreter here instead of a bare `python3`
-   (check with `python3 --version` first if unsure):
-
-   ```bash
-   python3.12 -m venv apps/flask/.venv
-   apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt
-   ```
-
-3. Generate the config and let it carry the rest of the setup through —
-   create the database, apply the schema (also creating the default
+2. Generate the config and let it carry the rest of the setup through —
+   create the virtualenv and install dependencies (requires **Python
+   3.10 or newer**; [`setup_server.sh`](#new-server-setup) installs a
+   suitable interpreter via Homebrew if the machine doesn't already have
+   one), create the database, apply the schema (also creating the default
    `admin`/`admin` account, see
    [Database Setup](../docs/database-operations.md#database-setup)), install
    this environment's cron jobs (see [Install Cron Jobs](#install-cron-jobs)),
@@ -62,14 +52,18 @@ each one.
 
    Prompts for the port, database name, and the PostgreSQL password set in
    [New Server Setup](#new-server-setup) above, then writes `.env` with a
-   freshly generated `SECRET_KEY` and runs `init_database.sh`,
+   freshly generated `SECRET_KEY` and runs the venv setup, `init_database.sh`,
    `install_cron.sh`, and `start_app.sh` in sequence — one command, run by a
    person in one terminal (it needs a real tty for the password prompt),
    takes you from a fresh checkout to a running app.
 
-   Prefer doing it by hand instead? Copy `.env.example` to `.env` and edit
-   it — at minimum set a `DATABASE_URL`/`DB_NAME` unique to this environment
-   (a distinct database inside the shared PostgreSQL container — see
+   Prefer doing it by hand instead? Create the venv yourself
+   (`python3.12 -m venv apps/flask/.venv && apps/flask/.venv/bin/pip install
+   -r apps/flask/requirements.txt` — use that specific interpreter, not a
+   bare `python3`, which on macOS is often too old), copy `.env.example` to
+   `.env` and edit it — at minimum set a `DATABASE_URL`/`DB_NAME` unique to
+   this environment (a distinct database inside the shared PostgreSQL
+   container — see
    [PostgreSQL Runs in Docker](../docs/database-operations.md#postgresql-runs-in-docker))
    and a `PORT` not already used by another environment on this machine —
    then run `docker exec postgresql createdb -U casaos your_db_name`,

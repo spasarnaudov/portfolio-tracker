@@ -57,20 +57,8 @@ fi
 echo
 
 # --- python3 ---
-# macOS ships an old python3 stub (Xcode Command Line Tools, currently 3.9.x)
-# at /usr/bin/python3, which `command -v python3` happily finds — but
-# apps/flask/requirements.txt pins packages (e.g. click==8.4.2) that require
-# Python >=3.10. A bare existence check would pass on that stub and only
-# fail later, confusingly, during `pip install`. So check the version, not
-# just presence, and fall back to a Homebrew-installed interpreter.
-PYTHON_BIN=""
-for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
-    if command -v "$candidate" &>/dev/null &&
-        "$candidate" -c 'import sys; exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
-        PYTHON_BIN="$(command -v "$candidate")"
-        break
-    fi
-done
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/find_python.sh"
+PYTHON_BIN="$(find_suitable_python || true)"
 
 if [[ -z "$PYTHON_BIN" ]]; then
     echo "No Python >=3.10 found (the system python3 is too old) — installing"
@@ -242,10 +230,5 @@ echo "=== Server setup complete ==="
 echo
 echo "Next, for each environment (alpha, beta, production):"
 echo "  1. git clone this repo into its own directory"
-echo "  2. $PYTHON_BIN -m venv apps/flask/.venv && apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt"
-echo "     (use this specific interpreter, not a bare 'python3' — see scripts/README.md)"
-echo "  3. ./scripts/init_env.sh   (generates .env interactively — see scripts/README.md)"
-echo "  4. docker exec postgresql createdb -U casaos <db_name from step 3>"
-echo "  5. ./scripts/init_database.sh"
-echo "  6. ./scripts/install_cron.sh"
-echo "  7. ./scripts/start_app.sh"
+echo "  2. ./scripts/init_env.sh   (see scripts/README.md — takes you the rest"
+echo "     of the way to a running app: venv, database, schema, cron, start)"

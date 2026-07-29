@@ -4,11 +4,11 @@ set -Eeuo pipefail
 
 # Interactively generates .env for this checkout from .env.example, instead
 # of hand-copying and editing it, then carries on through the rest of
-# environment setup (create the database, apply the schema, install cron
-# jobs, start the app) so a person can go from a fresh checkout to a
-# running app with just this one command in one terminal. Run once per
-# checkout, after scripts/setup_server.sh has created the shared
-# PostgreSQL container and the venv has been created (see scripts/README.md).
+# environment setup (create the venv, create the database, apply the
+# schema, install cron jobs, start the app) so a person can go from a
+# fresh checkout to a running app with just this one command in one
+# terminal. Run once per checkout, after scripts/setup_server.sh has
+# created the shared PostgreSQL container.
 #
 # Prompts for the PostgreSQL password chosen in scripts/setup_server.sh — it
 # is never stored, guessed, or hardcoded by this script. SECRET_KEY is
@@ -74,6 +74,23 @@ chmod 600 "$ENV_FILE"
 
 echo
 echo "Wrote $ENV_FILE (permissions 600, not committed to git)."
+
+VENV_PYTHON="$PROJECT_DIR/apps/flask/.venv/bin/python"
+echo
+if [[ -x "$VENV_PYTHON" ]]; then
+    echo "Virtualenv already exists at $PROJECT_DIR/apps/flask/.venv, skipping creation."
+else
+    echo "Creating virtualenv and installing dependencies..."
+    source "$PROJECT_DIR/scripts/lib/find_python.sh"
+    SYSTEM_PYTHON="$(find_suitable_python || true)"
+    if [[ -z "$SYSTEM_PYTHON" ]]; then
+        echo "ERROR: no Python >=3.10 found. Run scripts/setup_server.sh first — it"
+        echo "installs one via Homebrew — then re-run this script."
+        exit 1
+    fi
+    "$SYSTEM_PYTHON" -m venv "$PROJECT_DIR/apps/flask/.venv"
+    "$PROJECT_DIR/apps/flask/.venv/bin/pip" install -q -r "$PROJECT_DIR/apps/flask/requirements.txt"
+fi
 
 echo
 if docker exec postgresql psql -U casaos -lqt 2>/dev/null | cut -d'|' -f1 | grep -qw "$DB_NAME"; then
