@@ -2,6 +2,25 @@
 
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+should_continue_with_environment_setup() {
+    local project_dir="${1:-.}"
+    local env_file="$project_dir/.env"
+    local setup_script="$project_dir/scripts/setup/setup_environment.sh"
+
+    if [[ -f "$env_file" ]]; then
+        return 1
+    fi
+
+    if [[ ! -f "$setup_script" ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
 # One-time machine setup for a new Portfolio Tracker server host. Written for
 # macOS on Apple Silicon (Homebrew + Docker Desktop) — the alpha/beta/production
 # checkouts all share this machine's single PostgreSQL container, per
@@ -228,7 +247,12 @@ echo
 
 echo "=== Server setup complete ==="
 echo
-echo "Next, for each environment (alpha, beta, production):"
-echo "  1. git clone this repo into its own directory"
-echo "  2. ./scripts/setup/setup_environment.sh   (see scripts/README.md — takes you"
-echo "     the rest of the way to a running app: venv, database, schema, cron, start)"
+if should_continue_with_environment_setup "$PROJECT_DIR"; then
+    echo "Automatically continuing with environment setup..."
+    bash "$SCRIPT_DIR/setup_environment.sh"
+else
+    echo "Next, for each environment (alpha, beta, production):"
+    echo "  1. git clone this repo into its own directory"
+    echo "  2. ./scripts/setup/setup_environment.sh   (see scripts/README.md — takes you"
+    echo "     the rest of the way to a running app: venv, database, schema, cron, start)"
+fi
