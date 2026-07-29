@@ -27,7 +27,7 @@ usage() {
     echo "  -y    Skip the confirmation prompt (for scripted/cron use)."
     echo
     echo "This replaces every table in the target database with the dump's"
-    echo "schema and data. Run scripts/init_database.sh first only if you want"
+    echo "schema and data. Run scripts/setup/init_database.sh first only if you want"
     echo "an empty database in between — this script overwrites it either way."
 }
 

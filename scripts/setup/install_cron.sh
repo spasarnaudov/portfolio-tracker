@@ -2,7 +2,7 @@
 
 set -Eeuo pipefail
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Adds one crontab line for the current user, doing nothing if that exact
 # line is already present — safe to run repeatedly and safe to run once per

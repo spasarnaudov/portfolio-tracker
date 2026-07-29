@@ -41,7 +41,7 @@ Requires an empty PostgreSQL database that already exists (create it with
 `DATABASE_URL` pointing at it. Then, from the project root:
 
 ```bash
-./scripts/init_database.sh
+./scripts/setup/init_database.sh
 ```
 
 This applies `database/postgresql/schema/001_init_schema.sql` followed by
@@ -132,7 +132,7 @@ at:
 
 This drops and recreates the `public` schema and then restores the dump into
 it, so it replaces whatever is currently in the target database — it does
-not need `scripts/init_database.sh` to have run first. (It deliberately
+not need `scripts/setup/init_database.sh` to have run first. (It deliberately
 doesn't use `pg_restore --clean`: that command can fail partway through on a
 database with foreign keys, because it doesn't always drop tables in a safe
 dependency order — dropping the whole schema first sidesteps that.) You'll

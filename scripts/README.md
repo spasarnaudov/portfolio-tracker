@@ -8,6 +8,11 @@ independent checkouts side by side on the same machine (e.g.
 fully supported — each checkout only ever touches its own `.env`,
 `runtime/`, `logs/`, `backups/`, and its own crontab lines.
 
+One-time environment provisioning (`setup_server.sh`, `init_env.sh`,
+`init_database.sh`, `install_cron.sh`) lives in [`setup/`](setup/), kept
+separate from the scripts you run repeatedly afterward (start/stop the app,
+backups, restore, imports).
+
 Database setup, backups, restore, and maintenance are covered separately in
 [Database Operations](../docs/database-operations.md).
 
@@ -18,7 +23,7 @@ Before the first checkout on a brand-new machine, run this once
 Homebrew and Docker Desktop):
 
 ```bash
-./scripts/setup_server.sh
+./scripts/setup/setup_server.sh
 ```
 
 It checks for and installs Homebrew, git, python3, and Docker Desktop;
@@ -47,7 +52,7 @@ each one.
    and start the app:
 
    ```bash
-   ./scripts/init_env.sh
+   ./scripts/setup/init_env.sh
    ```
 
    Prompts for the port, database name, and the PostgreSQL password set in
@@ -67,7 +72,7 @@ each one.
    [PostgreSQL Runs in Docker](../docs/database-operations.md#postgresql-runs-in-docker))
    and a `PORT` not already used by another environment on this machine —
    then run `docker exec postgresql createdb -U casaos your_db_name`,
-   `./scripts/init_database.sh`, `./scripts/install_cron.sh`, and
+   `./scripts/setup/init_database.sh`, `./scripts/setup/install_cron.sh`, and
    `./scripts/start_app.sh` yourself, in that order.
 
 ## Run the App
@@ -96,7 +101,7 @@ To start it automatically after a reboot, see
 Install every standard cron job for this checkout in one step:
 
 ```bash
-./scripts/install_cron.sh
+./scripts/setup/install_cron.sh
 ```
 
 Safe to run more than once — it checks each line before adding, so nothing

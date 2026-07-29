@@ -230,5 +230,5 @@ echo "=== Server setup complete ==="
 echo
 echo "Next, for each environment (alpha, beta, production):"
 echo "  1. git clone this repo into its own directory"
-echo "  2. ./scripts/init_env.sh   (see scripts/README.md — takes you the rest"
+echo "  2. ./scripts/setup/init_env.sh   (see scripts/README.md — takes you the rest"
 echo "     of the way to a running app: venv, database, schema, cron, start)"

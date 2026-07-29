@@ -125,7 +125,7 @@ This also creates the default admin account (username `admin`, password
 anyone other than you):
 
 ```bash
-./scripts/init_database.sh
+./scripts/setup/init_database.sh
 ```
 
 For the full new-environment walkthrough (venv, `.env`, database, cron,
