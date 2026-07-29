@@ -15,6 +15,12 @@ set -Eeuo pipefail
 # the container is created — this script never generates, hardcodes, or
 # stores that password itself.
 
+if [[ ! -t 0 || ! -t 1 ]]; then
+    echo "ERROR: run this yourself in a terminal — it prompts for passwords and" >&2
+    echo "sudo/Touch ID, which need a person typing directly into a real tty." >&2
+    exit 1
+fi
+
 echo "=== Portfolio Tracker server setup ==="
 echo
 
@@ -51,11 +57,28 @@ fi
 echo
 
 # --- python3 ---
-if ! command -v python3 &>/dev/null; then
-    echo "python3 not found — installing via Homebrew..."
+# macOS ships an old python3 stub (Xcode Command Line Tools, currently 3.9.x)
+# at /usr/bin/python3, which `command -v python3` happily finds — but
+# apps/flask/requirements.txt pins packages (e.g. click==8.4.2) that require
+# Python >=3.10. A bare existence check would pass on that stub and only
+# fail later, confusingly, during `pip install`. So check the version, not
+# just presence, and fall back to a Homebrew-installed interpreter.
+PYTHON_BIN=""
+for candidate in python3.13 python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" &>/dev/null &&
+        "$candidate" -c 'import sys; exit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+        PYTHON_BIN="$(command -v "$candidate")"
+        break
+    fi
+done
+
+if [[ -z "$PYTHON_BIN" ]]; then
+    echo "No Python >=3.10 found (the system python3 is too old) — installing"
+    echo "python@3.12 via Homebrew..."
     brew install python@3.12
+    PYTHON_BIN="$(brew --prefix python@3.12)/bin/python3.12"
 else
-    echo "python3 already installed: $(python3 --version)"
+    echo "Using $PYTHON_BIN ($("$PYTHON_BIN" --version))"
 fi
 echo
 
@@ -65,10 +88,13 @@ if ! command -v docker &>/dev/null; then
     brew install --cask docker
     echo
     echo "Launching Docker Desktop for first-time setup..."
-    open -a Docker
+    # `open -a Docker` (name lookup via Launch Services) can fail right after
+    # a fresh `brew install --cask` because LS hasn't indexed the app yet.
+    # We know exactly where Homebrew puts it, so open that path directly.
+    open -a /Applications/Docker.app
 else
     echo "Docker already installed: $(docker --version)"
-    open -a Docker 2>/dev/null || true
+    open -a /Applications/Docker.app 2>/dev/null || true
 fi
 
 # Docker Desktop's own first-launch flow needs someone at the screen for its
@@ -112,13 +138,29 @@ fi
 echo
 
 # --- Tailscale (expected to already be installed) ---
-if ! command -v tailscale &>/dev/null; then
-    echo "ERROR: Tailscale not found on PATH, but it's expected to already be"
-    echo "installed on this machine. Install it from https://tailscale.com/download,"
-    echo "sign in, then re-run this script."
+# The Mac App Store / GUI build of Tailscale.app does not put a `tailscale`
+# CLI on PATH by default. Fall back to the app bundle's own binary instead of
+# failing outright on a machine where Tailscale is actually installed and
+# connected — but invoke it by its real path, not through a symlink: this
+# build resolves its own bundle identifier from the path it's invoked as,
+# and a symlink (e.g. one at /usr/local/bin/tailscale) breaks that lookup
+# and crashes with "Fatal error: The current bundleIdentifier is unknown to
+# the registry" (a Swift trap, surfaced as "Trace/BPT trap: 5").
+TAILSCALE_BIN=""
+if command -v tailscale &>/dev/null; then
+    TAILSCALE_BIN="tailscale"
+elif [[ -x "/Applications/Tailscale.app/Contents/MacOS/Tailscale" ]]; then
+    TAILSCALE_BIN="/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+fi
+
+if [[ -z "$TAILSCALE_BIN" ]]; then
+    echo "ERROR: Tailscale not found on PATH or at /Applications/Tailscale.app,"
+    echo "but it's expected to already be installed on this machine. Install it"
+    echo "from https://tailscale.com/download, sign in, then re-run this script."
     exit 1
 fi
-if ! tailscale status &>/dev/null; then
+
+if ! "$TAILSCALE_BIN" status &>/dev/null; then
     echo "ERROR: Tailscale is installed but not connected. Run 'tailscale up',"
     echo "sign in, then re-run this script."
     exit 1
@@ -126,7 +168,7 @@ fi
 echo "Tailscale is connected."
 echo "MagicDNS name for this machine (needed for the Android/iOS clients'"
 echo "API_BASE_URL, see apps/android/docs/BUILD_VARIANTS.md):"
-tailscale status --self 2>/dev/null | head -1
+"$TAILSCALE_BIN" status --self 2>/dev/null | head -1
 echo
 
 # --- PostgreSQL container ---
@@ -200,7 +242,8 @@ echo "=== Server setup complete ==="
 echo
 echo "Next, for each environment (alpha, beta, production):"
 echo "  1. git clone this repo into its own directory"
-echo "  2. python3 -m venv apps/flask/.venv && apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt"
+echo "  2. $PYTHON_BIN -m venv apps/flask/.venv && apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt"
+echo "     (use this specific interpreter, not a bare 'python3' — see scripts/README.md)"
 echo "  3. ./scripts/init_env.sh   (generates .env interactively — see scripts/README.md)"
 echo "  4. docker exec postgresql createdb -U casaos <db_name from step 3>"
 echo "  5. ./scripts/init_database.sh"

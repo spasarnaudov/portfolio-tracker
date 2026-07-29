@@ -1,6 +1,9 @@
 # VS Code
 .vscode/
 
+# Claude Code (local permission settings, personal per-checkout)
+.claude/
+
 # Python
 __pycache__/
 *.pyc

@@ -36,10 +36,16 @@ each one.
 ## Setting Up a New Environment
 
 1. Clone the repo into its own directory.
-2. Create the Python virtualenv and install dependencies:
+2. Create the Python virtualenv and install dependencies. Requires
+   **Python 3.10 or newer** — on macOS the plain `python3` on PATH is often
+   the older Xcode Command Line Tools stub, which is too old for the pinned
+   dependencies in `apps/flask/requirements.txt`. [`setup_server.sh`](#new-server-setup)
+   checks for a suitable interpreter and installs `python@3.12` via Homebrew
+   if needed; use that specific interpreter here instead of a bare `python3`
+   (check with `python3 --version` first if unsure):
 
    ```bash
-   python3 -m venv apps/flask/.venv
+   python3.12 -m venv apps/flask/.venv
    apps/flask/.venv/bin/pip install -r apps/flask/requirements.txt
    ```
 
@@ -49,8 +55,8 @@ each one.
    ./scripts/init_env.sh
    ```
 
-   Prompts for the environment name, port, database name, and the
-   PostgreSQL password set in [New Server Setup](#new-server-setup) above,
+   Prompts for the port, database name, and the PostgreSQL password set in
+   [New Server Setup](#new-server-setup) above,
    and writes `.env` with a freshly generated `SECRET_KEY`. Alternatively,
    copy `.env.example` to `.env` and edit it by hand — at minimum set a
    `DATABASE_URL`/`DB_NAME` unique to this environment (a distinct database

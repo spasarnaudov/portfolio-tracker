@@ -29,7 +29,7 @@ fi
 if command -v docker &>/dev/null; then
     POSTGRES_CONTAINER_NAME="${POSTGRES_CONTAINER_NAME:-postgresql}"
     if [[ -f "$PROJECT_DIR/.env" ]]; then
-        ENV_CONTAINER_NAME="$(grep -m1 '^POSTGRES_CONTAINER_NAME=' "$PROJECT_DIR/.env" | cut -d= -f2-)"
+        ENV_CONTAINER_NAME="$(grep -m1 '^POSTGRES_CONTAINER_NAME=' "$PROJECT_DIR/.env" | cut -d= -f2- || true)"
         POSTGRES_CONTAINER_NAME="${ENV_CONTAINER_NAME:-$POSTGRES_CONTAINER_NAME}"
     fi
     if docker inspect "$POSTGRES_CONTAINER_NAME" &>/dev/null; then
