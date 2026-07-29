@@ -8,7 +8,7 @@ independent checkouts side by side on the same machine (e.g.
 fully supported — each checkout only ever touches its own `.env`,
 `runtime/`, `logs/`, `backups/`, and its own crontab lines.
 
-One-time environment provisioning (`setup_server.sh`, `init_env.sh`,
+One-time environment provisioning (`setup_server.sh`, `setup_environment.sh`,
 `init_database.sh`, `install_cron.sh`) lives in [`setup/`](setup/), kept
 separate from the scripts you run repeatedly afterward (start/stop the app,
 backups, restore, imports).
@@ -52,7 +52,7 @@ each one.
    and start the app:
 
    ```bash
-   ./scripts/setup/init_env.sh
+   ./scripts/setup/setup_environment.sh
    ```
 
    Prompts for the port, database name, and the PostgreSQL password set in
