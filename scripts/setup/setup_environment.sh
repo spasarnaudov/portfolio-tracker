@@ -107,6 +107,16 @@ echo
 "$PROJECT_DIR/scripts/setup/install_cron.sh"
 
 echo
+read -r -p "Enable automatic Tavex price import (product prices + gold buyback price per karat, on top of the manual-item snapshots the hourly job always takes)? [Y/n]: " ENABLE_TAVEX
+if [[ "$ENABLE_TAVEX" =~ ^[Nn]$ ]]; then
+    echo "Left disabled. Enable later with: mkdir -p runtime && touch runtime/auto_tavex_import.enabled"
+else
+    mkdir -p "$PROJECT_DIR/runtime"
+    touch "$PROJECT_DIR/runtime/auto_tavex_import.enabled"
+    echo "Enabled. Disable later with: rm runtime/auto_tavex_import.enabled"
+fi
+
+echo
 "$PROJECT_DIR/scripts/start_app.sh"
 
 echo

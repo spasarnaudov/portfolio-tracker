@@ -49,15 +49,17 @@ each one.
    `admin`/`admin` account, see
    [Database Setup](../docs/database-operations.md#database-setup)), install
    this environment's cron jobs (see [Install Cron Jobs](#install-cron-jobs)),
-   and start the app:
+   optionally enable automatic Tavex price import (see
+   [Import Hourly Prices](#import-hourly-prices)), and start the app:
 
    ```bash
    ./scripts/setup/setup_environment.sh
    ```
 
-   Prompts for the port, database name, and the PostgreSQL password set in
-   [New Server Setup](#new-server-setup) above, then writes `.env` with a
-   freshly generated `SECRET_KEY` and runs the venv setup, `init_database.sh`,
+   Prompts for the port, database name, the PostgreSQL password set in
+   [New Server Setup](#new-server-setup) above, and whether to enable
+   automatic Tavex import, then writes `.env` with a freshly generated
+   `SECRET_KEY` and runs the venv setup, `init_database.sh`,
    `install_cron.sh`, and `start_app.sh` in sequence — one command, run by a
    person in one terminal (it needs a real tty for the password prompt),
    takes you from a fresh checkout to a running app.
