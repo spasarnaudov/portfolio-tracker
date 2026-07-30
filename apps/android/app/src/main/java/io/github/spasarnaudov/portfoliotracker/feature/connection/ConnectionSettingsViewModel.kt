@@ -63,8 +63,41 @@ class ConnectionSettingsViewModel @Inject constructor(
         }
     }
 
+    fun confirmSaveAndClearSession() {
+        val url = _uiState.value.pendingSaveUrl ?: return
+        persistUrl(url)
+    }
+
+    fun dismissClearSessionConfirm() {
+        _uiState.update { it.copy(showClearSessionConfirm = false, pendingSaveUrl = null) }
+    }
+
     fun onUrlChange(value: String) {
         _uiState.update { it.copy(baseUrlText = value, validationError = null, testResultMessage = null, testSucceeded = null) }
+    }
+
+    fun resetToDefault() {
+        viewModelScope.launch {
+            settingsDataStore.setBaseUrlOverride(null)
+            _uiState.update {
+                it.copy(baseUrlText = BuildConfig.API_BASE_URL, isUsingOverride = false, testResultMessage = null, testSucceeded = null, isSaved = true)
+            }
+        }
+    }
+
+    fun save() {
+        val state = _uiState.value
+        val error = ConnectionUrlValidator.validate(state.baseUrlText)
+        if (error != null) {
+            _uiState.update { it.copy(validationError = error) }
+            return
+        }
+        val normalized = ApiConfigProvider.normalize(state.baseUrlText) ?: return
+        if (sessionManager.currentUser.value != null) {
+            _uiState.update { it.copy(pendingSaveUrl = normalized, showClearSessionConfirm = true) }
+        } else {
+            persistUrl(normalized)
+        }
     }
 
     fun testConnection() {
@@ -90,30 +123,6 @@ class ConnectionSettingsViewModel @Inject constructor(
         }
     }
 
-    fun save() {
-        val state = _uiState.value
-        val error = ConnectionUrlValidator.validate(state.baseUrlText)
-        if (error != null) {
-            _uiState.update { it.copy(validationError = error) }
-            return
-        }
-        val normalized = ApiConfigProvider.normalize(state.baseUrlText) ?: return
-        if (sessionManager.currentUser.value != null) {
-            _uiState.update { it.copy(pendingSaveUrl = normalized, showClearSessionConfirm = true) }
-        } else {
-            persistUrl(normalized)
-        }
-    }
-
-    fun confirmSaveAndClearSession() {
-        val url = _uiState.value.pendingSaveUrl ?: return
-        persistUrl(url)
-    }
-
-    fun dismissClearSessionConfirm() {
-        _uiState.update { it.copy(showClearSessionConfirm = false, pendingSaveUrl = null) }
-    }
-
     private fun persistUrl(url: String) {
         viewModelScope.launch {
             // Never send a token from one server to another: clear any local session first.
@@ -131,15 +140,6 @@ class ConnectionSettingsViewModel @Inject constructor(
                 )
             }
             if (hadSession) _sessionCleared.emit(Unit)
-        }
-    }
-
-    fun resetToDefault() {
-        viewModelScope.launch {
-            settingsDataStore.setBaseUrlOverride(null)
-            _uiState.update {
-                it.copy(baseUrlText = BuildConfig.API_BASE_URL, isUsingOverride = false, testResultMessage = null, testSucceeded = null, isSaved = true)
-            }
         }
     }
 }

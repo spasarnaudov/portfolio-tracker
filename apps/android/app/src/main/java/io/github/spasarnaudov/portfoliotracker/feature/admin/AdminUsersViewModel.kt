@@ -44,25 +44,19 @@ class AdminUsersViewModel @Inject constructor(
         loadUsers()
     }
 
-    fun selectTab(tab: AdminTab) {
-        _uiState.update { it.copy(selectedTab = tab) }
-        when (tab) {
-            AdminTab.USERS -> if (_uiState.value.usersStatus == LoadStatus.LOADING) loadUsers()
-            AdminTab.LOGIN_STATS -> loadLoginStats()
-            AdminTab.LOGIN_HISTORY -> loadLoginHistory()
-        }
-    }
-
-    fun loadUsers() {
-        _uiState.update { it.copy(usersStatus = LoadStatus.LOADING, usersError = null) }
+    fun loadLoginHistory() {
+        _uiState.update { it.copy(loginHistoryStatus = LoadStatus.LOADING, loginHistoryError = null) }
         viewModelScope.launch {
-            when (val result = adminRepository.getUsers()) {
+            when (val result = adminRepository.getLoginHistory()) {
                 is ApiResult.Success -> _uiState.update {
-                    it.copy(usersStatus = if (result.data.isEmpty()) LoadStatus.EMPTY else LoadStatus.CONTENT, users = result.data)
+                    it.copy(
+                        loginHistoryStatus = if (result.data.isEmpty()) LoadStatus.EMPTY else LoadStatus.CONTENT,
+                        loginHistory = result.data,
+                    )
                 }
 
                 is ApiResult.Error -> _uiState.update {
-                    it.copy(usersStatus = LoadStatus.ERROR, usersError = result.error.toUserMessage())
+                    it.copy(loginHistoryStatus = LoadStatus.ERROR, loginHistoryError = result.error.toUserMessage())
                 }
             }
         }
@@ -86,21 +80,27 @@ class AdminUsersViewModel @Inject constructor(
         }
     }
 
-    fun loadLoginHistory() {
-        _uiState.update { it.copy(loginHistoryStatus = LoadStatus.LOADING, loginHistoryError = null) }
+    fun loadUsers() {
+        _uiState.update { it.copy(usersStatus = LoadStatus.LOADING, usersError = null) }
         viewModelScope.launch {
-            when (val result = adminRepository.getLoginHistory()) {
+            when (val result = adminRepository.getUsers()) {
                 is ApiResult.Success -> _uiState.update {
-                    it.copy(
-                        loginHistoryStatus = if (result.data.isEmpty()) LoadStatus.EMPTY else LoadStatus.CONTENT,
-                        loginHistory = result.data,
-                    )
+                    it.copy(usersStatus = if (result.data.isEmpty()) LoadStatus.EMPTY else LoadStatus.CONTENT, users = result.data)
                 }
 
                 is ApiResult.Error -> _uiState.update {
-                    it.copy(loginHistoryStatus = LoadStatus.ERROR, loginHistoryError = result.error.toUserMessage())
+                    it.copy(usersStatus = LoadStatus.ERROR, usersError = result.error.toUserMessage())
                 }
             }
+        }
+    }
+
+    fun selectTab(tab: AdminTab) {
+        _uiState.update { it.copy(selectedTab = tab) }
+        when (tab) {
+            AdminTab.USERS -> if (_uiState.value.usersStatus == LoadStatus.LOADING) loadUsers()
+            AdminTab.LOGIN_STATS -> loadLoginStats()
+            AdminTab.LOGIN_HISTORY -> loadLoginHistory()
         }
     }
 }

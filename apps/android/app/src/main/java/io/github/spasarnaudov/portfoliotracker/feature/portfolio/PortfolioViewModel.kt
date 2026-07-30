@@ -64,18 +64,33 @@ class PortfolioViewModel @Inject constructor(
     private val assetsRepository: AssetsRepository,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(PortfolioUiState())
-    val uiState: StateFlow<PortfolioUiState> = _uiState.asStateFlow()
-
-    private var originalManualItemsSnapshot: Map<Long, ManualItemDraft> = emptyMap()
+    private var autosaveJob: Job? = null
 
     /** Cancelled before every re-fetch so a slow, superseded range/interval response can never overwrite a newer one. */
     private var historyJob: Job? = null
 
-    private var autosaveJob: Job? = null
+    private var originalManualItemsSnapshot: Map<Long, ManualItemDraft> = emptyMap()
+
+    private val _uiState = MutableStateFlow(PortfolioUiState())
+    val uiState: StateFlow<PortfolioUiState> = _uiState.asStateFlow()
 
     init {
         load()
+    }
+
+    fun discardChanges() {
+        autosaveJob?.cancel()
+        val state = _uiState.value
+        applyPortfolio(
+            holdings = state.holdings.map {
+                Holding(it.assetId, it.assetSymbol, it.assetName, it.originalQuantity, it.originalIncludeInChart, it.price, it.value)
+            },
+            manualItems = originalManualItemsSnapshot.values.map {
+                ManualItem(it.id, it.name, BigDecimal(it.quantityText.ifBlank { "0" }), it.unitPriceText.toBigDecimalOrNull(), it.priceAssetId, it.includeInChart, it.value)
+            },
+            totalValue = state.totalValue,
+            goldBuyback = state.goldBuybackAssets,
+        )
     }
 
     fun load() {
@@ -95,105 +110,6 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    private fun applyPortfolio(
-        holdings: List<Holding>,
-        manualItems: List<ManualItem>,
-        totalValue: BigDecimal?,
-        goldBuyback: List<Asset>,
-    ) {
-        val holdingRows = holdings.map { HoldingRowState.from(it) }
-        val manualDrafts = manualItems.map { ManualItemDraft.from(it) }
-        originalManualItemsSnapshot = manualDrafts.filter { it.id != null }.associateBy { it.id!! }
-        val isEmpty = holdingRows.isEmpty() && manualDrafts.isEmpty()
-        _uiState.update { current ->
-            PortfolioUiState(
-                status = if (isEmpty) LoadStatus.EMPTY else LoadStatus.CONTENT,
-                holdings = holdingRows,
-                manualItems = manualDrafts,
-                totalValue = totalValue,
-                goldBuybackAssets = goldBuyback,
-                originalManualItemsById = originalManualItemsSnapshot,
-                historyStatus = current.historyStatus,
-                historyRange = current.historyRange,
-                historyInterval = current.historyInterval,
-                historyPoints = current.historyPoints,
-                historyErrorMessage = current.historyErrorMessage,
-            )
-        }
-    }
-
-    /** Suspends until the portfolio-value chart for the current [PortfolioUiState.historyRange]/[PortfolioUiState.historyInterval] loads. */
-    private suspend fun loadHistory() {
-        val state = _uiState.value
-        _uiState.update { it.copy(historyStatus = LoadStatus.LOADING, historyErrorMessage = null) }
-        when (val result = portfolioRepository.getPortfolioHistory(state.historyRange, state.historyInterval)) {
-            is ApiResult.Success -> _uiState.update {
-                it.copy(
-                    historyStatus = if (result.data.isEmpty()) LoadStatus.EMPTY else LoadStatus.CONTENT,
-                    historyPoints = result.data,
-                )
-            }
-
-            is ApiResult.Error -> _uiState.update {
-                it.copy(historyStatus = LoadStatus.ERROR, historyErrorMessage = result.error.toUserMessage())
-            }
-        }
-    }
-
-    fun setHistoryRange(range: ChartRange) {
-        _uiState.update { it.copy(historyRange = range) }
-        refreshHistory()
-    }
-
-    fun setHistoryInterval(interval: PortfolioHistoryInterval) {
-        _uiState.update { it.copy(historyInterval = interval) }
-        refreshHistory()
-    }
-
-    fun retryHistory() {
-        refreshHistory()
-    }
-
-    private fun refreshHistory() {
-        historyJob?.cancel()
-        historyJob = viewModelScope.launch { loadHistory() }
-    }
-
-    fun updateHoldingQuantityText(assetId: Long, text: String) {
-        _uiState.update { state ->
-            state.copy(holdings = state.holdings.map { if (it.assetId == assetId) it.copy(quantityText = text) else it })
-        }
-        scheduleAutosave()
-    }
-
-    fun toggleHoldingIncludeInChart(assetId: Long) {
-        _uiState.update { state ->
-            state.copy(
-                holdings = state.holdings.map {
-                    if (it.assetId == assetId) it.copy(includeInChart = !it.includeInChart) else it
-                },
-            )
-        }
-        scheduleAutosave()
-    }
-
-    fun removeHolding(assetId: Long) {
-        updateHoldingQuantityText(assetId, "0")
-    }
-
-    fun upsertManualItem(draft: ManualItemDraft) {
-        _uiState.update { state ->
-            val exists = state.manualItems.any { it.clientKey == draft.clientKey }
-            val updated = if (exists) {
-                state.manualItems.map { if (it.clientKey == draft.clientKey) draft else it }
-            } else {
-                state.manualItems + draft
-            }
-            state.copy(manualItems = updated)
-        }
-        scheduleAutosave()
-    }
-
     fun markManualItemForDeletion(clientKey: String) {
         _uiState.update { state ->
             val draft = state.manualItems.firstOrNull { it.clientKey == clientKey } ?: return@update state
@@ -208,27 +124,12 @@ class PortfolioViewModel @Inject constructor(
         scheduleAutosave()
     }
 
-    private fun scheduleAutosave() {
-        autosaveJob?.cancel()
-        autosaveJob = viewModelScope.launch {
-            delay(AUTOSAVE_DEBOUNCE_MS)
-            save()
-        }
+    fun removeHolding(assetId: Long) {
+        updateHoldingQuantityText(assetId, "0")
     }
 
-    fun discardChanges() {
-        autosaveJob?.cancel()
-        val state = _uiState.value
-        applyPortfolio(
-            holdings = state.holdings.map {
-                Holding(it.assetId, it.assetSymbol, it.assetName, it.originalQuantity, it.originalIncludeInChart, it.price, it.value)
-            },
-            manualItems = originalManualItemsSnapshot.values.map {
-                ManualItem(it.id, it.name, BigDecimal(it.quantityText.ifBlank { "0" }), it.unitPriceText.toBigDecimalOrNull(), it.priceAssetId, it.includeInChart, it.value)
-            },
-            totalValue = state.totalValue,
-            goldBuyback = state.goldBuybackAssets,
-        )
+    fun retryHistory() {
+        refreshHistory()
     }
 
     /**
@@ -288,6 +189,105 @@ class PortfolioViewModel @Inject constructor(
                     it.copy(isSaving = false, saveError = result.error.toUserMessage())
                 }
             }
+        }
+    }
+
+    fun setHistoryInterval(interval: PortfolioHistoryInterval) {
+        _uiState.update { it.copy(historyInterval = interval) }
+        refreshHistory()
+    }
+
+    fun setHistoryRange(range: ChartRange) {
+        _uiState.update { it.copy(historyRange = range) }
+        refreshHistory()
+    }
+
+    fun toggleHoldingIncludeInChart(assetId: Long) {
+        _uiState.update { state ->
+            state.copy(
+                holdings = state.holdings.map {
+                    if (it.assetId == assetId) it.copy(includeInChart = !it.includeInChart) else it
+                },
+            )
+        }
+        scheduleAutosave()
+    }
+
+    fun updateHoldingQuantityText(assetId: Long, text: String) {
+        _uiState.update { state ->
+            state.copy(holdings = state.holdings.map { if (it.assetId == assetId) it.copy(quantityText = text) else it })
+        }
+        scheduleAutosave()
+    }
+
+    fun upsertManualItem(draft: ManualItemDraft) {
+        _uiState.update { state ->
+            val exists = state.manualItems.any { it.clientKey == draft.clientKey }
+            val updated = if (exists) {
+                state.manualItems.map { if (it.clientKey == draft.clientKey) draft else it }
+            } else {
+                state.manualItems + draft
+            }
+            state.copy(manualItems = updated)
+        }
+        scheduleAutosave()
+    }
+
+    private fun applyPortfolio(
+        holdings: List<Holding>,
+        manualItems: List<ManualItem>,
+        totalValue: BigDecimal?,
+        goldBuyback: List<Asset>,
+    ) {
+        val holdingRows = holdings.map { HoldingRowState.from(it) }
+        val manualDrafts = manualItems.map { ManualItemDraft.from(it) }
+        originalManualItemsSnapshot = manualDrafts.filter { it.id != null }.associateBy { it.id!! }
+        val isEmpty = holdingRows.isEmpty() && manualDrafts.isEmpty()
+        _uiState.update { current ->
+            PortfolioUiState(
+                status = if (isEmpty) LoadStatus.EMPTY else LoadStatus.CONTENT,
+                holdings = holdingRows,
+                manualItems = manualDrafts,
+                totalValue = totalValue,
+                goldBuybackAssets = goldBuyback,
+                originalManualItemsById = originalManualItemsSnapshot,
+                historyStatus = current.historyStatus,
+                historyRange = current.historyRange,
+                historyInterval = current.historyInterval,
+                historyPoints = current.historyPoints,
+                historyErrorMessage = current.historyErrorMessage,
+            )
+        }
+    }
+
+    /** Suspends until the portfolio-value chart for the current [PortfolioUiState.historyRange]/[PortfolioUiState.historyInterval] loads. */
+    private suspend fun loadHistory() {
+        val state = _uiState.value
+        _uiState.update { it.copy(historyStatus = LoadStatus.LOADING, historyErrorMessage = null) }
+        when (val result = portfolioRepository.getPortfolioHistory(state.historyRange, state.historyInterval)) {
+            is ApiResult.Success -> _uiState.update {
+                it.copy(
+                    historyStatus = if (result.data.isEmpty()) LoadStatus.EMPTY else LoadStatus.CONTENT,
+                    historyPoints = result.data,
+                )
+            }
+
+            is ApiResult.Error -> _uiState.update {
+                it.copy(historyStatus = LoadStatus.ERROR, historyErrorMessage = result.error.toUserMessage())
+            }
+        }
+    }
+
+    private fun refreshHistory() {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch { loadHistory() }
+    }
+
+    private fun scheduleAutosave() {
+        autosaveJob?.cancel()
+        autosaveJob = viewModelScope.launch {
+            delay(AUTOSAVE_DEBOUNCE_MS)
+            save()
         }
     }
 }

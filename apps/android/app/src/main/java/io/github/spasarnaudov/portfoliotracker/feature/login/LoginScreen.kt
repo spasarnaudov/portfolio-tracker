@@ -3,6 +3,7 @@ package io.github.spasarnaudov.portfoliotracker.feature.login
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,13 +25,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.spasarnaudov.portfoliotracker.BuildConfig
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.ConfirmDialog
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,71 +55,74 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .padding(AppSpacing.Large),
         ) {
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(text = "Portfolio Tracker", style = MaterialTheme.typography.headlineMedium)
-                Text(text = "Sign in to continue", style = MaterialTheme.typography.bodyMedium)
+                Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+                Text(text = stringResource(R.string.screen_login_subtitle), style = MaterialTheme.typography.bodyMedium)
 
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 24.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Large))
 
-            OutlinedTextField(
-                value = state.username,
-                onValueChange = viewModel::onUsernameChange,
-                label = { Text("Username") },
-                singleLine = true,
-                isError = state.usernameError != null,
-                supportingText = { state.usernameError?.let { Text(it) } },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                OutlinedTextField(
+                    value = state.username,
+                    onValueChange = viewModel::onUsernameChange,
+                    label = { Text(stringResource(R.string.common_field_username_label)) },
+                    singleLine = true,
+                    isError = state.usernameError != null,
+                    supportingText = { state.usernameError?.let { Text(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 8.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
 
-            OutlinedTextField(
-                value = state.password,
-                onValueChange = viewModel::onPasswordChange,
-                label = { Text("Password") },
-                singleLine = true,
-                isError = state.passwordError != null,
-                supportingText = { state.passwordError?.let { Text(it) } },
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                OutlinedTextField(
+                    value = state.password,
+                    onValueChange = viewModel::onPasswordChange,
+                    label = { Text(stringResource(R.string.common_field_password_label)) },
+                    singleLine = true,
+                    isError = state.passwordError != null,
+                    supportingText = { state.passwordError?.let { Text(it) } },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            state.errorMessage?.let {
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 8.dp))
-                Text(text = it, color = MaterialTheme.colorScheme.error)
-            }
-
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(top = 16.dp))
-
-            Button(
-                onClick = viewModel::submit,
-                enabled = state.canSubmit,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (state.isSubmitting) {
-                    CircularProgressIndicator(modifier = Modifier.padding(2.dp), color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text("Sign in")
+                state.errorMessage?.let {
+                    Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
+                    Text(text = it, color = MaterialTheme.colorScheme.error)
                 }
-            }
 
-            TextButton(onClick = onNavigateToRegister, modifier = Modifier.fillMaxWidth()) {
-                Text("Create an account")
-            }
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Medium))
+
+                Button(
+                    onClick = viewModel::submit,
+                    enabled = state.canSubmit,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (state.isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(AppSpacing.Tiny),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text(stringResource(R.string.screen_login_button_sign_in))
+                    }
+                }
+
+                TextButton(onClick = onNavigateToRegister, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.screen_login_button_create_account))
+                }
 
                 TextButton(onClick = onNavigateToConnectionSettings, modifier = Modifier.fillMaxWidth()) {
-                    Text("Connection settings")
+                    Text(stringResource(R.string.common_connection_settings_label))
                 }
             }
 
             Text(
-                text = "Version ${BuildConfig.VERSION_NAME}",
+                text = stringResource(R.string.screen_login_version, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -127,9 +133,9 @@ fun LoginScreen(
 
     if (state.showActiveSessionDialog) {
         ConfirmDialog(
-            title = "Active session",
-            text = "This account already has an active session. Do you want to end it?",
-            confirmLabel = "Continue",
+            title = stringResource(R.string.screen_login_active_session_title),
+            text = stringResource(R.string.screen_login_active_session_message),
+            confirmLabel = stringResource(R.string.common_action_continue),
             onConfirm = viewModel::confirmForceLogin,
             onDismiss = viewModel::dismissActiveSessionDialog,
         )

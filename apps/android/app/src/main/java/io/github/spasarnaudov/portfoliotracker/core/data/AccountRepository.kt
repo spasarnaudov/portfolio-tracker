@@ -20,17 +20,6 @@ class AccountRepository @Inject constructor(
 ) {
     private val apiService: ApiService get() = apiServiceProvider.get()
 
-    suspend fun getCurrentUser(): ApiResult<User> {
-        val result = apiCall { apiService.getCurrentUser() }
-        if (result is ApiResult.Success) {
-            sessionManager.setUser(result.data.user.toDomain())
-        }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(result.data.user.toDomain())
-            is ApiResult.Error -> result
-        }
-    }
-
     suspend fun changePassword(currentPassword: String, newPassword: String): ApiResult<Unit> {
         val result = apiCall {
             apiService.changePassword(ChangePasswordRequestDto(currentPassword, newPassword))
@@ -50,6 +39,17 @@ class AccountRepository @Inject constructor(
         }
         return when (result) {
             is ApiResult.Success -> ApiResult.Success(Unit)
+            is ApiResult.Error -> result
+        }
+    }
+
+    suspend fun getCurrentUser(): ApiResult<User> {
+        val result = apiCall { apiService.getCurrentUser() }
+        if (result is ApiResult.Success) {
+            sessionManager.setUser(result.data.user.toDomain())
+        }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(result.data.user.toDomain())
             is ApiResult.Error -> result
         }
     }

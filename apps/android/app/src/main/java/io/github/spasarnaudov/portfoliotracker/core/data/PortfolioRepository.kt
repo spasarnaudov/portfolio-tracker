@@ -32,6 +32,17 @@ class PortfolioRepository @Inject constructor(
         }
     }
 
+    suspend fun getPortfolioHistory(
+        range: ChartRange,
+        interval: PortfolioHistoryInterval,
+    ): ApiResult<List<PortfolioHistoryPoint>> {
+        val result = apiCall { apiService.getPortfolioHistory(range.wireValue, interval.wireValue) }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(result.data.points.mapNotNull { it.toDomain() })
+            is ApiResult.Error -> result
+        }
+    }
+
     /** Validates locally first (never sends negative quantities/prices), then calls `PUT /portfolio`. */
     suspend fun updatePortfolio(holdings: List<Holding>, manualItems: List<ManualItem>): ApiResult<Portfolio> {
         val errors = PortfolioValidator.validate(holdings, manualItems)
@@ -57,17 +68,6 @@ class PortfolioRepository @Inject constructor(
         }
         return when (result) {
             is ApiResult.Success -> ApiResult.Success(result.data.toDomain())
-            is ApiResult.Error -> result
-        }
-    }
-
-    suspend fun getPortfolioHistory(
-        range: ChartRange,
-        interval: PortfolioHistoryInterval,
-    ): ApiResult<List<PortfolioHistoryPoint>> {
-        val result = apiCall { apiService.getPortfolioHistory(range.wireValue, interval.wireValue) }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(result.data.points.mapNotNull { it.toDomain() })
             is ApiResult.Error -> result
         }
     }

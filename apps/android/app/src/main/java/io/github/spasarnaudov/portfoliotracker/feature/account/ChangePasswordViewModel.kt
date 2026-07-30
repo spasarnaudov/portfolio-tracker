@@ -43,16 +43,16 @@ class ChangePasswordViewModel @Inject constructor(
     private val _success = MutableSharedFlow<Unit>()
     val success: SharedFlow<Unit> = _success.asSharedFlow()
 
+    fun onConfirmPasswordChange(value: String) {
+        _uiState.update { it.copy(confirmPassword = value, confirmPasswordError = null, errorMessage = null) }
+    }
+
     fun onCurrentPasswordChange(value: String) {
         _uiState.update { it.copy(currentPassword = value, currentPasswordError = null, errorMessage = null) }
     }
 
     fun onNewPasswordChange(value: String) {
         _uiState.update { it.copy(newPassword = value, newPasswordError = null, errorMessage = null) }
-    }
-
-    fun onConfirmPasswordChange(value: String) {
-        _uiState.update { it.copy(confirmPassword = value, confirmPasswordError = null, errorMessage = null) }
     }
 
     fun submit() {

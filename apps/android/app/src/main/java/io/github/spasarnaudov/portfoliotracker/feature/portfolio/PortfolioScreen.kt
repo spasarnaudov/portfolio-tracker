@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,10 +44,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.model.ChartRange
 import io.github.spasarnaudov.portfoliotracker.core.model.PortfolioHistoryInterval
 import io.github.spasarnaudov.portfoliotracker.core.model.PortfolioHistoryPoint
@@ -57,9 +60,17 @@ import io.github.spasarnaudov.portfoliotracker.core.ui.components.EmptyState
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenError
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenLoading
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LineChart
+import io.github.spasarnaudov.portfoliotracker.core.ui.components.LineChartDefaults
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LoadStatus
 import io.github.spasarnaudov.portfoliotracker.core.ui.format.formatMoneyOrDash
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 import java.math.BigDecimal
+
+private object PortfolioScreenDimens {
+
+    val BottomSpacerHeight = 80.dp
+    val QuantityFieldWidth = 110.dp
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +84,8 @@ fun PortfolioScreen(
     var showDiscardConfirm by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     var showEmptyHoldings by remember { mutableStateOf(true) }
+    val genericErrorMessage = stringResource(R.string.common_error_generic)
+    val addManualItemLabel = stringResource(R.string.screen_portfolio_add_manual_item)
 
     LaunchedEffect(state.saveError) {
         state.saveError?.let { snackbarHostState.showSnackbar(it) }
@@ -86,11 +99,11 @@ fun PortfolioScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(title = { Text("Portfolio") })
+            TopAppBar(title = { Text(stringResource(R.string.screen_portfolio_title)) })
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddManualItem) {
-                Icon(Icons.Filled.Add, contentDescription = "Add manual item")
+                Icon(Icons.Filled.Add, contentDescription = addManualItemLabel)
             }
         },
     ) { padding ->
@@ -108,21 +121,21 @@ fun PortfolioScreen(
                 onIntervalSelected = viewModel::setHistoryInterval,
                 onShowEmptyHoldingsChange = { showEmptyHoldings = it },
                 onRetry = viewModel::retryHistory,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = AppSpacing.Medium),
             )
-            HorizontalDivider(modifier = Modifier.padding(top = 12.dp))
+            HorizontalDivider(modifier = Modifier.padding(top = AppSpacing.MediumSmall))
 
             Box(modifier = Modifier.weight(1f)) {
                 when (state.status) {
                     LoadStatus.LOADING -> FullScreenLoading()
                     LoadStatus.ERROR -> FullScreenError(
-                        message = state.errorMessage ?: "Something went wrong.",
+                        message = state.errorMessage ?: genericErrorMessage,
                         onRetry = viewModel::load,
                     )
 
                     LoadStatus.EMPTY -> EmptyState(
-                        message = "Your portfolio is empty. Add a manual item or link an asset to get started.",
-                        actionLabel = "Add manual item",
+                        message = stringResource(R.string.screen_portfolio_empty_message),
+                        actionLabel = addManualItemLabel,
                         onAction = onAddManualItem,
                     )
 
@@ -130,12 +143,12 @@ fun PortfolioScreen(
                         isRefreshing = isRefreshing,
                         onRefresh = { isRefreshing = true; viewModel.load() },
                     ) {
-                        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = AppSpacing.Medium)) {
                             item {
                                 Text(
-                                    text = "Total value: ${state.totalValue.formatMoneyOrDash()}",
+                                    text = stringResource(R.string.screen_portfolio_total_value, state.totalValue.formatMoneyOrDash()),
                                     style = MaterialTheme.typography.titleLarge,
-                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    modifier = Modifier.padding(vertical = AppSpacing.MediumSmall),
                                 )
                             }
                             val visibleHoldings = if (showEmptyHoldings) {
@@ -144,7 +157,7 @@ fun PortfolioScreen(
                                 state.holdings.filter { it.originalQuantity > BigDecimal.ZERO }
                             }
                             if (visibleHoldings.isNotEmpty()) {
-                                item { Text("Holdings", style = MaterialTheme.typography.titleMedium) }
+                                item { Text(stringResource(R.string.screen_portfolio_holdings_header), style = MaterialTheme.typography.titleMedium) }
                                 items(visibleHoldings, key = { it.assetId }) { holding ->
                                     HoldingRow(
                                         holding = holding,
@@ -158,9 +171,9 @@ fun PortfolioScreen(
                             if (state.manualItems.any { !it.markedForDeletion }) {
                                 item {
                                     Text(
-                                        "Manual items",
+                                        stringResource(R.string.screen_portfolio_manual_items_header),
                                         style = MaterialTheme.typography.titleMedium,
-                                        modifier = Modifier.padding(top = 16.dp),
+                                        modifier = Modifier.padding(top = AppSpacing.Medium),
                                     )
                                 }
                                 items(
@@ -175,7 +188,7 @@ fun PortfolioScreen(
                                     HorizontalDivider()
                                 }
                             }
-                            item { Spacer(modifier = Modifier.padding(bottom = 80.dp)) }
+                            item { Spacer(modifier = Modifier.padding(bottom = PortfolioScreenDimens.BottomSpacerHeight)) }
                         }
                     }
                 }
@@ -185,9 +198,9 @@ fun PortfolioScreen(
 
     if (showDiscardConfirm) {
         ConfirmDialog(
-            title = "Discard changes?",
-            text = "You have unsaved changes to your portfolio. Are you sure you want to leave?",
-            confirmLabel = "Discard",
+            title = stringResource(R.string.screen_portfolio_discard_title),
+            text = stringResource(R.string.screen_portfolio_discard_message),
+            confirmLabel = stringResource(R.string.screen_portfolio_discard_confirm_label),
             destructive = true,
             onConfirm = { showDiscardConfirm = false; viewModel.discardChanges() },
             onDismiss = { showDiscardConfirm = false },
@@ -209,10 +222,12 @@ private fun PortfolioChartSection(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth().padding(top = 8.dp)) {
+    val genericErrorMessage = stringResource(R.string.common_error_generic)
+
+    Column(modifier = modifier.fillMaxWidth().padding(top = AppSpacing.Small)) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.ExtraSmall),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             FilterDropdown(
                 selectedLabel = range.label,
@@ -227,42 +242,42 @@ private fun PortfolioChartSection(
                 onSelected = onIntervalSelected,
             )
             Checkbox(checked = showEmptyHoldings, onCheckedChange = onShowEmptyHoldingsChange)
-            Text("Show empty", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.screen_portfolio_show_empty_label), style = MaterialTheme.typography.bodyMedium)
         }
 
         when (status) {
             LoadStatus.LOADING -> Box(
-                modifier = Modifier.fillMaxWidth().height(220.dp).padding(top = 16.dp),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
+                modifier = Modifier.fillMaxWidth().height(LineChartDefaults.ChartHeight).padding(top = AppSpacing.Medium),
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
 
             LoadStatus.ERROR -> Box(
-                modifier = Modifier.fillMaxWidth().height(220.dp).padding(top = 16.dp),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
+                modifier = Modifier.fillMaxWidth().height(LineChartDefaults.ChartHeight).padding(top = AppSpacing.Medium),
+                contentAlignment = Alignment.Center,
             ) {
                 Column(
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.Small),
                 ) {
-                    Text(errorMessage ?: "Something went wrong.", style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = onRetry) { Text("Retry") }
+                    Text(errorMessage ?: genericErrorMessage, style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = onRetry) { Text(stringResource(R.string.common_action_retry)) }
                 }
             }
 
             LoadStatus.EMPTY -> Box(
-                modifier = Modifier.fillMaxWidth().height(220.dp).padding(top = 16.dp),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
+                modifier = Modifier.fillMaxWidth().height(LineChartDefaults.ChartHeight).padding(top = AppSpacing.Medium),
+                contentAlignment = Alignment.Center,
             ) {
-                Text("Select portfolio items to see their history.", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.screen_portfolio_history_empty_message), style = MaterialTheme.typography.bodyMedium)
             }
 
             LoadStatus.CONTENT -> LineChart(
                 points = points.map { ChartPoint(it.timestamp, it.value) },
                 showTimeInLabels = interval == PortfolioHistoryInterval.HOURLY,
                 scrollable = false,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = AppSpacing.Medium),
             )
         }
     }
@@ -300,7 +315,7 @@ private fun HoldingRow(
     onRemove: () -> Unit,
 ) {
     val isRemoved = holding.quantityText.trim() == "0"
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = AppSpacing.Small), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "${holding.assetSymbol} · ${holding.assetName}",
@@ -308,23 +323,23 @@ private fun HoldingRow(
                 textDecoration = if (isRemoved) TextDecoration.LineThrough else TextDecoration.None,
             )
             Text(
-                text = "Value: ${holding.value.formatMoneyOrDash()}",
+                text = stringResource(R.string.screen_portfolio_holding_value, holding.value.formatMoneyOrDash()),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
         OutlinedTextField(
             value = holding.quantityText,
             onValueChange = onQuantityChange,
-            label = { Text("Qty") },
+            label = { Text(stringResource(R.string.screen_portfolio_quantity_label)) },
             singleLine = true,
-            modifier = Modifier.width(110.dp),
+            modifier = Modifier.width(PortfolioScreenDimens.QuantityFieldWidth),
         )
-        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Checkbox(checked = holding.includeInChart, onCheckedChange = { onToggleChart() })
-            Text("Chart", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.screen_portfolio_chart_toggle_label), style = MaterialTheme.typography.labelSmall)
         }
         IconButton(onClick = onRemove) {
-            Icon(Icons.Filled.Delete, contentDescription = "Remove ${holding.assetSymbol}")
+            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.screen_portfolio_remove_holding_description, holding.assetSymbol))
         }
     }
 }
@@ -335,15 +350,19 @@ private fun ManualItemRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = AppSpacing.Small), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(text = item.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = "Qty ${item.quantityText} · Value: ${item.value.formatMoneyOrDash()}",
+                text = stringResource(R.string.screen_portfolio_manual_item_summary, item.quantityText, item.value.formatMoneyOrDash()),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
-        IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Edit ${item.name}") }
-        IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Delete ${item.name}") }
+        IconButton(onClick = onEdit) {
+            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.screen_portfolio_edit_item_description, item.name))
+        }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.screen_portfolio_delete_item_description, item.name))
+        }
     }
 }

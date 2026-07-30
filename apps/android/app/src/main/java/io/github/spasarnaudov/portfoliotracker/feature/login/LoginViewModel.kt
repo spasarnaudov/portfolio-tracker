@@ -40,12 +40,21 @@ class LoginViewModel @Inject constructor(
     private val _loginSuccess = MutableSharedFlow<Unit>()
     val loginSuccess: SharedFlow<Unit> = _loginSuccess.asSharedFlow()
 
-    fun onUsernameChange(value: String) {
-        _uiState.update { it.copy(username = value, usernameError = null, errorMessage = null) }
+    fun confirmForceLogin() {
+        _uiState.update { it.copy(showActiveSessionDialog = false) }
+        attemptLogin(force = true)
+    }
+
+    fun dismissActiveSessionDialog() {
+        _uiState.update { it.copy(showActiveSessionDialog = false) }
     }
 
     fun onPasswordChange(value: String) {
         _uiState.update { it.copy(password = value, passwordError = null, errorMessage = null) }
+    }
+
+    fun onUsernameChange(value: String) {
+        _uiState.update { it.copy(username = value, usernameError = null, errorMessage = null) }
     }
 
     fun submit() {
@@ -57,15 +66,6 @@ class LoginViewModel @Inject constructor(
             return
         }
         attemptLogin(force = false)
-    }
-
-    fun confirmForceLogin() {
-        _uiState.update { it.copy(showActiveSessionDialog = false) }
-        attemptLogin(force = true)
-    }
-
-    fun dismissActiveSessionDialog() {
-        _uiState.update { it.copy(showActiveSessionDialog = false) }
     }
 
     private fun attemptLogin(force: Boolean) {

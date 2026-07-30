@@ -23,10 +23,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,20 +46,20 @@ fun ChangePasswordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Change password") },
+                title = { Text(stringResource(R.string.common_change_password_label)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_navigation_back))
                     }
                 },
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(AppSpacing.Large)) {
             OutlinedTextField(
                 value = state.currentPassword,
                 onValueChange = viewModel::onCurrentPasswordChange,
-                label = { Text("Current password") },
+                label = { Text(stringResource(R.string.screen_change_password_current_label)) },
                 singleLine = true,
                 isError = state.currentPasswordError != null,
                 supportingText = { state.currentPasswordError?.let { Text(it) } },
@@ -65,11 +67,11 @@ fun ChangePasswordScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.padding(top = 8.dp))
+            Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
             OutlinedTextField(
                 value = state.newPassword,
                 onValueChange = viewModel::onNewPasswordChange,
-                label = { Text("New password") },
+                label = { Text(stringResource(R.string.screen_change_password_new_label)) },
                 singleLine = true,
                 isError = state.newPasswordError != null,
                 supportingText = { state.newPasswordError?.let { Text(it) } },
@@ -77,11 +79,11 @@ fun ChangePasswordScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.padding(top = 8.dp))
+            Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
             OutlinedTextField(
                 value = state.confirmPassword,
                 onValueChange = viewModel::onConfirmPasswordChange,
-                label = { Text("Confirm new password") },
+                label = { Text(stringResource(R.string.screen_change_password_confirm_label)) },
                 singleLine = true,
                 isError = state.confirmPasswordError != null,
                 supportingText = { state.confirmPasswordError?.let { Text(it) } },
@@ -90,15 +92,18 @@ fun ChangePasswordScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             state.errorMessage?.let {
-                Spacer(modifier = Modifier.padding(top = 8.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
-            Spacer(modifier = Modifier.padding(top = 16.dp))
+            Spacer(modifier = Modifier.padding(top = AppSpacing.Medium))
             Button(onClick = viewModel::submit, enabled = state.canSubmit, modifier = Modifier.fillMaxWidth()) {
                 if (state.isSubmitting) {
-                    CircularProgressIndicator(modifier = Modifier.padding(2.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    CircularProgressIndicator(
+                        modifier = Modifier.padding(AppSpacing.Tiny),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
                 } else {
-                    Text("Update password")
+                    Text(stringResource(R.string.screen_change_password_button_update))
                 }
             }
         }

@@ -29,6 +29,50 @@ class AdminRepository @Inject constructor(
 ) {
     private val apiService: ApiService get() = apiServiceProvider.get()
 
+    suspend fun getLogContent(name: String): ApiResult<LogContent> {
+        val result = apiCall { apiService.getAdminLogContent(name) }
+        return when (result) {
+            is ApiResult.Success -> {
+                val text = result.data.string()
+                ApiResult.Success(LogContent(name = name, lines = text.lines()))
+            }
+
+            is ApiResult.Error -> result
+        }
+    }
+
+    suspend fun getLogFiles(): ApiResult<List<LogFile>> {
+        val result = apiCall { apiService.getAdminLogFiles() }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(result.data.map { it.toDomain() })
+            is ApiResult.Error -> result
+        }
+    }
+
+    suspend fun getLoginHistory(): ApiResult<List<LoginHistoryEntry>> {
+        val result = apiCall { apiService.getAdminLoginHistory() }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(result.data.map { LoginHistoryEntry(it.toEntries()) })
+            is ApiResult.Error -> result
+        }
+    }
+
+    suspend fun getLoginStats(): ApiResult<List<LoginStatEntry>> {
+        val result = apiCall { apiService.getAdminLoginStats() }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(result.data.toEntries())
+            is ApiResult.Error -> result
+        }
+    }
+
+    suspend fun getUsers(): ApiResult<List<AdminUserSummary>> {
+        val result = apiCall { apiService.getAdminUsers() }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(result.data.map { it.toDomain() })
+            is ApiResult.Error -> result
+        }
+    }
+
     private fun AdminUserDto.toDomain() = AdminUserSummary(
         id = id,
         username = username,
@@ -44,48 +88,4 @@ class AdminRepository @Inject constructor(
 
     private fun Map<String, JsonElement>.toEntries(): List<LoginStatEntry> =
         entries.map { LoginStatEntry(it.key, it.value.toDisplayString()) }
-
-    suspend fun getUsers(): ApiResult<List<AdminUserSummary>> {
-        val result = apiCall { apiService.getAdminUsers() }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(result.data.map { it.toDomain() })
-            is ApiResult.Error -> result
-        }
-    }
-
-    suspend fun getLoginStats(): ApiResult<List<LoginStatEntry>> {
-        val result = apiCall { apiService.getAdminLoginStats() }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(result.data.toEntries())
-            is ApiResult.Error -> result
-        }
-    }
-
-    suspend fun getLoginHistory(): ApiResult<List<LoginHistoryEntry>> {
-        val result = apiCall { apiService.getAdminLoginHistory() }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(result.data.map { LoginHistoryEntry(it.toEntries()) })
-            is ApiResult.Error -> result
-        }
-    }
-
-    suspend fun getLogFiles(): ApiResult<List<LogFile>> {
-        val result = apiCall { apiService.getAdminLogFiles() }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(result.data.map { it.toDomain() })
-            is ApiResult.Error -> result
-        }
-    }
-
-    suspend fun getLogContent(name: String): ApiResult<LogContent> {
-        val result = apiCall { apiService.getAdminLogContent(name) }
-        return when (result) {
-            is ApiResult.Success -> {
-                val text = result.data.string()
-                ApiResult.Success(LogContent(name = name, lines = text.lines()))
-            }
-
-            is ApiResult.Error -> result
-        }
-    }
 }

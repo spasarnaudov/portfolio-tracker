@@ -43,16 +43,16 @@ class RegisterViewModel @Inject constructor(
     private val _registerSuccess = MutableSharedFlow<Unit>()
     val registerSuccess: SharedFlow<Unit> = _registerSuccess.asSharedFlow()
 
-    fun onUsernameChange(value: String) {
-        _uiState.update { it.copy(username = value, usernameError = null, errorMessage = null) }
+    fun onConfirmPasswordChange(value: String) {
+        _uiState.update { it.copy(confirmPassword = value, confirmPasswordError = null, errorMessage = null) }
     }
 
     fun onPasswordChange(value: String) {
         _uiState.update { it.copy(password = value, passwordError = null, errorMessage = null) }
     }
 
-    fun onConfirmPasswordChange(value: String) {
-        _uiState.update { it.copy(confirmPassword = value, confirmPasswordError = null, errorMessage = null) }
+    fun onUsernameChange(value: String) {
+        _uiState.update { it.copy(username = value, usernameError = null, errorMessage = null) }
     }
 
     fun submit() {

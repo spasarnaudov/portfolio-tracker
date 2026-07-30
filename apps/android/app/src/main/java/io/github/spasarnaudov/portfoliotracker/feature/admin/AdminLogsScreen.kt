@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.model.LogFile
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.EmptyState
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenError
@@ -31,24 +33,25 @@ fun AdminLogsScreen(
     viewModel: AdminLogsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val genericErrorMessage = stringResource(R.string.common_error_generic)
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Log files") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.screen_admin_logs_title)) }) }) { padding ->
         when (state.status) {
             LoadStatus.LOADING -> FullScreenLoading(modifier = Modifier.padding(padding))
             LoadStatus.ERROR -> FullScreenError(
-                message = state.errorMessage ?: "Something went wrong.",
+                message = state.errorMessage ?: genericErrorMessage,
                 modifier = Modifier.padding(padding),
                 onRetry = viewModel::load,
             )
 
-            LoadStatus.EMPTY -> EmptyState(message = "No log files found.", modifier = Modifier.padding(padding))
+            LoadStatus.EMPTY -> EmptyState(message = stringResource(R.string.screen_admin_logs_empty_message), modifier = Modifier.padding(padding))
 
             LoadStatus.CONTENT -> LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
                 items(state.files, key = { it.name }) { file ->
                     ListItem(
                         headlineContent = { Text(file.name) },
                         supportingContent = {
-                            val size = file.sizeBytes?.let { "${it / 1024} KB" }
+                            val size = file.sizeBytes?.let { stringResource(R.string.screen_admin_logs_size_kb, it / 1024) }
                             val modified = file.modifiedAt?.formatDisplay()
                             Text(listOfNotNull(size, modified).joinToString(" · "))
                         },

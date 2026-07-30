@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -18,11 +19,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenError
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenLoading
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LoadStatus
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,54 +37,64 @@ fun AccountScreen(
     viewModel: AccountViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val genericErrorMessage = stringResource(R.string.common_error_generic)
 
     LaunchedEffect(Unit) {
         viewModel.loggedOut.collect { onLoggedOut() }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Account") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.screen_account_title)) }) }) { padding ->
         when (state.status) {
             LoadStatus.LOADING -> FullScreenLoading(modifier = Modifier.padding(padding))
             LoadStatus.ERROR -> FullScreenError(
-                message = state.errorMessage ?: "Something went wrong.",
+                message = state.errorMessage ?: genericErrorMessage,
                 modifier = Modifier.padding(padding),
                 onRetry = viewModel::load,
             )
 
-            else -> Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            else -> Column(modifier = Modifier.fillMaxSize().padding(padding).padding(AppSpacing.Medium)) {
                 state.user?.let { user ->
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(AppSpacing.Medium)) {
                             Text(user.username, style = MaterialTheme.typography.titleLarge)
-                            Text("Role: ${user.role}", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                stringResource(R.string.common_role_label, user.role),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.padding(top = 16.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Medium))
                 OutlinedButton(onClick = onChangePassword, modifier = Modifier.fillMaxWidth()) {
-                    Text("Change password")
+                    Text(stringResource(R.string.common_change_password_label))
                 }
-                Spacer(modifier = Modifier.padding(top = 8.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
                 OutlinedButton(onClick = onConnectionSettings, modifier = Modifier.fillMaxWidth()) {
-                    Text("Connection settings")
+                    Text(stringResource(R.string.common_connection_settings_label))
                 }
 
-                Spacer(modifier = Modifier.padding(top = 24.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Large))
                 Button(
                     onClick = viewModel::logout,
                     enabled = !state.isLoggingOut,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (state.isLoggingOut) "Signing out…" else "Log out")
+                    Text(
+                        if (state.isLoggingOut) {
+                            stringResource(R.string.screen_account_signing_out_status)
+                        } else {
+                            stringResource(R.string.screen_account_button_logout)
+                        },
+                    )
                 }
-                Spacer(modifier = Modifier.padding(top = 8.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
                 Button(
                     onClick = onDeleteAccount,
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Delete account")
+                    Text(stringResource(R.string.common_delete_account_label))
                 }
             }
         }
