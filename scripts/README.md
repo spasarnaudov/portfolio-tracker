@@ -119,7 +119,7 @@ you actually cloned it):
 ```cron
 @reboot cd /home/spas/Projects/portfolio-tracker && ./scripts/start_app.sh >> /home/spas/Projects/portfolio-tracker/logs/app.log 2>&1
 0 * * * * cd /home/spas/Projects/portfolio-tracker && apps/flask/.venv/bin/python scripts/import_tavex_prices.py >> /home/spas/Projects/portfolio-tracker/logs/tavex_import.log 2>&1
-0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
+0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/database/backup_database.sh >> /home/spas/Projects/portfolio-tracker/logs/database_backup.log 2>&1
 0 3 * * * cd /home/spas/Projects/portfolio-tracker && ./scripts/backup_env.sh >> /home/spas/Projects/portfolio-tracker/logs/env_backup.log 2>&1
 ```
 

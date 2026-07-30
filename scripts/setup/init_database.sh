@@ -33,7 +33,7 @@ EXISTING_TABLE_COUNT="$(docker exec "$POSTGRES_CONTAINER_NAME" psql "$DATABASE_U
 if [[ "$EXISTING_TABLE_COUNT" -ne 0 ]]; then
     echo "ERROR: The database already has $EXISTING_TABLE_COUNT table(s) in the public schema."
     echo "init_database.sh only runs against an empty database, to avoid clobbering existing data."
-    echo "To restore an existing backup instead, use scripts/restore_database.sh."
+    echo "To restore an existing backup instead, use scripts/database/restore_database.sh."
     exit 1
 fi
 

@@ -47,7 +47,7 @@ Requires an empty PostgreSQL database that already exists (create it with
 This applies `database/postgresql/schema/001_init_schema.sql` followed by
 `database/postgresql/seed/001_seed_basic_data.sql`. Running it against a
 database that already has tables is refused, so it never overwrites existing
-data — use `scripts/restore_database.sh` instead if you want to load a
+data — use `scripts/database/restore_database.sh` instead if you want to load a
 backup. Running this against a fresh database on every environment
 (development, test, production) is what keeps their schemas identical.
 
@@ -75,7 +75,7 @@ The backup script:
   file first, only renaming it to the final `.dump` name once the dump is
   confirmed non-empty — a failed/interrupted run can never leave an empty or
   partial file at that name
-- runs `scripts/verify_backup.sh` against the new backup
+- runs `scripts/database/verify_backup.sh` against the new backup
 - only once verification passes, removes backups older than
   `RETENTION_DAYS` — a broken new backup can never cost you the last
   known-good ones
@@ -96,7 +96,7 @@ POSTGRES_CONTAINER_NAME=postgresql
 You can override them from the shell or from cron:
 
 ```bash
-BACKUP_RETENTION_DAYS=30 ./scripts/backup_database.sh
+BACKUP_RETENTION_DAYS=30 ./scripts/database/backup_database.sh
 ```
 
 The nightly cron job for this is installed by
@@ -111,7 +111,7 @@ logs/database_backup.log
 Verify a dump file manually:
 
 ```bash
-./scripts/verify_backup.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
+./scripts/database/verify_backup.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
 ```
 
 The verification script checks that:
@@ -127,7 +127,7 @@ Restore a backup (schema and data) into the database `DATABASE_URL` points
 at:
 
 ```bash
-./scripts/restore_database.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
+./scripts/database/restore_database.sh backups/database/portfolio_tracker_YYYY-MM-DD_HH-MM-SS.dump
 ```
 
 This drops and recreates the `public` schema and then restores the dump into

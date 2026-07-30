@@ -20,7 +20,7 @@ install_cron_line() {
 
 install_cron_line "@reboot cd $PROJECT_DIR && ./scripts/start_app.sh >> $PROJECT_DIR/logs/app.log 2>&1"
 install_cron_line "0 * * * * cd $PROJECT_DIR && apps/flask/.venv/bin/python scripts/import_tavex_prices.py >> $PROJECT_DIR/logs/tavex_import.log 2>&1"
-install_cron_line "0 3 * * * cd $PROJECT_DIR && ./scripts/backup_database.sh >> $PROJECT_DIR/logs/database_backup.log 2>&1"
+install_cron_line "0 3 * * * cd $PROJECT_DIR && ./scripts/database/backup_database.sh >> $PROJECT_DIR/logs/database_backup.log 2>&1"
 install_cron_line "0 3 * * * cd $PROJECT_DIR && ./scripts/backup_env.sh >> $PROJECT_DIR/logs/env_backup.log 2>&1"
 
 echo

@@ -106,7 +106,7 @@ echo "$BACKUP_FILE"
 # Verify created backup
 # ==========================
 
-VERIFY_SCRIPT="$PROJECT_DIR/scripts/verify_backup.sh"
+VERIFY_SCRIPT="$PROJECT_DIR/scripts/database/verify_backup.sh"
 
 echo
 echo "Verifying backup..."

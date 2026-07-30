@@ -18,7 +18,7 @@ source "$PROJECT_DIR/scripts/lib/docker_postgres.sh"
 # Check argument
 if [ $# -ne 1 ]; then
     echo "Usage:"
-    echo "./scripts/verify_backup.sh backups/file.dump"
+    echo "./scripts/database/verify_backup.sh backups/file.dump"
     exit 1
 fi
 
