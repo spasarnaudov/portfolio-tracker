@@ -20,8 +20,54 @@ source "$PROJECT_DIR/scripts/lib/docker_postgres.sh"
 
 BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups/database}"
 RETENTION_DAYS="${RETENTION_DAYS:-${BACKUP_RETENTION_DAYS:-30}}"
+APP_PID_FILE="$PROJECT_DIR/runtime/app.pid"
+START_APP_SCRIPT="$PROJECT_DIR/scripts/start_app.sh"
 
 require_postgres_container
+
+ensure_app_server_running() {
+    if [[ -f "$APP_PID_FILE" ]] && kill -0 "$(cat "$APP_PID_FILE")" 2>/dev/null; then
+        echo "App server is already running (PID $(cat "$APP_PID_FILE"))."
+        return 0
+    fi
+
+    echo "App server is not running."
+
+    if [[ -t 0 ]]; then
+        read -r -p "Start it now? [Y/n] " START_REPLY
+        case "${START_REPLY:-Y}" in
+            [Yy]|[Yy][Ee][Ss]|"")
+                ;;
+            *)
+                echo "Skipping app startup."
+                echo "You can start it later with:"
+                echo "  ./scripts/start_app.sh"
+                return 0
+                ;;
+        esac
+    else
+        echo "No interactive terminal detected; starting it automatically."
+    fi
+
+    if [[ ! -x "$START_APP_SCRIPT" ]]; then
+        echo "ERROR: $START_APP_SCRIPT is not available or not executable."
+        echo "Start it manually later with:"
+        echo "  ./scripts/start_app.sh"
+        return 1
+    fi
+
+    if "$START_APP_SCRIPT"; then
+        echo "App server started successfully."
+        return 0
+    fi
+
+    echo "App server could not be started automatically."
+    echo "Start it manually later with:"
+    echo "  ./scripts/start_app.sh"
+    return 1
+}
+
+ensure_app_server_running || true
 
 mkdir -p "$BACKUP_DIR"
 

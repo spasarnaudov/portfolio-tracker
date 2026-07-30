@@ -91,6 +91,9 @@ Start, stop, or restart the Flask app as a background process:
 tracks the process in `runtime/app.pid`), and reports a clear error instead
 of silently doing nothing if the app crashes immediately (for example, the
 port from `.env` is already in use). App output goes to `logs/app.log`.
+The database backup script also checks whether the app server is running
+before proceeding and will prompt to start it if needed, falling back to an
+automatic start in non-interactive environments such as cron.
 
 This runs `python apps/flask/app.py` in the background — it's a starting
 point, not a substitute for a real process supervisor (systemd, etc.): if
