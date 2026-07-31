@@ -57,6 +57,7 @@ Always:
 3. Ask before risky, destructive, or materially broader changes.
 4. Run relevant checks and explain the result.
 5. Create a commit only when the user explicitly requests one.
+6. Push to a remote branch only after explicit confirmation for that specific push — see [docs/git-branch-strategy.md](docs/git-branch-strategy.md#push-policy).
 
 Do not make major changes without a clear reason.
 
