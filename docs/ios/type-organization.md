@@ -7,8 +7,12 @@ This document defines how Swift types must be organized in the iOS app.
 It applies to:
 
 - SwiftUI `View` structs;
-- ViewModel classes (`final class ... : ObservableObject`);
-- Core/service types (e.g. `APIClient`, `SessionStore`, `TokenStorage`);
+- screen ViewModel classes (`final class ... : ObservableObject`);
+- shared, app-wide `ObservableObject` state holders, not tied to one screen (e.g.
+  `SessionStore`, `AppSettings`);
+- Core/service types with no `@Published` state of their own — plain classes,
+  `protocol`s, and `actor`s (e.g. `APIClient`, the `TokenStoring` protocol and its
+  `KeychainTokenStorage` actor implementation);
 - enum namespaces used for static constants (e.g. `MaterialColor`, `MaterialFont`).
 
 This document defines only type structure.
@@ -17,18 +21,20 @@ It does not define architecture, dependency injection, project-wide naming conve
 
 ## Applicability in This Project
 
-The app has SwiftUI `View` structs, ViewModel classes, and a small number of Core
-service types (`APIClient`, `SessionStore`, `TokenStorage`, `AppSettings`) and enum
-namespaces (`MaterialColor`, `MaterialFont`). There is no UIKit view controller,
-storyboard, or XIB anywhere in the project — the app is 100% SwiftUI. There is also
-no dependency-injection framework: every dependency is passed explicitly through
-`init`, wired up by hand starting from `RootView`. There is no test target yet.
+The app has SwiftUI `View` structs, screen ViewModel classes, exactly two shared
+app-wide `ObservableObject` state holders (`SessionStore`, `AppSettings`), a small
+number of Core/service types (`APIClient`; the `TokenStoring` protocol and its
+`KeychainTokenStorage` actor implementation), and enum namespaces (`MaterialColor`,
+`MaterialFont`). There is no UIKit view controller, storyboard, or XIB anywhere in
+the project — the app is 100% SwiftUI. There is also no dependency-injection
+framework: every dependency is passed explicitly through `init`, wired up by hand
+starting from `RootView`. There is no test target yet.
 
-**View Organization**, **ViewModel Organization**, **Core/Service Type
-Organization**, and **Enum Namespace Organization** are the sections in active use
-today. Do not introduce UIKit types, a DI framework, or a test target to "complete"
-this document's coverage — those sections exist only for if such a type is
-introduced later, on explicit request.
+**View Organization**, **ViewModel Organization**, **Shared State Type
+Organization**, **Core/Service Type Organization**, and **Enum Namespace
+Organization** are the sections in active use today. Do not introduce UIKit types,
+a DI framework, or a test target to "complete" this document's coverage — those
+sections exist only for if such a type is introduced later, on explicit request.
 
 ## Core Principles
 
@@ -47,18 +53,23 @@ introduced later, on explicit request.
 Unless a more specific section below applies, type members should appear in the
 following order:
 
-1. Property wrappers / stored properties (see the type-specific section for exact
-   sub-ordering — this varies by whether the type is a View, a ViewModel, or a
-   plain service type)
-2. `init`
-3. Computed properties
-4. Public functions
-5. Private helper functions
+1. Static constants, if any
+2. Property wrappers / stored properties (see the type-specific section for exact
+   sub-ordering — this varies by whether the type is a View, a ViewModel, a
+   shared state type, or a plain service type)
+3. `init`
+4. Computed properties
+5. Public functions
+6. Private helper functions
 
 This is the default ordering for a type that has no more specific structure below.
-When a type-specific section (View, ViewModel, Core/Service Type, Enum Namespace)
-applies, that section's ordering takes precedence over this general list where the
-two disagree.
+When a type-specific section (View, ViewModel, Shared State Type, Core/Service
+Type, Enum Namespace) applies, that section's ordering takes precedence over this
+general list where the two disagree. Note that a `static func` utility (as opposed
+to a `static let`/`static var` constant) is ordered by its role — public or private
+— alongside the type's other functions, not grouped with static constants; see
+`AppSettings.isValid(_:)`, a `static func` positioned with the rest of its public
+API, not at the top.
 
 ## View Organization
 
@@ -102,14 +113,18 @@ when a specific `body` has become hard to read, per Function Size in
 
 ## ViewModel Organization
 
-A ViewModel (`final class ... : ObservableObject`) should follow this structure:
+A screen ViewModel (`final class ... : ObservableObject`) should follow this
+structure:
 
-1. `@Published` state (mutable state the view binds to and reads)
-2. Private stored properties: non-published private state, then injected
+1. Static constants, if any (e.g. `AssetDetailViewModel.ranges`/`.intervals`,
+   `PortfolioHistoryViewModel.ranges`/`.intervals` — static data a screen picks
+   from, not injected per instance)
+2. `@Published` state (mutable state the view binds to and reads)
+3. Private stored properties: non-published private state, then injected
    dependencies
-3. `init`
-4. Public functions (typically `async`, calling into a Core service type)
-5. Private helper functions
+4. `init`
+5. Public functions (typically `async`, calling into a Core service type)
+6. Private helper functions
 
 Example, matching every ViewModel in the project today:
 
@@ -137,16 +152,75 @@ never writes them directly (as `assets` and `isLoading` are above) — reserve p
 `@Published var` for state the view itself mutates (like `errorMessage`, which a
 view can clear, or two-way-bound text fields).
 
+This section covers a ViewModel tied to one screen. For a shared, app-wide
+`ObservableObject` state holder like `SessionStore` or `AppSettings`, see Shared
+State Type Organization below instead.
+
+## Shared State Type Organization
+
+A shared, app-wide `ObservableObject` state holder — not tied to one screen,
+unlike a ViewModel — should follow this structure:
+
+1. Nested types, if any (e.g. `SessionStore.Status`)
+2. Static constants, if any (e.g. `AppSettings.defaultBaseURL`,
+   `AppSettings.overrideKey`)
+3. `@Published` state
+4. Other stored properties: a dependency this type deliberately exposes to other
+   consumers, declared without `private` (e.g. `SessionStore.apiClient`, which
+   ViewModels reach through `session.apiClient`), then private dependencies
+5. `init`
+6. Computed properties
+7. Public functions — instance methods and `static func` utilities alike, ordered
+   by role, not grouped separately just because one is `static`
+8. Private helper functions
+
+Example, matching `SessionStore`:
+
+```swift
+@MainActor
+final class SessionStore: ObservableObject {
+    enum Status {
+        case checking
+        case loggedOut
+        case loggedIn
+    }
+
+    @Published private(set) var status: Status = .checking
+    @Published private(set) var currentUser: PublicUser?
+
+    let apiClient: APIClient
+    private let tokenStorage: any TokenStoring
+
+    init(settings: AppSettings, tokenStorage: any TokenStoring = KeychainTokenStorage()) {
+        ...
+    }
+
+    func restoreSession() async { ... }
+}
+```
+
+This project has exactly two such types today: `SessionStore` and `AppSettings`.
+Do not introduce a third without an explicit request — state tied to a single
+screen belongs in that screen's own ViewModel instead (see ViewModel Organization
+above), not in a new shared type.
+
 ## Core/Service Type Organization
 
-A Core-layer service type (e.g. `APIClient`, `SessionStore`, `TokenStorage`) should
-expose public operations before private implementation:
+A Core-layer service type with no `@Published` state of its own — a plain class, a
+`protocol`, or an `actor` (e.g. `APIClient`; the `TokenStoring` protocol and its
+`KeychainTokenStorage` actor implementation) — should expose public operations
+before private implementation:
 
-1. Private stored dependencies (injected via `init`)
+1. Private stored dependencies (injected via `init`), or — for an `actor` or a
+   protocol's concrete implementation — its own private stored state
 2. `init`
 3. Private computed properties (e.g. `APIClient`'s `decoder`/`encoder`)
 4. Public API
-5. Private helper functions
+5. Private helper functions (e.g. `APIClient`'s `requestJSON`/`send`,
+   `KeychainTokenStorage`'s `load`/`query`)
+
+A `protocol` used to define this contract (e.g. `TokenStoring`) declares only the
+public API; this ordering otherwise applies to its concrete implementation(s).
 
 ## Enum Namespace Organization
 
@@ -215,7 +289,7 @@ modified code unless a broader refactoring is explicitly requested.
 Before completing a change, verify that:
 
 - member ordering follows the relevant type-specific section (View, ViewModel,
-  Core/Service Type, or Enum Namespace) above;
+  Shared State Type, Core/Service Type, or Enum Namespace) above;
 - public API appears before implementation details;
 - `@Published` properties are `private(set)` unless the view genuinely mutates them;
 - helper members are private whenever possible;

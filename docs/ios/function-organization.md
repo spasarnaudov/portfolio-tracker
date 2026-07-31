@@ -7,7 +7,8 @@ iOS app.
 
 It applies to:
 
-- methods on `View` structs, ViewModel classes, and Core/service types;
+- methods on `View` structs, ViewModel classes, shared state types, and
+  Core/service types (including `protocol`s and `actor`s);
 - free functions;
 - closures passed as parameters.
 
