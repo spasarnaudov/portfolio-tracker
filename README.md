@@ -44,6 +44,7 @@ portfolio-tracker/
 
 - [docs/database-design.md](docs/database-design.md) — the data model: tables, columns, constraints.
 - [docs/database-operations.md](docs/database-operations.md) — database setup, backups, restore, maintenance.
+- [docs/git-branch-strategy.md](docs/git-branch-strategy.md) — branch naming, workflow, and push policy.
 - [scripts/README.md](scripts/README.md) — environment setup and day-to-day operation (app process, cron, price imports).
 - [apps/android/README.md](apps/android/README.md) — the native Android client.
 - [apps/ios/README.md](apps/ios/README.md) — the native iOS client.
