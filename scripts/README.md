@@ -127,6 +127,16 @@ Prefer editing the crontab by hand? Run `crontab -e` and add the lines
 above yourself (with the path adjusted) — `install_cron.sh` is just a
 reliable way to do the same thing without copy-paste mistakes.
 
+It also removes any crontab line left over from an earlier script layout
+(for example the pre-reorg `./scripts/backup_database.sh` path) before
+installing the current ones, so a rename never leaves a stale line silently
+failing every day until someone checks the logs.
+
+After installing, it runs each job once immediately and reports pass/fail
+right there in the terminal — so a bad path, a missing dependency, or a
+macOS Full Disk Access issue shows up on the spot instead of a day later in
+the logs.
+
 ## Import Hourly Prices
 
 Run the hourly import job once:
