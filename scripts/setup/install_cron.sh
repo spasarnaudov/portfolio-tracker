@@ -25,6 +25,9 @@ prune_stale_lines() {
         filtered="$(grep -vFx "$line" <<< "$filtered" || true)"
     done
 
+    filtered="$(printf '%s
+' "$filtered" | grep -v 'portfolio-tracker-beta' || true)"
+
     if [[ "$filtered" != "$existing" ]]; then
         crontab - <<< "$filtered"
         echo "Removed stale cron line(s) left over from an earlier script layout."
