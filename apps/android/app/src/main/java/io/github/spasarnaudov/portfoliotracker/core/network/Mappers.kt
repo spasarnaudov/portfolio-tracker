@@ -2,6 +2,7 @@ package io.github.spasarnaudov.portfoliotracker.core.network
 
 import io.github.spasarnaudov.portfoliotracker.core.model.Asset
 import io.github.spasarnaudov.portfoliotracker.core.model.AssetPriceInterval
+import io.github.spasarnaudov.portfoliotracker.core.model.AssetPurchase
 import io.github.spasarnaudov.portfoliotracker.core.model.ChartConfiguration
 import io.github.spasarnaudov.portfoliotracker.core.model.ChartDefinition
 import io.github.spasarnaudov.portfoliotracker.core.model.ChartRange
@@ -13,6 +14,7 @@ import io.github.spasarnaudov.portfoliotracker.core.model.PortfolioHistoryPoint
 import io.github.spasarnaudov.portfoliotracker.core.model.PricePoint
 import io.github.spasarnaudov.portfoliotracker.core.model.User
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.AssetDto
+import io.github.spasarnaudov.portfoliotracker.core.network.dto.AssetPurchaseDto
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.ChartConfigurationDto
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.ChartDefinitionDto
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.HoldingResponseDto
@@ -40,7 +42,24 @@ fun HoldingResponseDto.toDomain() = Holding(
     includeInChart = includeInChart,
     price = price,
     value = value,
+    costBasis = costBasis,
+    profit = profit,
+    profitPercent = profitPercent,
 )
+
+fun AssetPurchaseDto.toDomain(): AssetPurchase? {
+    val date = parseTimestampOrNull(purchaseDate)?.toLocalDate() ?: return null
+    return AssetPurchase(
+        id = id,
+        assetId = assetId,
+        quantity = quantity,
+        purchasePrice = purchasePrice,
+        purchaseDate = date,
+        profit = profit,
+        profitPercent = profitPercent,
+        hasReceipt = hasReceipt,
+    )
+}
 
 fun ManualItemResponseDto.toDomain() = ManualItem(
     id = id,

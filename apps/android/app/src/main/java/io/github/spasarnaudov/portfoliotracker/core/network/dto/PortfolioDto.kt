@@ -15,7 +15,6 @@ data class PortfolioUpdateRequestDto(
 @Serializable
 data class HoldingUpdateDto(
     val assetId: Long,
-    @Serializable(with = BigDecimalSerializer::class) val quantity: BigDecimal,
     val includeInChart: Boolean,
 )
 
@@ -54,6 +53,39 @@ data class HoldingResponseDto(
     @Serializable(with = BigDecimalSerializer::class) val price: BigDecimal? = null,
     @SerialName("current_value")
     @Serializable(with = BigDecimalSerializer::class) val value: BigDecimal? = null,
+    @Serializable(with = BigDecimalSerializer::class) val costBasis: BigDecimal? = null,
+    @Serializable(with = BigDecimalSerializer::class) val profit: BigDecimal? = null,
+    @Serializable(with = BigDecimalSerializer::class) val profitPercent: BigDecimal? = null,
+)
+
+/** Request body for creating or editing a single purchase lot behind a holding. */
+@Serializable
+data class AssetPurchaseRequestDto(
+    @Serializable(with = BigDecimalSerializer::class) val quantity: BigDecimal,
+    @Serializable(with = BigDecimalSerializer::class) val purchasePrice: BigDecimal,
+    val purchaseDate: String,
+)
+
+@Serializable
+data class AssetPurchaseDto(
+    val id: Long,
+    val assetId: Long,
+    @Serializable(with = BigDecimalSerializer::class) val quantity: BigDecimal,
+    @Serializable(with = BigDecimalSerializer::class) val purchasePrice: BigDecimal,
+    val purchaseDate: String,
+    @Serializable(with = BigDecimalSerializer::class) val profit: BigDecimal? = null,
+    @Serializable(with = BigDecimalSerializer::class) val profitPercent: BigDecimal? = null,
+    val hasReceipt: Boolean = false,
+)
+
+@Serializable
+data class AssetPurchasesResponseDto(
+    val purchases: List<AssetPurchaseDto> = emptyList(),
+)
+
+@Serializable
+data class AssetPurchaseResponseDto(
+    val purchase: AssetPurchaseDto,
 )
 
 @Serializable

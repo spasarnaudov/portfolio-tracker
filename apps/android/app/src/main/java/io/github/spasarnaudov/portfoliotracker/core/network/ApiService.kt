@@ -1,5 +1,8 @@
 package io.github.spasarnaudov.portfoliotracker.core.network
 
+import io.github.spasarnaudov.portfoliotracker.core.network.dto.AssetPurchaseRequestDto
+import io.github.spasarnaudov.portfoliotracker.core.network.dto.AssetPurchaseResponseDto
+import io.github.spasarnaudov.portfoliotracker.core.network.dto.AssetPurchasesResponseDto
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.AssetsResponseDto
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.ChartConfigurationDto
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.HealthResponseDto
@@ -17,12 +20,15 @@ import io.github.spasarnaudov.portfoliotracker.core.network.dto.SessionResponseD
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.AdminUserDto
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.LogFileDto
 import kotlinx.serialization.json.JsonElement
+import okhttp3.MultipartBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 import io.github.spasarnaudov.portfoliotracker.core.network.dto.ChangePasswordRequestDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.DELETE
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 import retrofit2.http.PUT
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -70,6 +76,34 @@ interface ApiService {
 
     @PUT("portfolio")
     suspend fun updatePortfolio(@Body request: PortfolioUpdateRequestDto): Response<PortfolioResponseDto>
+
+    @GET("portfolio/holdings/{assetId}/purchases")
+    suspend fun getAssetPurchases(@Path("assetId") assetId: Long): Response<AssetPurchasesResponseDto>
+
+    @POST("portfolio/holdings/{assetId}/purchases")
+    suspend fun createAssetPurchase(
+        @Path("assetId") assetId: Long,
+        @Body request: AssetPurchaseRequestDto,
+    ): Response<AssetPurchaseResponseDto>
+
+    @PUT("portfolio/purchases/{purchaseId}")
+    suspend fun updateAssetPurchase(
+        @Path("purchaseId") purchaseId: Long,
+        @Body request: AssetPurchaseRequestDto,
+    ): Response<AssetPurchaseResponseDto>
+
+    @DELETE("portfolio/purchases/{purchaseId}")
+    suspend fun deleteAssetPurchase(@Path("purchaseId") purchaseId: Long): Response<Unit>
+
+    @Multipart
+    @POST("portfolio/purchases/{purchaseId}/receipt")
+    suspend fun uploadPurchaseReceipt(
+        @Path("purchaseId") purchaseId: Long,
+        @Part receipt: MultipartBody.Part,
+    ): Response<Unit>
+
+    @DELETE("portfolio/purchases/{purchaseId}/receipt")
+    suspend fun deletePurchaseReceipt(@Path("purchaseId") purchaseId: Long): Response<Unit>
 
     /** ASSUMED response shape (bare array of points). */
     @GET("portfolio/history")

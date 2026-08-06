@@ -1,18 +1,13 @@
 package io.github.spasarnaudov.portfoliotracker.core.data
 
-import io.github.spasarnaudov.portfoliotracker.core.model.Holding
 import io.github.spasarnaudov.portfoliotracker.core.model.ManualItem
+import java.math.BigDecimal
+import java.time.LocalDate
 
 /** Pure, unit-testable validation applied before a `PUT /portfolio` request is built. */
 object PortfolioValidator {
-    fun validate(holdings: List<Holding>, manualItems: List<ManualItem>): List<String> {
+    fun validate(manualItems: List<ManualItem>): List<String> {
         val errors = mutableListOf<String>()
-
-        for (holding in holdings) {
-            if (holding.quantity.signum() < 0) {
-                errors += "Quantity for ${holding.assetSymbol.ifBlank { "asset #${holding.assetId}" }} cannot be negative."
-            }
-        }
 
         for (item in manualItems) {
             if (item.markedForDeletion) continue
@@ -26,6 +21,29 @@ object PortfolioValidator {
             if (unitPrice != null && unitPrice.signum() < 0) {
                 errors += "Unit price for \"${item.name}\" cannot be negative."
             }
+        }
+
+        return errors
+    }
+}
+
+/** Pure, unit-testable validation applied before adding or editing a purchase lot. */
+object PurchaseValidator {
+    fun validate(quantity: BigDecimal?, purchasePrice: BigDecimal?, purchaseDate: LocalDate?): List<String> {
+        val errors = mutableListOf<String>()
+
+        if (quantity == null || quantity.signum() <= 0) {
+            errors += "Quantity must be greater than zero."
+        } else if (quantity.stripTrailingZeros().scale() > 0) {
+            errors += "Quantity must be a whole number."
+        }
+        if (purchasePrice == null || purchasePrice.signum() < 0) {
+            errors += "Price paid must be zero or greater."
+        }
+        if (purchaseDate == null) {
+            errors += "Purchase date is required."
+        } else if (purchaseDate.isAfter(LocalDate.now())) {
+            errors += "Purchase date cannot be in the future."
         }
 
         return errors

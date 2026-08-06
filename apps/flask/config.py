@@ -90,3 +90,6 @@ PORT = get_int_env("PORT", 5000)
 SESSION_TIMEOUT_MINUTES = max(1, get_int_env("SESSION_TIMEOUT_MINUTES", 5))
 SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME") or get_default_session_cookie_name()
 ROLE_MANAGER_USERNAME = os.getenv("ROLE_MANAGER_USERNAME", "admin").lower()
+
+UPLOADS_DIR = PROJECT_ROOT / "uploads" / "receipts"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)

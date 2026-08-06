@@ -51,6 +51,31 @@
     <string name="screen_asset_detail_end_date_placeholder">End date</string>
     <string name="screen_asset_detail_start_date_placeholder">Start date</string>
 
+    <!-- Asset Purchases Screen -->
+
+    <string name="screen_asset_purchases_add_description">Add purchase</string>
+    <string name="screen_asset_purchases_add_receipt_description">Add receipt photo</string>
+    <string name="screen_asset_purchases_add_receipt_title">Add a receipt photo</string>
+    <string name="screen_asset_purchases_choose_from_gallery">Choose from gallery</string>
+    <string name="screen_asset_purchases_cost_value">Cost: %1$s</string>
+    <string name="screen_asset_purchases_date_label">Date</string>
+    <string name="screen_asset_purchases_delete_confirm_message">Remove this purchase lot? This cannot be undone.</string>
+    <string name="screen_asset_purchases_delete_confirm_title">Remove purchase?</string>
+    <string name="screen_asset_purchases_delete_description">Delete purchase</string>
+    <string name="screen_asset_purchases_delete_receipt_confirm_message">Remove this receipt photo? This cannot be undone.</string>
+    <string name="screen_asset_purchases_delete_receipt_confirm_title">Remove receipt?</string>
+    <string name="screen_asset_purchases_delete_receipt_description">Delete receipt photo</string>
+    <string name="screen_asset_purchases_dialog_title_add">Add purchase</string>
+    <string name="screen_asset_purchases_dialog_title_edit">Edit purchase</string>
+    <string name="screen_asset_purchases_receipt_description">Receipt photo</string>
+    <string name="screen_asset_purchases_take_photo">Take photo</string>
+    <string name="screen_asset_purchases_edit_description">Edit purchase</string>
+    <string name="screen_asset_purchases_empty_message">No purchases recorded yet for this asset.</string>
+    <string name="screen_asset_purchases_price_label">Price paid</string>
+    <string name="screen_asset_purchases_quantity_label">Quantity</string>
+    <string name="screen_asset_purchases_row_summary">%1$s @ %2$s</string>
+    <string name="screen_asset_purchases_select_date_button">Pick date</string>
+
     <!-- Assets Screen -->
 
     <string name="screen_assets_empty_message">No assets available yet.</string>
@@ -132,12 +157,14 @@
     <string name="screen_portfolio_edit_item_description">Edit %1$s</string>
     <string name="screen_portfolio_empty_message">Your portfolio is empty. Add a manual item or link an asset to get started.</string>
     <string name="screen_portfolio_history_empty_message">Select portfolio items to see their history.</string>
+    <string name="screen_portfolio_holding_quantity">Qty %1$s</string>
     <string name="screen_portfolio_holding_value">Value: %1$s</string>
     <string name="screen_portfolio_holdings_header">Holdings</string>
     <string name="screen_portfolio_manual_item_summary">Qty %1$s · Value: %2$s</string>
     <string name="screen_portfolio_manual_items_header">Manual items</string>
-    <string name="screen_portfolio_quantity_label">Qty</string>
-    <string name="screen_portfolio_remove_holding_description">Remove %1$s</string>
+    <string name="screen_portfolio_profit_value">Profit: %1$s (%2$s%%)</string>
+    <string name="screen_portfolio_profit_value_no_percent">Profit: %1$s</string>
+    <string name="screen_portfolio_purchases_description">Purchases for %1$s</string>
     <string name="screen_portfolio_show_empty_label">Show empty</string>
     <string name="screen_portfolio_title">Portfolio</string>
     <string name="screen_portfolio_total_value">Total value: %1$s</string>

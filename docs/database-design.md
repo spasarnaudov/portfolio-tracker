@@ -42,20 +42,54 @@ Notes:
 
 ### portfolio_holdings
 
-Stores quantities of owned tracked assets, currently used for Tavex products.
+Marks that a user owns a tracked asset (currently Tavex products) and whether
+it contributes to the portfolio chart. The owned quantity itself is not
+stored here — see `portfolio_asset_purchases`.
 
 Columns:
 - user_id: reference to users and part of the primary key
 - asset_id: reference to assets and part of the primary key
-- quantity: owned quantity
 - include_in_chart: controls whether the holding contributes to the portfolio chart
 
 Notes:
-- If quantity is zero or lower, the holding is deleted by the application.
-- Latest asset prices are used for the current value.
-- Historical portfolio value uses average asset prices for the selected chart interval before multiplying by quantity.
+- A row only exists for a user/asset pair that has at least one purchase lot
+  in `portfolio_asset_purchases`. The application deletes the row when its
+  last lot is deleted.
+- Latest asset prices are used for the current value; quantity is the sum of
+  that user's purchase lots for the asset.
+- Historical portfolio value uses average asset prices for the selected chart
+  interval, multiplied by the quantity actually owned as of each historical
+  point (the sum of lots purchased on or before that date).
 - Only holdings selected with `include_in_chart` contribute to the portfolio chart.
 - Holdings are scoped per user, so the same asset can have different quantities for different users.
+
+### portfolio_asset_purchases
+
+Stores individual purchase lots behind a `portfolio_holdings` row — how much
+was bought, at what price, and on what date. This is what makes profit
+calculations possible; there is currently no equivalent record for sells.
+
+Columns:
+- id: unique purchase lot ID
+- user_id: reference to users
+- asset_id: reference to assets
+- quantity: quantity bought in this lot (must be greater than zero)
+- purchase_price: price paid per unit (must be zero or greater)
+- purchase_date: when the lot was purchased
+- receipt_filename: filename of an attached receipt photo (in `uploads/receipts/`
+  on disk, not in the database), or null if none was uploaded
+
+Notes:
+- A holding's total quantity and cost basis are the sum of its lots'
+  quantities and `quantity * purchase_price` respectively; profit is current
+  value minus cost basis.
+- `receipt_filename` is server-generated, never the client's original
+  filename. The file itself is served only through an authenticated,
+  ownership-checked route — see
+  [database-operations.md → Uploaded Receipt Photos](database-operations.md#uploaded-receipt-photos).
+- Deleting a user or asset cascades to their purchase lots.
+- Deleting a lot that was the last one for a user/asset pair also deletes the
+  corresponding `portfolio_holdings` row.
 
 ### portfolio_manual_items
 

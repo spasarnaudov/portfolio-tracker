@@ -1,6 +1,7 @@
 package io.github.spasarnaudov.portfoliotracker.core.model
 
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 data class Holding(
@@ -11,10 +12,22 @@ data class Holding(
     val includeInChart: Boolean,
     val price: BigDecimal?,
     val value: BigDecimal?,
-) {
-    /** A quantity of zero marks this holding for removal when the portfolio is saved. */
-    val isMarkedForRemoval: Boolean get() = quantity.signum() == 0
-}
+    val costBasis: BigDecimal? = null,
+    val profit: BigDecimal? = null,
+    val profitPercent: BigDecimal? = null,
+)
+
+/** A single purchase lot behind a [Holding] — how much was bought, at what price, and when. */
+data class AssetPurchase(
+    val id: Long,
+    val assetId: Long,
+    val quantity: BigDecimal,
+    val purchasePrice: BigDecimal,
+    val purchaseDate: LocalDate,
+    val profit: BigDecimal? = null,
+    val profitPercent: BigDecimal? = null,
+    val hasReceipt: Boolean = false,
+)
 
 data class ManualItem(
     val id: Long?,

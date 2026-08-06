@@ -263,21 +263,49 @@ def get_portfolio_holdings(user_id):
                     assets.id AS asset_id,
                     assets.symbol,
                     assets.name,
-                    COALESCE(portfolio_holdings.quantity, 0) AS quantity,
+                    COALESCE(purchase_totals.quantity, 0) AS quantity,
+                    COALESCE(purchase_totals.cost_basis, 0) AS cost_basis,
                     COALESCE(portfolio_holdings.include_in_chart, FALSE) AS include_in_chart,
                     latest_prices.price_date,
                     latest_prices.price,
                     ROUND(
-                        COALESCE(portfolio_holdings.quantity, 0)
+                        COALESCE(purchase_totals.quantity, 0)
                         * COALESCE(latest_prices.price, 0),
                         2
-                    ) AS current_value
+                    ) AS current_value,
+                    ROUND(
+                        COALESCE(purchase_totals.quantity, 0)
+                        * COALESCE(latest_prices.price, 0)
+                        - COALESCE(purchase_totals.cost_basis, 0),
+                        2
+                    ) AS profit,
+                    CASE
+                        WHEN COALESCE(purchase_totals.cost_basis, 0) > 0 THEN
+                            ROUND(
+                                (
+                                    COALESCE(purchase_totals.quantity, 0) * COALESCE(latest_prices.price, 0)
+                                    - purchase_totals.cost_basis
+                                ) / purchase_totals.cost_basis * 100,
+                                2
+                            )
+                        ELSE NULL
+                    END AS profit_percent
                 FROM assets
                 JOIN asset_categories
                     ON asset_categories.id = assets.category_id
                 LEFT JOIN portfolio_holdings
                     ON portfolio_holdings.asset_id = assets.id
                     AND portfolio_holdings.user_id = %s
+                LEFT JOIN (
+                    SELECT
+                        asset_id,
+                        SUM(quantity) AS quantity,
+                        SUM(quantity * purchase_price) AS cost_basis
+                    FROM portfolio_asset_purchases
+                    WHERE user_id = %s
+                    GROUP BY asset_id
+                ) AS purchase_totals
+                    ON purchase_totals.asset_id = assets.id
                 LEFT JOIN LATERAL (
                     SELECT price_date, price
                     FROM asset_prices
@@ -288,34 +316,183 @@ def get_portfolio_holdings(user_id):
                 WHERE assets.symbol LIKE 'TAVEX-%%'
                     AND asset_categories.name != 'Gold buyback'
                 ORDER BY assets.symbol, assets.name;
-            """, (user_id,))
+            """, (user_id, user_id))
             return cur.fetchall()
 
 
-def save_portfolio_holdings(user_id, quantities_by_asset_id, chart_asset_ids):
+def save_holdings_chart_flags(user_id, chart_asset_ids):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            for asset_id, quantity in quantities_by_asset_id.items():
-                include_in_chart = asset_id in chart_asset_ids
-
-                if quantity <= 0:
-                    cur.execute("""
-                        DELETE FROM portfolio_holdings
-                        WHERE user_id = %s
-                            AND asset_id = %s;
-                    """, (user_id, asset_id))
-                    continue
-
-                cur.execute("""
-                    INSERT INTO portfolio_holdings (user_id, asset_id, quantity, include_in_chart)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (user_id, asset_id)
-                    DO UPDATE SET
-                        quantity = EXCLUDED.quantity,
-                        include_in_chart = EXCLUDED.include_in_chart;
-                """, (user_id, asset_id, quantity, include_in_chart))
+            cur.execute("""
+                UPDATE portfolio_holdings
+                SET include_in_chart = (asset_id = ANY(%s))
+                WHERE user_id = %s;
+            """, (list(chart_asset_ids), user_id))
 
         conn.commit()
+
+
+def get_asset_purchases(user_id, asset_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT
+                    portfolio_asset_purchases.id,
+                    portfolio_asset_purchases.asset_id,
+                    portfolio_asset_purchases.quantity,
+                    portfolio_asset_purchases.purchase_price,
+                    portfolio_asset_purchases.purchase_date,
+                    portfolio_asset_purchases.receipt_filename IS NOT NULL AS has_receipt,
+                    latest_prices.price AS current_price,
+                    ROUND(
+                        portfolio_asset_purchases.quantity
+                        * (
+                            COALESCE(latest_prices.price, portfolio_asset_purchases.purchase_price)
+                            - portfolio_asset_purchases.purchase_price
+                        ),
+                        2
+                    ) AS profit,
+                    CASE
+                        WHEN portfolio_asset_purchases.purchase_price > 0 THEN
+                            ROUND(
+                                (
+                                    COALESCE(latest_prices.price, portfolio_asset_purchases.purchase_price)
+                                    - portfolio_asset_purchases.purchase_price
+                                ) / portfolio_asset_purchases.purchase_price * 100,
+                                2
+                            )
+                        ELSE NULL
+                    END AS profit_percent
+                FROM portfolio_asset_purchases
+                LEFT JOIN LATERAL (
+                    SELECT price
+                    FROM asset_prices
+                    WHERE asset_prices.asset_id = portfolio_asset_purchases.asset_id
+                    ORDER BY price_date DESC
+                    LIMIT 1
+                ) AS latest_prices ON TRUE
+                WHERE portfolio_asset_purchases.user_id = %s
+                    AND portfolio_asset_purchases.asset_id = %s
+                ORDER BY portfolio_asset_purchases.purchase_date DESC, portfolio_asset_purchases.id DESC;
+            """, (user_id, asset_id))
+            return cur.fetchall()
+
+
+def get_asset_purchase(user_id, purchase_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                SELECT id, asset_id, receipt_filename
+                FROM portfolio_asset_purchases
+                WHERE id = %s
+                    AND user_id = %s;
+            """, (purchase_id, user_id))
+            return cur.fetchone()
+
+
+def set_asset_purchase_receipt(user_id, purchase_id, filename):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                UPDATE portfolio_asset_purchases
+                SET receipt_filename = %s
+                WHERE id = %s
+                    AND user_id = %s
+                RETURNING id;
+            """, (filename, purchase_id, user_id))
+            updated = cur.fetchone()
+
+        conn.commit()
+
+    return updated is not None
+
+
+def clear_asset_purchase_receipt(user_id, purchase_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                UPDATE portfolio_asset_purchases
+                SET receipt_filename = NULL
+                WHERE id = %s
+                    AND user_id = %s
+                RETURNING id;
+            """, (purchase_id, user_id))
+            updated = cur.fetchone()
+
+        conn.commit()
+
+    return updated is not None
+
+
+def add_asset_purchase(user_id, asset_id, quantity, purchase_price, purchase_date):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                INSERT INTO portfolio_asset_purchases (
+                    user_id, asset_id, quantity, purchase_price, purchase_date
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, asset_id, quantity, purchase_price, purchase_date;
+            """, (user_id, asset_id, quantity, purchase_price, purchase_date))
+            purchase = cur.fetchone()
+
+            cur.execute("""
+                INSERT INTO portfolio_holdings (user_id, asset_id, include_in_chart)
+                VALUES (%s, %s, TRUE)
+                ON CONFLICT (user_id, asset_id) DO NOTHING;
+            """, (user_id, asset_id))
+
+        conn.commit()
+
+    return purchase
+
+
+def update_asset_purchase(user_id, purchase_id, quantity, purchase_price, purchase_date):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                UPDATE portfolio_asset_purchases
+                SET quantity = %s,
+                    purchase_price = %s,
+                    purchase_date = %s
+                WHERE id = %s
+                    AND user_id = %s
+                RETURNING id, asset_id, quantity, purchase_price, purchase_date;
+            """, (quantity, purchase_price, purchase_date, purchase_id, user_id))
+            purchase = cur.fetchone()
+
+        conn.commit()
+
+    return purchase
+
+
+def delete_asset_purchase(user_id, purchase_id):
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("""
+                DELETE FROM portfolio_asset_purchases
+                WHERE id = %s
+                    AND user_id = %s
+                RETURNING asset_id, receipt_filename;
+            """, (purchase_id, user_id))
+            deleted = cur.fetchone()
+
+            if deleted:
+                cur.execute("""
+                    DELETE FROM portfolio_holdings
+                    WHERE user_id = %s
+                        AND asset_id = %s
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM portfolio_asset_purchases
+                            WHERE portfolio_asset_purchases.user_id = %s
+                                AND portfolio_asset_purchases.asset_id = %s
+                        );
+                """, (user_id, deleted["asset_id"], user_id, deleted["asset_id"]))
+
+        conn.commit()
+
+    return deleted
 
 
 def get_portfolio_manual_items(user_id):
@@ -445,26 +622,39 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                 group_expression = "DATE_TRUNC('hour', price_date)"
 
             cur.execute("""
-                WITH asset_period_prices AS (
+                WITH asset_period_avg_prices AS (
                     SELECT
                         {group_expression} AS price_date,
                         asset_prices.asset_id,
-                        portfolio_holdings.quantity,
                         AVG(asset_prices.price) AS price
                     FROM portfolio_holdings
                     JOIN asset_prices
                         ON asset_prices.asset_id = portfolio_holdings.asset_id
-                    WHERE portfolio_holdings.quantity > 0
-                        AND portfolio_holdings.user_id = %s
+                    WHERE portfolio_holdings.user_id = %s
                         AND portfolio_holdings.include_in_chart = TRUE
                         AND (%s::timestamp IS NULL OR asset_prices.price_date <= %s::timestamp)
-                    GROUP BY {group_expression}, asset_prices.asset_id, portfolio_holdings.quantity
+                    GROUP BY {group_expression}, asset_prices.asset_id
+                ),
+                asset_period_prices AS (
+                    SELECT
+                        asset_period_avg_prices.price_date,
+                        asset_period_avg_prices.asset_id,
+                        asset_period_avg_prices.price,
+                        (
+                            SELECT COALESCE(SUM(purchases.quantity), 0)
+                            FROM portfolio_asset_purchases AS purchases
+                            WHERE purchases.user_id = %s
+                                AND purchases.asset_id = asset_period_avg_prices.asset_id
+                                AND purchases.purchase_date <= asset_period_avg_prices.price_date
+                        ) AS quantity
+                    FROM asset_period_avg_prices
                 ),
                 tavex_history AS (
                     SELECT
                         price_date,
                         SUM(quantity * price) AS value
                     FROM asset_period_prices
+                    WHERE quantity > 0
                     GROUP BY price_date
                 ),
                 manual_period_prices AS (
@@ -556,6 +746,7 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                 user_id,
                 end_date,
                 end_date,
+                user_id,
                 user_id,
                 end_date,
                 end_date,

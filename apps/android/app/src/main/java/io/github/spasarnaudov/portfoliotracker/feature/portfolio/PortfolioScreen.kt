@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -29,7 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,8 +46,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.spasarnaudov.portfoliotracker.R
@@ -69,7 +69,13 @@ import java.math.BigDecimal
 private object PortfolioScreenDimens {
 
     val BottomSpacerHeight = 80.dp
-    val QuantityFieldWidth = 110.dp
+}
+
+/** Shared with [AssetPurchasesScreen] for consistent profit/loss coloring. */
+object PortfolioScreenColors {
+
+    val Positive = Color(0xFF157A3D)
+    val Negative = Color(0xFFB3261E)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,6 +83,7 @@ private object PortfolioScreenDimens {
 fun PortfolioScreen(
     onAddManualItem: () -> Unit,
     onEditManualItem: (String) -> Unit,
+    onOpenPurchases: (Long, String, String) -> Unit,
     viewModel: PortfolioViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -154,16 +161,15 @@ fun PortfolioScreen(
                             val visibleHoldings = if (showEmptyHoldings) {
                                 state.holdings
                             } else {
-                                state.holdings.filter { it.originalQuantity > BigDecimal.ZERO }
+                                state.holdings.filter { it.quantity > BigDecimal.ZERO }
                             }
                             if (visibleHoldings.isNotEmpty()) {
                                 item { Text(stringResource(R.string.screen_portfolio_holdings_header), style = MaterialTheme.typography.titleMedium) }
                                 items(visibleHoldings, key = { it.assetId }) { holding ->
                                     HoldingRow(
                                         holding = holding,
-                                        onQuantityChange = { viewModel.updateHoldingQuantityText(holding.assetId, it) },
                                         onToggleChart = { viewModel.toggleHoldingIncludeInChart(holding.assetId) },
-                                        onRemove = { viewModel.removeHolding(holding.assetId) },
+                                        onOpenPurchases = { onOpenPurchases(holding.assetId, holding.assetSymbol, holding.assetName) },
                                     )
                                     HorizontalDivider()
                                 }
@@ -310,36 +316,34 @@ private fun <T> FilterDropdown(
 @Composable
 private fun HoldingRow(
     holding: HoldingRowState,
-    onQuantityChange: (String) -> Unit,
     onToggleChart: () -> Unit,
-    onRemove: () -> Unit,
+    onOpenPurchases: () -> Unit,
 ) {
-    val isRemoved = holding.quantityText.trim() == "0"
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = AppSpacing.Small), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
+            Text(text = "${holding.assetSymbol} · ${holding.assetName}", style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = "${holding.assetSymbol} · ${holding.assetName}",
-                style = MaterialTheme.typography.bodyLarge,
-                textDecoration = if (isRemoved) TextDecoration.LineThrough else TextDecoration.None,
-            )
-            Text(
-                text = stringResource(R.string.screen_portfolio_holding_value, holding.value.formatMoneyOrDash()),
+                text = stringResource(R.string.screen_portfolio_holding_quantity, holding.quantity.stripTrailingZeros().toPlainString()) +
+                    " · " + stringResource(R.string.screen_portfolio_holding_value, holding.value.formatMoneyOrDash()),
                 style = MaterialTheme.typography.bodySmall,
             )
+            if (holding.quantity > BigDecimal.ZERO && holding.profit != null) {
+                val profitColor = if (holding.profit.signum() >= 0) PortfolioScreenColors.Positive else PortfolioScreenColors.Negative
+                Text(
+                    text = holding.profitPercent?.let {
+                        stringResource(R.string.screen_portfolio_profit_value, holding.profit.formatMoneyOrDash(), it.stripTrailingZeros().toPlainString())
+                    } ?: stringResource(R.string.screen_portfolio_profit_value_no_percent, holding.profit.formatMoneyOrDash()),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = profitColor,
+                )
+            }
         }
-        OutlinedTextField(
-            value = holding.quantityText,
-            onValueChange = onQuantityChange,
-            label = { Text(stringResource(R.string.screen_portfolio_quantity_label)) },
-            singleLine = true,
-            modifier = Modifier.width(PortfolioScreenDimens.QuantityFieldWidth),
-        )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Checkbox(checked = holding.includeInChart, onCheckedChange = { onToggleChart() })
             Text(stringResource(R.string.screen_portfolio_chart_toggle_label), style = MaterialTheme.typography.labelSmall)
         }
-        IconButton(onClick = onRemove) {
-            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.screen_portfolio_remove_holding_description, holding.assetSymbol))
+        IconButton(onClick = onOpenPurchases) {
+            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = stringResource(R.string.screen_portfolio_purchases_description, holding.assetSymbol))
         }
     }
 }

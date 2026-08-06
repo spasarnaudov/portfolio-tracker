@@ -4,17 +4,23 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import wraps
 
-from flask import Blueprint, Response, current_app, g, jsonify, request
+from flask import Blueprint, Response, current_app, g, jsonify, request, send_from_directory
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from chart_settings import load_chart_filters, save_chart_filters
-from config import PROJECT_ROOT, ROLE_MANAGER_USERNAME, SESSION_TIMEOUT_MINUTES
+from config import PROJECT_ROOT, ROLE_MANAGER_USERNAME, SESSION_TIMEOUT_MINUTES, UPLOADS_DIR
 from log_reader import get_log_files
+from receipts import delete_receipt_file, save_receipt_file, validate_receipt_upload
 from repository import (
+    add_asset_purchase,
+    clear_asset_purchase_receipt,
     clear_user_session,
     create_user,
     deactivate_user_account,
+    delete_asset_purchase,
     get_asset_prices,
+    get_asset_purchase,
+    get_asset_purchases,
     get_chart_assets,
     get_gold_buyback_assets,
     get_latest_price_date,
@@ -26,8 +32,10 @@ from repository import (
     get_users,
     get_user_login_history,
     record_user_login,
-    save_portfolio_holdings,
+    save_holdings_chart_flags,
     save_portfolio_manual_items,
+    set_asset_purchase_receipt,
+    update_asset_purchase,
     update_user_password,
     update_user_session,
 )
@@ -286,21 +294,19 @@ def update_portfolio():
     manual_items = body.get("manual_items", [])
     if not isinstance(holdings, list) or not isinstance(manual_items, list):
         return _error("invalid_portfolio", "holdings and manual_items must be arrays.", 422)
-    valid_holding_ids = {item["asset_id"] for item in get_portfolio_holdings(g.api_user["id"])}
+    holdings_by_id = {item["asset_id"]: item for item in get_portfolio_holdings(g.api_user["id"])}
     valid_price_ids = {item["id"] for item in get_gold_buyback_assets()}
-    quantities, chart_ids, normalized, errors = {}, set(), [], []
+    chart_ids, normalized, errors = set(), [], []
     for index, holding in enumerate(holdings):
         try:
             asset_id = int(holding["asset_id"])
-            quantity = float(holding.get("quantity", 0))
         except (KeyError, TypeError, ValueError):
             errors.append(f"holdings[{index}] is invalid.")
             continue
-        if asset_id not in valid_holding_ids or not math.isfinite(quantity) or quantity < 0:
-            errors.append(f"holdings[{index}] has an invalid asset or quantity.")
+        if asset_id not in holdings_by_id:
+            errors.append(f"holdings[{index}] has an invalid asset.")
             continue
-        quantities[asset_id] = quantity
-        if quantity > 0 and holding.get("include_in_chart") is True:
+        if holdings_by_id[asset_id]["quantity"] > 0 and holding.get("include_in_chart") is True:
             chart_ids.add(asset_id)
     for index, item in enumerate(manual_items):
         try:
@@ -326,9 +332,114 @@ def update_portfolio():
         })
     if errors:
         return _error("validation_failed", "The portfolio payload is invalid.", 422, errors)
-    save_portfolio_holdings(g.api_user["id"], quantities, chart_ids)
+    save_holdings_chart_flags(g.api_user["id"], chart_ids)
     save_portfolio_manual_items(g.api_user["id"], normalized)
     return portfolio()
+
+
+def _asset_purchase_fields(body):
+    try:
+        quantity = float(body.get("quantity"))
+        purchase_price = float(body.get("purchase_price"))
+    except (TypeError, ValueError):
+        return None, None, None, "quantity and purchase_price must be numbers."
+    if not math.isfinite(quantity) or quantity <= 0:
+        return None, None, None, "quantity must be greater than zero."
+    if not quantity.is_integer():
+        return None, None, None, "quantity must be a whole number."
+    if not math.isfinite(purchase_price) or purchase_price < 0:
+        return None, None, None, "purchase_price must be zero or greater."
+    purchase_date, date_error = _iso_date(body.get("purchase_date"), "purchase_date")
+    if date_error:
+        return None, None, None, date_error
+    if not purchase_date:
+        return None, None, None, "purchase_date is required."
+    if date.fromisoformat(purchase_date) > date.today():
+        return None, None, None, "purchase_date cannot be in the future."
+    return quantity, purchase_price, purchase_date, None
+
+
+@api.get("/portfolio/holdings/<int:asset_id>/purchases")
+@require_api_auth
+def asset_purchases(asset_id):
+    if asset_id not in {asset["id"] for asset in get_chart_assets()}:
+        return _error("asset_not_found", "Asset not found.", 404)
+    return _response({"purchases": get_asset_purchases(g.api_user["id"], asset_id)})
+
+
+@api.post("/portfolio/holdings/<int:asset_id>/purchases")
+@require_api_auth
+def create_asset_purchase(asset_id):
+    if asset_id not in {asset["id"] for asset in get_chart_assets()}:
+        return _error("asset_not_found", "Asset not found.", 404)
+    body = _json_body()
+    if body is None:
+        return _error("invalid_json", "A JSON object is required.", 400)
+    quantity, purchase_price, purchase_date, error = _asset_purchase_fields(body)
+    if error:
+        return _error("validation_failed", error, 422)
+    purchase = add_asset_purchase(g.api_user["id"], asset_id, quantity, purchase_price, purchase_date)
+    return _response({"purchase": purchase}, 201)
+
+
+@api.put("/portfolio/purchases/<int:purchase_id>")
+@require_api_auth
+def edit_asset_purchase(purchase_id):
+    body = _json_body()
+    if body is None:
+        return _error("invalid_json", "A JSON object is required.", 400)
+    quantity, purchase_price, purchase_date, error = _asset_purchase_fields(body)
+    if error:
+        return _error("validation_failed", error, 422)
+    purchase = update_asset_purchase(g.api_user["id"], purchase_id, quantity, purchase_price, purchase_date)
+    if purchase is None:
+        return _error("purchase_not_found", "Purchase not found.", 404)
+    return _response({"purchase": purchase})
+
+
+@api.delete("/portfolio/purchases/<int:purchase_id>")
+@require_api_auth
+def remove_asset_purchase(purchase_id):
+    deleted = delete_asset_purchase(g.api_user["id"], purchase_id)
+    if deleted is None:
+        return _error("purchase_not_found", "Purchase not found.", 404)
+    delete_receipt_file(deleted["receipt_filename"])
+    return "", 204
+
+
+@api.post("/portfolio/purchases/<int:purchase_id>/receipt")
+@require_api_auth
+def upload_purchase_receipt(purchase_id):
+    purchase = get_asset_purchase(g.api_user["id"], purchase_id)
+    if purchase is None:
+        return _error("purchase_not_found", "Purchase not found.", 404)
+    extension, error = validate_receipt_upload(request.files.get("receipt"), request.content_length)
+    if error:
+        return _error("validation_failed", error, 422)
+    filename = save_receipt_file(purchase_id, request.files["receipt"], extension)
+    set_asset_purchase_receipt(g.api_user["id"], purchase_id, filename)
+    delete_receipt_file(purchase["receipt_filename"])
+    return _response({"has_receipt": True}, 201)
+
+
+@api.get("/portfolio/purchases/<int:purchase_id>/receipt")
+@require_api_auth
+def get_purchase_receipt(purchase_id):
+    purchase = get_asset_purchase(g.api_user["id"], purchase_id)
+    if purchase is None or not purchase["receipt_filename"]:
+        return _error("receipt_not_found", "Receipt not found.", 404)
+    return send_from_directory(UPLOADS_DIR, purchase["receipt_filename"])
+
+
+@api.delete("/portfolio/purchases/<int:purchase_id>/receipt")
+@require_api_auth
+def remove_purchase_receipt(purchase_id):
+    purchase = get_asset_purchase(g.api_user["id"], purchase_id)
+    if purchase is None or not purchase["receipt_filename"]:
+        return _error("receipt_not_found", "Receipt not found.", 404)
+    clear_asset_purchase_receipt(g.api_user["id"], purchase_id)
+    delete_receipt_file(purchase["receipt_filename"])
+    return "", 204
 
 
 @api.get("/portfolio/history")

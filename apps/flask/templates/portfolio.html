@@ -53,7 +53,7 @@
 
     <form method="post" action="/portfolio">
         <div class="table-scroll">
-            <table border="1" cellpadding="8">
+            <table border="1" cellpadding="8" class="sortable-table">
                 <thead>
                     <tr>
                         <th>
@@ -63,10 +63,12 @@
                                 aria-label="Include all Tavex items in portfolio chart"
                             >
                         </th>
-                        <th>Name</th>
-                        <th>Quantity</th>
-                        <th>Latest price</th>
-                        <th>Current value</th>
+                        <th class="sortable-column">Name</th>
+                        <th class="sortable-column">Quantity</th>
+                        <th class="sortable-column">Latest price</th>
+                        <th class="sortable-column">Current value</th>
+                        <th class="sortable-column">Profit</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -83,25 +85,28 @@
                                     {% if holding.quantity <= 0 %}disabled{% endif %}
                                 >
                             </td>
-                            <td>{{ holding.name }}</td>
-                            <td>
-                                <input
-                                    class="quantity-input"
-                                    type="number"
-                                    step="1"
-                                    min="0"
-                                    name="quantity_{{ holding.asset_id }}"
-                                    value="{{ "%.0f"|format(holding.quantity|float) }}"
-                                >
-                            </td>
-                            <td>
+                            <td data-sort-value="{{ holding.name|lower }}">{{ holding.name }}</td>
+                            <td data-sort-value="{{ holding.quantity }}">{{ "%.0f"|format(holding.quantity|float) }}</td>
+                            <td data-sort-value="{{ holding.price if holding.price else '' }}">
                                 {% if holding.price %}
                                     {{ "%.2f"|format(holding.price|float) }}
                                 {% else %}
                                     -
                                 {% endif %}
                             </td>
-                            <td>{{ "%.2f"|format(holding.current_value|float) }}</td>
+                            <td data-sort-value="{{ holding.current_value }}">{{ "%.2f"|format(holding.current_value|float) }}</td>
+                            <td data-sort-value="{{ holding.profit if holding.quantity > 0 else '' }}">
+                                {% if holding.quantity > 0 %}
+                                    <span class="{% if holding.profit >= 0 %}value-positive{% else %}value-negative{% endif %}">
+                                        {{ "%.2f"|format(holding.profit|float) }}{% if holding.profit_percent is not none %} ({{ "%.2f"|format(holding.profit_percent|float) }}%){% endif %}
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a class="purchases-link" href="{{ url_for('portfolio_purchases', asset_id=holding.asset_id) }}">Purchases</a>
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -412,11 +417,10 @@
         }
 
         portfolioForm.querySelectorAll(
-            '[name^="quantity_"], [name="manual_item_name"], '
-            + '[name="manual_item_quantity"], [name="manual_item_unit_price"]'
+            '[name="manual_item_name"], [name="manual_item_quantity"], [name="manual_item_unit_price"]'
         ).forEach((input) => {
             input.addEventListener("change", () => {
-                if (input.matches('[name^="quantity_"], [name="manual_item_quantity"]')) {
+                if (input.matches('[name="manual_item_quantity"]')) {
                     syncChartCheckboxWithQuantity(input);
                 }
                 savePortfolioInBackground();

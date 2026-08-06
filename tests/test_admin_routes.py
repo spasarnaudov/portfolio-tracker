@@ -262,8 +262,6 @@ class AdminRouteTests(unittest.TestCase):
     def test_portfolio_saves_chart_selection_for_tavex_and_manual_items(self):
         self._set_session()
         form_data = {
-            "quantity_7": "2",
-            "quantity_8": "3",
             "holding_include_in_chart": "7",
             "manual_item_id": "9",
             "manual_item_name": "Gold ring",
@@ -272,16 +270,21 @@ class AdminRouteTests(unittest.TestCase):
             "manual_item_price_asset_id": "12",
             "manual_item_include_in_chart": "9",
         }
+        holdings = [
+            {"asset_id": 7, "quantity": 2.0},
+            {"asset_id": 8, "quantity": 3.0},
+        ]
 
         with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
                 patch.object(application, "update_user_session"), \
                 patch.object(application, "get_gold_buyback_assets", return_value=[{"id": 12}]), \
-                patch.object(application, "save_portfolio_holdings") as save_holdings, \
+                patch.object(application, "get_portfolio_holdings", return_value=holdings), \
+                patch.object(application, "save_holdings_chart_flags") as save_holdings, \
                 patch.object(application, "save_portfolio_manual_items") as save_manual_items:
             response = self.client.post("/portfolio", data=form_data)
 
         self.assertEqual(response.status_code, 302)
-        save_holdings.assert_called_once_with(1, {7: 2.0, 8: 3.0}, {7})
+        save_holdings.assert_called_once_with(1, {7})
         save_manual_items.assert_called_once_with(1, [{
             "id": 9,
             "name": "Gold ring",
@@ -295,7 +298,6 @@ class AdminRouteTests(unittest.TestCase):
     def test_portfolio_excludes_zero_quantity_items_from_chart(self):
         self._set_session()
         form_data = {
-            "quantity_7": "0",
             "holding_include_in_chart": "7",
             "manual_item_id": "9",
             "manual_item_name": "Gold ring",
@@ -307,12 +309,13 @@ class AdminRouteTests(unittest.TestCase):
         with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
                 patch.object(application, "update_user_session"), \
                 patch.object(application, "get_gold_buyback_assets", return_value=[]), \
-                patch.object(application, "save_portfolio_holdings") as save_holdings, \
+                patch.object(application, "get_portfolio_holdings", return_value=[{"asset_id": 7, "quantity": 0.0}]), \
+                patch.object(application, "save_holdings_chart_flags") as save_holdings, \
                 patch.object(application, "save_portfolio_manual_items") as save_manual_items:
             response = self.client.post("/portfolio", data=form_data)
 
         self.assertEqual(response.status_code, 302)
-        save_holdings.assert_called_once_with(1, {7: 0.0}, set())
+        save_holdings.assert_called_once_with(1, set())
         save_manual_items.assert_called_once_with(1, [{
             "id": 9,
             "name": "Gold ring",
@@ -330,7 +333,8 @@ class AdminRouteTests(unittest.TestCase):
         with patch.object(application, "get_user_by_id", return_value=self._user("user")), \
                 patch.object(application, "update_user_session"), \
                 patch.object(application, "get_gold_buyback_assets", return_value=[]), \
-                patch.object(application, "save_portfolio_holdings"), \
+                patch.object(application, "get_portfolio_holdings", return_value=[{"asset_id": 7, "quantity": 2.0}]), \
+                patch.object(application, "save_holdings_chart_flags"), \
                 patch.object(application, "save_portfolio_manual_items"), \
                 patch.object(application, "get_latest_price_date", return_value=price_date), \
                 patch.object(application, "get_portfolio_history", return_value=[{
@@ -339,7 +343,7 @@ class AdminRouteTests(unittest.TestCase):
                 }]):
             response = self.client.post(
                 "/portfolio?portfolio_range=1d&portfolio_interval=hourly",
-                data={"quantity_7": "2", "holding_include_in_chart": "7"},
+                data={"holding_include_in_chart": "7"},
                 headers={"X-Requested-With": "XMLHttpRequest"},
             )
 

@@ -83,7 +83,10 @@ class PortfolioViewModel @Inject constructor(
         val state = _uiState.value
         applyPortfolio(
             holdings = state.holdings.map {
-                Holding(it.assetId, it.assetSymbol, it.assetName, it.originalQuantity, it.originalIncludeInChart, it.price, it.value)
+                Holding(
+                    it.assetId, it.assetSymbol, it.assetName, it.quantity, it.originalIncludeInChart,
+                    it.price, it.value, it.costBasis, it.profit, it.profitPercent,
+                )
             },
             manualItems = originalManualItemsSnapshot.values.map {
                 ManualItem(it.id, it.name, BigDecimal(it.quantityText.ifBlank { "0" }), it.unitPriceText.toBigDecimalOrNull(), it.priceAssetId, it.includeInChart, it.value)
@@ -124,10 +127,6 @@ class PortfolioViewModel @Inject constructor(
         scheduleAutosave()
     }
 
-    fun removeHolding(assetId: Long) {
-        updateHoldingQuantityText(assetId, "0")
-    }
-
     fun retryHistory() {
         refreshHistory()
     }
@@ -146,8 +145,6 @@ class PortfolioViewModel @Inject constructor(
         }
         if (!state.hasUnsavedChanges) return
 
-        if (state.holdings.any { it.parsedQuantity == null }) return
-
         val activeManualItems = state.manualItems.filter { !it.markedForDeletion || it.id != null }
         val hasInvalidManualQuantity = activeManualItems.any {
             !it.markedForDeletion && it.quantityText.toBigDecimalOrNull() == null
@@ -160,7 +157,10 @@ class PortfolioViewModel @Inject constructor(
         if (hasInvalidUnitPrice) return
 
         val holdingsToSend = state.holdings.map {
-            Holding(it.assetId, it.assetSymbol, it.assetName, it.parsedQuantity!!, it.includeInChart, it.price, it.value)
+            Holding(
+                it.assetId, it.assetSymbol, it.assetName, it.quantity, it.includeInChart,
+                it.price, it.value, it.costBasis, it.profit, it.profitPercent,
+            )
         }
         val manualItemsToSend = activeManualItems.map { draft ->
             ManualItem(
@@ -209,13 +209,6 @@ class PortfolioViewModel @Inject constructor(
                     if (it.assetId == assetId) it.copy(includeInChart = !it.includeInChart) else it
                 },
             )
-        }
-        scheduleAutosave()
-    }
-
-    fun updateHoldingQuantityText(assetId: Long, text: String) {
-        _uiState.update { state ->
-            state.copy(holdings = state.holdings.map { if (it.assetId == assetId) it.copy(quantityText = text) else it })
         }
         scheduleAutosave()
     }
