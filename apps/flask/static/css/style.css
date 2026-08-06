@@ -618,6 +618,58 @@ h2 {
     outline: none;
 }
 
+.value-positive {
+    color: #157a3d;
+}
+
+.value-negative {
+    color: #b3261e;
+}
+
+.purchases-link {
+    color: #0b5cad;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.receipt-thumbnail {
+    border: 1px solid #bcccdc;
+    border-radius: 6px;
+    height: 48px;
+    object-fit: cover;
+    vertical-align: middle;
+    width: 48px;
+}
+
+.sortable-column {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sortable-column::after {
+    color: #9aa5b1;
+    content: "\21C5";
+    font-size: 0.85em;
+    margin-left: 6px;
+}
+
+.sortable-column.sorted-asc::after {
+    color: #1f2933;
+    content: "\2191";
+}
+
+.sortable-column.sorted-desc::after {
+    color: #1f2933;
+    content: "\2193";
+}
+
+.purchases-link:hover {
+    text-decoration: underline;
+}
+
 .secondary-inline-button {
     border: 1px solid #bcccdc;
     border-radius: 8px;

@@ -22,14 +22,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.model.Asset
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.EmptyState
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenError
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenLoading
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LoadStatus
 import io.github.spasarnaudov.portfoliotracker.core.ui.format.formatMoneyOrDash
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,21 +41,26 @@ fun AssetsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var isRefreshing by remember { mutableStateOf(false) }
+    val genericErrorMessage = stringResource(R.string.common_error_generic)
+    val assetsHeader = stringResource(R.string.screen_assets_title)
 
     LaunchedEffect(state.status) {
         if (state.status != LoadStatus.LOADING) isRefreshing = false
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Assets") }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(assetsHeader) }) }) { padding ->
         when (state.status) {
             LoadStatus.LOADING -> FullScreenLoading(modifier = Modifier.padding(padding))
             LoadStatus.ERROR -> FullScreenError(
-                message = state.errorMessage ?: "Something went wrong.",
+                message = state.errorMessage ?: genericErrorMessage,
                 modifier = Modifier.padding(padding),
                 onRetry = viewModel::load,
             )
 
-            LoadStatus.EMPTY -> EmptyState(message = "No assets available yet.", modifier = Modifier.padding(padding))
+            LoadStatus.EMPTY -> EmptyState(
+                message = stringResource(R.string.screen_assets_empty_message),
+                modifier = Modifier.padding(padding),
+            )
 
             LoadStatus.CONTENT -> PullToRefreshBox(
                 isRefreshing = isRefreshing,
@@ -64,9 +71,9 @@ fun AssetsScreen(
                     if (state.assets.isNotEmpty()) {
                         item {
                             Text(
-                                "Assets",
+                                assetsHeader,
                                 style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(AppSpacing.Medium),
                             )
                         }
                         items(state.assets, key = { "asset_${it.id}" }) { asset ->
@@ -77,9 +84,9 @@ fun AssetsScreen(
                     if (state.goldBuybackAssets.isNotEmpty()) {
                         item {
                             Text(
-                                "Gold buyback assets",
+                                stringResource(R.string.screen_assets_gold_buyback_header),
                                 style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(AppSpacing.Medium),
                             )
                         }
                         items(state.goldBuybackAssets, key = { "gold_${it.id}" }) { asset ->
@@ -97,7 +104,9 @@ fun AssetsScreen(
 private fun AssetRow(asset: Asset, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text("${asset.symbol} · ${asset.name}") },
-        supportingContent = { asset.currentPrice?.let { Text("Price: ${it.formatMoneyOrDash()}") } },
+        supportingContent = {
+            asset.currentPrice?.let { Text(stringResource(R.string.screen_assets_price, it.formatMoneyOrDash())) }
+        },
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     )
 }

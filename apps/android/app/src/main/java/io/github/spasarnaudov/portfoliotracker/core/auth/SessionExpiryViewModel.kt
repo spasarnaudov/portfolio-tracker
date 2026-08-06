@@ -17,6 +17,6 @@ class SessionExpiryViewModel @Inject constructor(
     notifier: SessionExpiryNotifier,
     sessionManager: SessionManager,
 ) : ViewModel() {
-    val events: SharedFlow<Unit> = notifier.events
     val currentUser: StateFlow<User?> = sessionManager.currentUser
+    val events: SharedFlow<Unit> = notifier.events
 }

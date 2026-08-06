@@ -41,6 +41,10 @@ class AssetDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
+    private companion object {
+        fun decode(value: String?): String = value?.let { URLDecoder.decode(it, "UTF-8") } ?: ""
+    }
+
     private val _uiState = MutableStateFlow(
         AssetDetailUiState(
             assetId = checkNotNull(savedStateHandle.get<String>(Destinations.ASSET_DETAIL_ID_ARG)).toLong(),
@@ -52,20 +56,6 @@ class AssetDetailViewModel @Inject constructor(
 
     init {
         load()
-    }
-
-    fun setRange(range: ChartRange) {
-        _uiState.update { it.copy(range = range) }
-        if (range != ChartRange.CUSTOM) load()
-    }
-
-    fun setInterval(interval: AssetPriceInterval) {
-        _uiState.update { it.copy(interval = interval) }
-        load()
-    }
-
-    fun setCustomDates(start: LocalDate?, end: LocalDate?) {
-        _uiState.update { it.copy(customStartDate = start, customEndDate = end) }
     }
 
     fun applyCustomRange() {
@@ -97,7 +87,17 @@ class AssetDetailViewModel @Inject constructor(
         }
     }
 
-    private companion object {
-        fun decode(value: String?): String = value?.let { URLDecoder.decode(it, "UTF-8") } ?: ""
+    fun setCustomDates(start: LocalDate?, end: LocalDate?) {
+        _uiState.update { it.copy(customStartDate = start, customEndDate = end) }
+    }
+
+    fun setInterval(interval: AssetPriceInterval) {
+        _uiState.update { it.copy(interval = interval) }
+        load()
+    }
+
+    fun setRange(range: ChartRange) {
+        _uiState.update { it.copy(range = range) }
+        if (range != ChartRange.CUSTOM) load()
     }
 }

@@ -36,6 +36,13 @@ class AuthRepository @Inject constructor(
         }
     }
 
+    /** Always clears local state, even if the server call fails. */
+    suspend fun logout() {
+        apiCall { apiService.logout() }
+        tokenStorage.clear()
+        sessionManager.setUser(null)
+    }
+
     suspend fun register(username: String, password: String): ApiResult<User> {
         val result = apiCall { apiService.register(RegisterRequestDto(username, password)) }
         return when (result) {
@@ -48,13 +55,6 @@ class AuthRepository @Inject constructor(
 
             is ApiResult.Error -> result
         }
-    }
-
-    /** Always clears local state, even if the server call fails. */
-    suspend fun logout() {
-        apiCall { apiService.logout() }
-        tokenStorage.clear()
-        sessionManager.setUser(null)
     }
 
     /** Startup session check: `401` means an invalid/expired token, other errors are surfaced as-is. */

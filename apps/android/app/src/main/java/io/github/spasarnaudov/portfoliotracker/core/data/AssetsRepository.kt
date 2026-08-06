@@ -21,20 +21,6 @@ class AssetsRepository @Inject constructor(
 ) {
     private val apiService: ApiService get() = apiServiceProvider.get()
 
-    suspend fun getAssets(): ApiResult<AssetsCatalog> {
-        val result = apiCall { apiService.getAssets() }
-        return when (result) {
-            is ApiResult.Success -> ApiResult.Success(
-                AssetsCatalog(
-                    assets = result.data.assets.map { it.toDomain(isGoldBuyback = false) },
-                    goldBuybackAssets = result.data.goldBuybackAssets.map { it.toDomain(isGoldBuyback = true) },
-                ),
-            )
-
-            is ApiResult.Error -> result
-        }
-    }
-
     suspend fun getAssetPrices(
         assetId: Long,
         range: ChartRange,
@@ -57,6 +43,20 @@ class AssetsRepository @Inject constructor(
         }
         return when (result) {
             is ApiResult.Success -> ApiResult.Success(result.data.prices.mapNotNull { it.toDomain() })
+            is ApiResult.Error -> result
+        }
+    }
+
+    suspend fun getAssets(): ApiResult<AssetsCatalog> {
+        val result = apiCall { apiService.getAssets() }
+        return when (result) {
+            is ApiResult.Success -> ApiResult.Success(
+                AssetsCatalog(
+                    assets = result.data.assets.map { it.toDomain(isGoldBuyback = false) },
+                    goldBuybackAssets = result.data.goldBuybackAssets.map { it.toDomain(isGoldBuyback = true) },
+                ),
+            )
+
             is ApiResult.Error -> result
         }
     }

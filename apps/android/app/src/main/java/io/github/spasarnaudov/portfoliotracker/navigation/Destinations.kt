@@ -17,6 +17,13 @@ object Destinations {
     const val MANUAL_ITEM_EDIT_ARG = "itemKey"
     fun manualItemEdit(clientKey: String?) = "manual_item_edit?$MANUAL_ITEM_EDIT_ARG=${clientKey?.let { encode(it) } ?: ""}"
 
+    const val ASSET_PURCHASES = "asset_purchases"
+    const val ASSET_PURCHASES_ID_ARG = "assetId"
+    const val ASSET_PURCHASES_SYMBOL_ARG = "symbol"
+    const val ASSET_PURCHASES_NAME_ARG = "name"
+    fun assetPurchases(assetId: Long, symbol: String, name: String) =
+        "asset_purchases/$assetId/${encode(symbol)}/${encode(name)}"
+
     const val ASSETS = "assets"
     const val ASSET_DETAIL = "asset_detail"
     const val ASSET_DETAIL_ID_ARG = "assetId"

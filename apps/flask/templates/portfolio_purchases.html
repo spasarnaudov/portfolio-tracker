@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}{{ holding.name }} purchases - Portfolio Tracker{% endblock %}
+
+{% block content %}
+    <p><a href="{{ url_for('portfolio') }}">&larr; Back to portfolio</a></p>
+
+    <h2>{{ holding.name }}</h2>
+
+    <table border="1" cellpadding="8" class="purchases-summary-table">
+        <thead>
+            <tr>
+                <th>Quantity</th>
+                <th>Cost basis</th>
+                <th>Current value</th>
+                <th>Profit</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ "%.0f"|format(holding.quantity|float) }}</td>
+                <td>{{ "%.2f"|format(holding.cost_basis|float) }}</td>
+                <td>{{ "%.2f"|format(holding.current_value|float) }}</td>
+                <td>
+                    {% if holding.quantity > 0 %}
+                        <span class="{% if holding.profit >= 0 %}value-positive{% else %}value-negative{% endif %}">
+                            {{ "%.2f"|format(holding.profit|float) }}{% if holding.profit_percent is not none %} ({{ "%.2f"|format(holding.profit_percent|float) }}%){% endif %}
+                        </span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <section class="manual-items-panel">
+        <h3>Purchase lots</h3>
+
+        {% for purchase in purchases %}
+            <form
+                id="purchase-update-{{ purchase.id }}"
+                method="post"
+                action="{{ url_for('portfolio_purchase_update', purchase_id=purchase.id) }}"
+            >
+                <input type="hidden" name="asset_id" value="{{ holding.asset_id }}">
+            </form>
+            <form
+                id="purchase-delete-{{ purchase.id }}"
+                method="post"
+                action="{{ url_for('portfolio_purchase_delete', purchase_id=purchase.id) }}"
+                onsubmit="return confirm('Remove this purchase lot?');"
+            >
+                <input type="hidden" name="asset_id" value="{{ holding.asset_id }}">
+            </form>
+            <form
+                id="purchase-receipt-upload-{{ purchase.id }}"
+                method="post"
+                enctype="multipart/form-data"
+                action="{{ url_for('portfolio_purchase_receipt', purchase_id=purchase.id) }}"
+            >
+                <input type="hidden" name="asset_id" value="{{ holding.asset_id }}">
+            </form>
+            <form
+                id="purchase-receipt-delete-{{ purchase.id }}"
+                method="post"
+                action="{{ url_for('portfolio_purchase_receipt_delete', purchase_id=purchase.id) }}"
+                onsubmit="return confirm('Remove this receipt photo?');"
+            >
+                <input type="hidden" name="asset_id" value="{{ holding.asset_id }}">
+            </form>
+        {% endfor %}
+        <form id="purchase-add-form" method="post" action="{{ url_for('portfolio_purchases', asset_id=holding.asset_id) }}"></form>
+
+        <div class="table-scroll">
+            <table border="1" cellpadding="8" class="sortable-table">
+                <thead>
+                    <tr>
+                        <th class="sortable-column">Date</th>
+                        <th class="sortable-column">Quantity</th>
+                        <th class="sortable-column">Price paid</th>
+                        <th class="sortable-column">Cost</th>
+                        <th class="sortable-column">Profit</th>
+                        <th>Receipt</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for purchase in purchases %}
+                        <tr>
+                            <td data-sort-value="{{ purchase.purchase_date.strftime('%Y-%m-%d') }}">
+                                <input
+                                    class="quantity-input"
+                                    type="date"
+                                    name="purchase_date"
+                                    form="purchase-update-{{ purchase.id }}"
+                                    value="{{ purchase.purchase_date.strftime('%Y-%m-%d') }}"
+                                    max="{{ today }}"
+                                >
+                            </td>
+                            <td data-sort-value="{{ purchase.quantity }}">
+                                <input
+                                    class="quantity-input"
+                                    type="number"
+                                    step="1"
+                                    min="1"
+                                    name="quantity"
+                                    form="purchase-update-{{ purchase.id }}"
+                                    value="{{ "%.0f"|format(purchase.quantity|float) }}"
+                                >
+                            </td>
+                            <td data-sort-value="{{ purchase.purchase_price }}">
+                                <input
+                                    class="quantity-input"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    name="purchase_price"
+                                    form="purchase-update-{{ purchase.id }}"
+                                    value="{{ "%.2f"|format(purchase.purchase_price|float) }}"
+                                >
+                            </td>
+                            <td data-sort-value="{{ purchase.quantity * purchase.purchase_price }}">{{ "%.2f"|format((purchase.quantity * purchase.purchase_price)|float) }}</td>
+                            <td data-sort-value="{{ purchase.profit if purchase.profit is not none else '' }}">
+                                {% if purchase.profit is not none %}
+                                    <span class="{% if purchase.profit >= 0 %}value-positive{% else %}value-negative{% endif %}">
+                                        {{ "%.2f"|format(purchase.profit|float) }}{% if purchase.profit_percent is not none %} ({{ "%.2f"|format(purchase.profit_percent|float) }}%){% endif %}
+                                    </span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if purchase.has_receipt %}
+                                    <a href="{{ url_for('portfolio_purchase_receipt', purchase_id=purchase.id) }}" target="_blank">
+                                        <img
+                                            class="receipt-thumbnail"
+                                            src="{{ url_for('portfolio_purchase_receipt', purchase_id=purchase.id) }}"
+                                            alt="Receipt for this purchase"
+                                        >
+                                    </a>
+                                    <button class="remove-row-button" type="submit" form="purchase-receipt-delete-{{ purchase.id }}" title="Remove receipt">-</button>
+                                {% else %}
+                                    <input
+                                        type="file"
+                                        name="receipt"
+                                        accept="image/*"
+                                        capture="environment"
+                                        form="purchase-receipt-upload-{{ purchase.id }}"
+                                        onchange="this.form.requestSubmit()"
+                                    >
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="remove-row-button" type="submit" form="purchase-update-{{ purchase.id }}" title="Save changes">&#10003;</button>
+                                <button class="remove-row-button" type="submit" form="purchase-delete-{{ purchase.id }}" title="Delete">-</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+
+                    <tr data-sort-exclude>
+                        <td>
+                            <input class="quantity-input" type="date" name="purchase_date" form="purchase-add-form" value="{{ today }}" max="{{ today }}">
+                        </td>
+                        <td>
+                            <input class="quantity-input" type="number" step="1" min="1" name="quantity" form="purchase-add-form" value="">
+                        </td>
+                        <td>
+                            <input class="quantity-input" type="number" step="0.01" min="0" name="purchase_price" form="purchase-add-form" value="">
+                        </td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>
+                            <button class="remove-row-button" type="submit" form="purchase-add-form" title="Add lot">+</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

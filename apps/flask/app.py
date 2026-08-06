@@ -2,7 +2,7 @@ import secrets
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from flask import Flask, flash, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from chart_settings import load_chart_filters, save_chart_filters
@@ -16,11 +16,18 @@ from config import (
     SECRET_KEY,
     SESSION_COOKIE_NAME,
     SESSION_TIMEOUT_MINUTES,
+    UPLOADS_DIR,
 )
+from receipts import delete_receipt_file, save_receipt_file, validate_receipt_upload
 from repository import (
+    add_asset_purchase,
+    clear_asset_purchase_receipt,
     create_user,
     deactivate_user_account,
+    delete_asset_purchase,
     get_asset_prices,
+    get_asset_purchase,
+    get_asset_purchases,
     get_chart_assets,
     get_gold_buyback_assets,
     get_latest_price_date,
@@ -35,8 +42,10 @@ from repository import (
     get_user_login_users,
     record_user_login,
     clear_user_session,
-    save_portfolio_holdings,
+    save_holdings_chart_flags,
     save_portfolio_manual_items,
+    set_asset_purchase_receipt,
+    update_asset_purchase,
     update_user_password,
     update_user_session,
 )
@@ -656,7 +665,6 @@ def portfolio():
     }
 
     if request.method == "POST":
-        quantities_by_asset_id = {}
         manual_items = []
         manual_item_ids = request.form.getlist("manual_item_id")
         manual_item_names = request.form.getlist("manual_item_name")
@@ -671,18 +679,10 @@ def portfolio():
         }
         chart_manual_item_ids = set(request.form.getlist("manual_item_include_in_chart"))
 
-        for key, value in request.form.items():
-            if not key.startswith("quantity_"):
-                continue
-
-            try:
-                asset_id = int(key.replace("quantity_", "", 1))
-                quantity = float(value or 0)
-            except ValueError:
-                continue
-
-            quantities_by_asset_id[asset_id] = quantity
-
+        quantities_by_asset_id = {
+            holding["asset_id"]: holding["quantity"]
+            for holding in get_portfolio_holdings(user_id)
+        }
         chart_asset_ids = {
             asset_id
             for asset_id in chart_asset_ids
@@ -753,7 +753,7 @@ def portfolio():
                 "delete": False,
             })
 
-        save_portfolio_holdings(user_id, quantities_by_asset_id, chart_asset_ids)
+        save_holdings_chart_flags(user_id, chart_asset_ids)
         save_portfolio_manual_items(user_id, manual_items)
 
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -797,6 +797,118 @@ def portfolio():
         chart_labels=chart_data["chart_labels"],
         chart_values=chart_data["chart_values"],
     )
+
+
+def parse_purchase_date(value):
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+
+    if parsed > datetime.now().date():
+        return None
+
+    return parsed.isoformat()
+
+
+@app.route("/portfolio/holdings/<int:asset_id>", methods=["GET", "POST"])
+def portfolio_purchases(asset_id):
+    user_id = session["user_id"]
+    holding = next(
+        (item for item in get_portfolio_holdings(user_id) if item["asset_id"] == asset_id),
+        None,
+    )
+
+    if holding is None:
+        return redirect(url_for("portfolio"))
+
+    if request.method == "POST":
+        try:
+            quantity = float(request.form.get("quantity") or 0)
+            purchase_price = float(request.form.get("purchase_price") or -1)
+        except ValueError:
+            quantity, purchase_price = 0, -1
+
+        purchase_date = parse_purchase_date(request.form.get("purchase_date"))
+
+        if quantity > 0 and quantity.is_integer() and purchase_price >= 0 and purchase_date:
+            add_asset_purchase(user_id, asset_id, quantity, purchase_price, purchase_date)
+
+        return redirect(url_for("portfolio_purchases", asset_id=asset_id))
+
+    return render_template(
+        "portfolio_purchases.html",
+        holding=holding,
+        purchases=get_asset_purchases(user_id, asset_id),
+        today=datetime.now().date().isoformat(),
+    )
+
+
+@app.route("/portfolio/purchases/<int:purchase_id>/update", methods=["POST"])
+def portfolio_purchase_update(purchase_id):
+    user_id = session["user_id"]
+    asset_id = int(request.form.get("asset_id"))
+
+    try:
+        quantity = float(request.form.get("quantity") or 0)
+        purchase_price = float(request.form.get("purchase_price") or -1)
+    except ValueError:
+        quantity, purchase_price = 0, -1
+
+    purchase_date = parse_purchase_date(request.form.get("purchase_date"))
+
+    if quantity > 0 and quantity.is_integer() and purchase_price >= 0 and purchase_date:
+        update_asset_purchase(user_id, purchase_id, quantity, purchase_price, purchase_date)
+
+    return redirect(url_for("portfolio_purchases", asset_id=asset_id))
+
+
+@app.route("/portfolio/purchases/<int:purchase_id>/delete", methods=["POST"])
+def portfolio_purchase_delete(purchase_id):
+    user_id = session["user_id"]
+    asset_id = int(request.form.get("asset_id"))
+    deleted = delete_asset_purchase(user_id, purchase_id)
+    if deleted:
+        delete_receipt_file(deleted["receipt_filename"])
+    return redirect(url_for("portfolio_purchases", asset_id=asset_id))
+
+
+@app.route("/portfolio/purchases/<int:purchase_id>/receipt", methods=["GET", "POST"])
+def portfolio_purchase_receipt(purchase_id):
+    user_id = session["user_id"]
+    purchase = get_asset_purchase(user_id, purchase_id)
+
+    if purchase is None:
+        return redirect(url_for("portfolio"))
+
+    if request.method == "POST":
+        asset_id = int(request.form.get("asset_id"))
+        extension, error = validate_receipt_upload(request.files.get("receipt"), request.content_length)
+
+        if not error:
+            filename = save_receipt_file(purchase_id, request.files["receipt"], extension)
+            set_asset_purchase_receipt(user_id, purchase_id, filename)
+            delete_receipt_file(purchase["receipt_filename"])
+
+        return redirect(url_for("portfolio_purchases", asset_id=asset_id))
+
+    if not purchase["receipt_filename"]:
+        return redirect(url_for("portfolio"))
+
+    return send_from_directory(UPLOADS_DIR, purchase["receipt_filename"])
+
+
+@app.route("/portfolio/purchases/<int:purchase_id>/receipt/delete", methods=["POST"])
+def portfolio_purchase_receipt_delete(purchase_id):
+    user_id = session["user_id"]
+    asset_id = int(request.form.get("asset_id"))
+    purchase = get_asset_purchase(user_id, purchase_id)
+
+    if purchase:
+        clear_asset_purchase_receipt(user_id, purchase_id)
+        delete_receipt_file(purchase["receipt_filename"])
+
+    return redirect(url_for("portfolio_purchases", asset_id=asset_id))
 
 
 @app.route("/charts")

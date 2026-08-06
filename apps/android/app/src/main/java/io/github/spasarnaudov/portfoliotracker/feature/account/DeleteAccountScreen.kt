@@ -24,9 +24,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.ConfirmDialog
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,41 +47,47 @@ fun DeleteAccountScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Delete account") },
+                title = { Text(stringResource(R.string.common_delete_account_label)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_navigation_back))
                     }
                 },
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(AppSpacing.Large)) {
             Text(
-                "Deleting your account is permanent. You will be signed out and will no longer be able to access your portfolio.",
+                stringResource(R.string.screen_delete_account_warning),
                 style = MaterialTheme.typography.bodyLarge,
             )
             state.errorMessage?.let {
-                Spacer(modifier = Modifier.padding(top = 16.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Medium))
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
-            Spacer(modifier = Modifier.padding(top = 24.dp))
+            Spacer(modifier = Modifier.padding(top = AppSpacing.Large))
             Button(
                 onClick = { showConfirm = true },
                 enabled = !state.isSubmitting,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (state.isSubmitting) "Deleting…" else "Delete my account")
+                Text(
+                    if (state.isSubmitting) {
+                        stringResource(R.string.screen_delete_account_deleting_status)
+                    } else {
+                        stringResource(R.string.screen_delete_account_button_delete)
+                    },
+                )
             }
         }
     }
 
     if (showConfirm) {
         ConfirmDialog(
-            title = "Delete account?",
-            text = "This cannot be undone. Are you sure you want to permanently delete your account?",
-            confirmLabel = "Delete",
+            title = stringResource(R.string.screen_delete_account_confirm_title),
+            text = stringResource(R.string.screen_delete_account_confirm_message),
+            confirmLabel = stringResource(R.string.common_action_delete),
             destructive = true,
             onConfirm = { showConfirm = false; viewModel.confirmDeletion() },
             onDismiss = { showConfirm = false },

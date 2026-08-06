@@ -3,7 +3,6 @@ package io.github.spasarnaudov.portfoliotracker.core.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,14 +18,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import io.github.spasarnaudov.portfoliotracker.R
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @Composable
 fun FullScreenLoading(modifier: Modifier = Modifier) {
+    val loadingDescription = stringResource(R.string.common_status_loading)
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(modifier = Modifier.semantics { contentDescription = "Loading" })
+        CircularProgressIndicator(modifier = Modifier.semantics { contentDescription = loadingDescription })
     }
 }
 
@@ -39,13 +42,13 @@ fun FullScreenError(
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.MediumSmall),
+            modifier = Modifier.padding(AppSpacing.Large),
         ) {
             Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-            Text(text = message, style = MaterialTheme.typography.bodyLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(text = message, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             if (onRetry != null) {
-                Button(onClick = onRetry) { Text("Retry") }
+                Button(onClick = onRetry) { Text(stringResource(R.string.common_action_retry)) }
             }
         }
     }
@@ -61,10 +64,10 @@ fun EmptyState(
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.MediumSmall),
+            modifier = Modifier.padding(AppSpacing.Large),
         ) {
-            Text(text = message, style = MaterialTheme.typography.bodyLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(text = message, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             if (actionLabel != null && onAction != null) {
                 OutlinedButton(onClick = onAction) { Text(actionLabel) }
             }
@@ -77,10 +80,10 @@ fun ConfirmDialog(
     title: String,
     text: String,
     confirmLabel: String,
+    dismissLabel: String = stringResource(R.string.common_action_cancel),
+    destructive: Boolean = false,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    dismissLabel: String = "Cancel",
-    destructive: Boolean = false,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -97,5 +100,3 @@ fun ConfirmDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel) } },
     )
 }
-
-val ScreenContentPadding = PaddingValues(16.dp)

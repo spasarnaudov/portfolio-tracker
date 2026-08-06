@@ -27,9 +27,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.ConfirmDialog
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,62 +42,63 @@ fun ConnectionSettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val savedMessage = stringResource(R.string.screen_connection_saved_message)
 
     LaunchedEffect(Unit) {
         viewModel.sessionCleared.collect { onSessionCleared() }
     }
     LaunchedEffect(state.isSaved) {
-        if (state.isSaved) snackbarHostState.showSnackbar("Connection settings saved.")
+        if (state.isSaved) snackbarHostState.showSnackbar(savedMessage)
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Connection settings") },
+                title = { Text(stringResource(R.string.common_connection_settings_label)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_navigation_back))
                     }
                 },
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(AppSpacing.Large)) {
             Text(
-                "The server address must be reachable from this device and end with a trailing slash.",
+                stringResource(R.string.screen_connection_description),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Spacer(modifier = Modifier.padding(top = 16.dp))
+            Spacer(modifier = Modifier.padding(top = AppSpacing.Medium))
             OutlinedTextField(
                 value = state.baseUrlText,
                 onValueChange = viewModel::onUrlChange,
-                label = { Text("API base URL") },
+                label = { Text(stringResource(R.string.screen_connection_base_url_label)) },
                 singleLine = true,
                 isError = state.validationError != null,
                 supportingText = { state.validationError?.let { Text(it) } },
                 modifier = Modifier.fillMaxWidth(),
             )
             if (state.isUsingOverride) {
-                Spacer(modifier = Modifier.padding(top = 4.dp))
-                Text("Using a custom server address.", style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.padding(top = AppSpacing.ExtraSmall))
+                Text(stringResource(R.string.screen_connection_custom_address_notice), style = MaterialTheme.typography.labelSmall)
             }
 
-            Spacer(modifier = Modifier.padding(top = 16.dp))
+            Spacer(modifier = Modifier.padding(top = AppSpacing.Medium))
             Row {
                 OutlinedButton(onClick = viewModel::testConnection, enabled = !state.isTesting) {
                     if (state.isTesting) {
-                        CircularProgressIndicator(modifier = Modifier.padding(2.dp))
+                        CircularProgressIndicator(modifier = Modifier.padding(AppSpacing.Tiny))
                     } else {
-                        Text("Test connection")
+                        Text(stringResource(R.string.screen_connection_button_test))
                     }
                 }
-                Spacer(modifier = Modifier.padding(start = 8.dp))
-                Button(onClick = viewModel::save) { Text("Save") }
+                Spacer(modifier = Modifier.padding(start = AppSpacing.Small))
+                Button(onClick = viewModel::save) { Text(stringResource(R.string.common_action_save)) }
             }
 
             state.testResultMessage?.let {
-                Spacer(modifier = Modifier.padding(top = 8.dp))
+                Spacer(modifier = Modifier.padding(top = AppSpacing.Small))
                 Text(
                     text = it,
                     color = if (state.testSucceeded == true) {
@@ -106,18 +109,18 @@ fun ConnectionSettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.padding(top = 24.dp))
+            Spacer(modifier = Modifier.padding(top = AppSpacing.Large))
             OutlinedButton(onClick = viewModel::resetToDefault, modifier = Modifier.fillMaxWidth()) {
-                Text("Reset to default")
+                Text(stringResource(R.string.screen_connection_button_reset))
             }
         }
     }
 
     if (state.showClearSessionConfirm) {
         ConfirmDialog(
-            title = "Switch server?",
-            text = "Changing the server address will sign you out of the current session. Continue?",
-            confirmLabel = "Continue",
+            title = stringResource(R.string.screen_connection_switch_server_title),
+            text = stringResource(R.string.screen_connection_switch_server_message),
+            confirmLabel = stringResource(R.string.common_action_continue),
             destructive = true,
             onConfirm = viewModel::confirmSaveAndClearSession,
             onDismiss = viewModel::dismissClearSessionConfirm,

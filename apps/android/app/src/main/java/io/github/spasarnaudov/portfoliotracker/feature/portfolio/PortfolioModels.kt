@@ -4,34 +4,35 @@ import io.github.spasarnaudov.portfoliotracker.core.model.Holding
 import java.math.BigDecimal
 import java.util.UUID
 
-/** Editable row for a holding: [quantityText] is the free-typed value; [quantity] is parsed lazily on save. */
+/** Read-only row for a holding — quantity/profit are server-computed from purchase lots; only [includeInChart] is editable here. */
 data class HoldingRowState(
     val assetId: Long,
     val assetSymbol: String,
     val assetName: String,
-    val quantityText: String,
+    val quantity: BigDecimal,
     val includeInChart: Boolean,
     val price: BigDecimal?,
     val value: BigDecimal?,
-    val originalQuantity: BigDecimal,
+    val costBasis: BigDecimal?,
+    val profit: BigDecimal?,
+    val profitPercent: BigDecimal?,
     val originalIncludeInChart: Boolean,
 ) {
     val isDirty: Boolean
-        get() = quantityText != originalQuantity.toPlainString() || includeInChart != originalIncludeInChart
-
-    val parsedQuantity: BigDecimal?
-        get() = quantityText.trim().toBigDecimalOrNull()
+        get() = includeInChart != originalIncludeInChart
 
     companion object {
         fun from(holding: Holding) = HoldingRowState(
             assetId = holding.assetId,
             assetSymbol = holding.assetSymbol,
             assetName = holding.assetName,
-            quantityText = holding.quantity.toPlainString(),
+            quantity = holding.quantity,
             includeInChart = holding.includeInChart,
             price = holding.price,
             value = holding.value,
-            originalQuantity = holding.quantity,
+            costBasis = holding.costBasis,
+            profit = holding.profit,
+            profitPercent = holding.profitPercent,
             originalIncludeInChart = holding.includeInChart,
         )
     }
@@ -75,10 +76,4 @@ data class ManualItemDraft(
             value = null,
         )
     }
-}
-
-private fun String.toBigDecimalOrNull(): BigDecimal? = try {
-    if (isBlank()) null else BigDecimal(this)
-} catch (e: NumberFormatException) {
-    null
 }

@@ -134,6 +134,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
 
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(platform(libs.squareup.okhttp.bom))
@@ -141,6 +144,7 @@ dependencies {
     testImplementation(libs.squareup.retrofit)
     testImplementation(libs.squareup.retrofit.kotlinx.serialization.converter)
     testImplementation(libs.kotlinx.serialization.json)
+    testImplementation(libs.mockito.kotlin)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

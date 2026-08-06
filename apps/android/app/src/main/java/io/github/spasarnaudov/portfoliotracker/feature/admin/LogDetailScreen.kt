@@ -16,13 +16,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.EmptyState
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenError
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenLoading
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LoadStatus
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,6 +33,7 @@ fun LogDetailScreen(
     viewModel: LogDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val genericErrorMessage = stringResource(R.string.common_error_generic)
 
     Scaffold(
         topBar = {
@@ -38,7 +41,7 @@ fun LogDetailScreen(
                 title = { Text(state.name) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_navigation_back))
                     }
                 },
             )
@@ -47,16 +50,16 @@ fun LogDetailScreen(
         when (state.status) {
             LoadStatus.LOADING -> FullScreenLoading(modifier = Modifier.padding(padding))
             LoadStatus.ERROR -> FullScreenError(
-                message = state.errorMessage ?: "Something went wrong.",
+                message = state.errorMessage ?: genericErrorMessage,
                 modifier = Modifier.padding(padding),
                 onRetry = viewModel::load,
             )
 
-            LoadStatus.EMPTY -> EmptyState(message = "This log file is empty.", modifier = Modifier.padding(padding))
+            LoadStatus.EMPTY -> EmptyState(message = stringResource(R.string.screen_log_detail_empty_message), modifier = Modifier.padding(padding))
 
             LoadStatus.CONTENT -> LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
                 items(state.lines) { line ->
-                    Text(text = line, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(horizontal = 8.dp))
+                    Text(text = line, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(horizontal = AppSpacing.Small))
                 }
             }
         }

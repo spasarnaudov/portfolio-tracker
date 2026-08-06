@@ -21,14 +21,31 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.ui.format.formatMoney
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 data class ChartPoint(val timestamp: LocalDateTime, val value: BigDecimal)
+
+internal object LineChartDefaults {
+
+    val BottomPadding = 24.dp
+    val ChartHeight = 220.dp
+    val ChartWidthPadding = 32.dp
+    val GridLineStrokeWidth = 1.dp
+    val HorizontalPadding = 8.dp
+    val LabelBottomMargin = 4.dp
+    val LabelTextSize = 11.sp
+    val LineStrokeWidth = 2.5.dp
+    val PointRadius = 3.dp
+    val PointSpacing = 48.dp
+    val TopPadding = 8.dp
+}
 
 /**
  * A small dependency-free Canvas line chart: handles empty/one/many points.
@@ -44,8 +61,11 @@ fun LineChart(
     scrollable: Boolean = true,
 ) {
     if (points.isEmpty()) {
-        Box(modifier = modifier.fillMaxWidth().height(220.dp), contentAlignment = Alignment.Center) {
-            Text("No data for this range yet.", style = MaterialTheme.typography.bodyMedium)
+        Box(
+            modifier = modifier.fillMaxWidth().height(LineChartDefaults.ChartHeight),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(stringResource(R.string.common_line_chart_no_data), style = MaterialTheme.typography.bodyMedium)
         }
         return
     }
@@ -59,21 +79,24 @@ fun LineChart(
     val maxValue = points.maxOf { it.value }
     val valueRange = (maxValue - minValue).let { if (it.signum() == 0) BigDecimal.ONE else it }
 
-    val pointSpacingDp = 48.dp
-    val chartWidth = remember(points.size) { pointSpacingDp * (points.size - 1).coerceAtLeast(1) + 32.dp }
+    val chartWidth = remember(points.size) {
+        LineChartDefaults.PointSpacing * (points.size - 1).coerceAtLeast(1) + LineChartDefaults.ChartWidthPadding
+    }
 
     Column {
         Box(modifier = if (scrollable) modifier.horizontalScroll(scrollState) else modifier) {
             Canvas(
                 modifier = if (scrollable) {
-                    Modifier.width(if (points.size > 1) chartWidth else 220.dp).height(220.dp)
+                    Modifier
+                        .width(if (points.size > 1) chartWidth else LineChartDefaults.ChartHeight)
+                        .height(LineChartDefaults.ChartHeight)
                 } else {
-                    Modifier.fillMaxWidth().height(220.dp)
+                    Modifier.fillMaxWidth().height(LineChartDefaults.ChartHeight)
                 },
             ) {
-                val leftPad = 8.dp.toPx()
-                val bottomPad = 24.dp.toPx()
-                val topPad = 8.dp.toPx()
+                val leftPad = LineChartDefaults.HorizontalPadding.toPx()
+                val bottomPad = LineChartDefaults.BottomPadding.toPx()
+                val topPad = LineChartDefaults.TopPadding.toPx()
                 val usableHeight = size.height - bottomPad - topPad
                 val usableWidth = size.width - leftPad * 2
 
@@ -81,7 +104,7 @@ fun LineChart(
                     color = gridColor,
                     start = Offset(leftPad, size.height - bottomPad),
                     end = Offset(size.width - leftPad, size.height - bottomPad),
-                    strokeWidth = 1.dp.toPx(),
+                    strokeWidth = LineChartDefaults.GridLineStrokeWidth.toPx(),
                 )
 
                 fun xFor(index: Int): Float =
@@ -99,11 +122,15 @@ fun LineChart(
                         val y = yFor(point.value)
                         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
-                    drawPath(path = path, color = lineColor, style = Stroke(width = 2.5.dp.toPx()))
+                    drawPath(path = path, color = lineColor, style = Stroke(width = LineChartDefaults.LineStrokeWidth.toPx()))
                 }
 
                 points.forEachIndexed { index, point ->
-                    drawCircle(color = lineColor, radius = 3.dp.toPx(), center = Offset(xFor(index), yFor(point.value)))
+                    drawCircle(
+                        color = lineColor,
+                        radius = LineChartDefaults.PointRadius.toPx(),
+                        center = Offset(xFor(index), yFor(point.value)),
+                    )
                 }
 
                 val firstLabel = formatAxisLabel(points.first().timestamp, showTimeInLabels)
@@ -111,18 +138,24 @@ fun LineChart(
                 drawContext.canvas.nativeCanvas.apply {
                     val paint = android.graphics.Paint().apply {
                         color = labelColor.toArgb()
-                        textSize = 11.sp.toPx()
+                        textSize = LineChartDefaults.LabelTextSize.toPx()
                     }
-                    drawText(firstLabel, leftPad, size.height - 4.dp.toPx(), paint)
+                    val labelBottomMargin = LineChartDefaults.LabelBottomMargin.toPx()
+                    drawText(firstLabel, leftPad, size.height - labelBottomMargin, paint)
                     if (points.size > 1) {
-                        drawText(lastLabel, size.width - leftPad - paint.measureText(lastLabel), size.height - 4.dp.toPx(), paint)
+                        drawText(
+                            lastLabel,
+                            size.width - leftPad - paint.measureText(lastLabel),
+                            size.height - labelBottomMargin,
+                            paint,
+                        )
                     }
                 }
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = "Low: ${minValue.formatMoney()}", style = MaterialTheme.typography.labelSmall)
-            Text(text = "High: ${maxValue.formatMoney()}", style = MaterialTheme.typography.labelSmall)
+            Text(text = stringResource(R.string.common_line_chart_low_value, minValue.formatMoney()), style = MaterialTheme.typography.labelSmall)
+            Text(text = stringResource(R.string.common_line_chart_high_value, maxValue.formatMoney()), style = MaterialTheme.typography.labelSmall)
         }
     }
 }

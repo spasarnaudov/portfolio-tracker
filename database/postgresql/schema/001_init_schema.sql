@@ -82,7 +82,6 @@ CREATE INDEX idx_user_login_history_user_date
 CREATE TABLE portfolio_holdings (
     user_id INTEGER NOT NULL,
     asset_id INTEGER NOT NULL,
-    quantity NUMERIC(18, 6) NOT NULL DEFAULT 0,
     include_in_chart BOOLEAN NOT NULL DEFAULT TRUE,
 
     CONSTRAINT portfolio_holdings_pkey
@@ -98,6 +97,35 @@ CREATE TABLE portfolio_holdings (
         REFERENCES assets(id)
         ON DELETE CASCADE
 );
+
+CREATE TABLE portfolio_asset_purchases (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    asset_id INTEGER NOT NULL,
+    quantity NUMERIC(18, 6) NOT NULL,
+    purchase_price NUMERIC(18, 6) NOT NULL,
+    purchase_date TIMESTAMP NOT NULL,
+    receipt_filename VARCHAR(255),
+
+    CONSTRAINT fk_portfolio_asset_purchases_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_portfolio_asset_purchases_asset
+        FOREIGN KEY (asset_id)
+        REFERENCES assets(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT ck_portfolio_asset_purchases_quantity_positive
+        CHECK (quantity > 0),
+
+    CONSTRAINT ck_portfolio_asset_purchases_price_non_negative
+        CHECK (purchase_price >= 0)
+);
+
+CREATE INDEX idx_portfolio_asset_purchases_user_asset
+    ON portfolio_asset_purchases(user_id, asset_id);
 
 CREATE TABLE portfolio_manual_items (
     id SERIAL PRIMARY KEY,

@@ -138,6 +138,48 @@ database with foreign keys, because it doesn't always drop tables in a safe
 dependency order — dropping the whole schema first sidesteps that.) You'll
 be asked to confirm; pass `-y` to skip the prompt for scripted/cron use.
 
+## One-Off Migrations
+
+There is no migration runner — `init_database.sh` only applies the schema to
+an empty database. Schema changes to a database that already has data (e.g.
+production) are applied by hand, once, via a numbered script under
+`database/postgresql/migrations/`:
+
+```bash
+docker exec -i postgresql psql "$DATABASE_URL" --set ON_ERROR_STOP=1 < database/postgresql/migrations/001_add_portfolio_asset_purchases.sql
+```
+
+`001_add_portfolio_asset_purchases.sql` adds the `portfolio_asset_purchases`
+table (individual purchase lots — quantity, price, date — behind each
+holding) and drops the old `portfolio_holdings.quantity` column, backfilling
+one placeholder lot (today's date, price 0) per existing holding so current
+quantities aren't lost. Edit those placeholder lots afterwards with the real
+purchase price/date. **Back up the database first** (`./scripts/database/backup_database.sh`) —
+this is a one-way schema change.
+
+```bash
+docker exec -i postgresql psql "$DATABASE_URL" --set ON_ERROR_STOP=1 < database/postgresql/migrations/002_add_purchase_receipts.sql
+```
+
+`002_add_purchase_receipts.sql` adds a nullable `receipt_filename` column to
+`portfolio_asset_purchases`, used to attach a receipt photo to a purchase
+lot (see [Uploaded Receipt Photos](#uploaded-receipt-photos) below).
+
+## Uploaded Receipt Photos
+
+Receipt photos attached to purchase lots are stored on disk under
+`uploads/receipts/` at the project root (one file per lot, server-generated
+filename), not in the database or in `apps/flask/static/` — the latter is
+served without login, which would make receipts publicly guessable. They're
+served only through an authenticated, ownership-checked route
+(`GET /portfolio/purchases/<id>/receipt` on the web app,
+`GET /api/v1/portfolio/purchases/<id>/receipt` on the REST API).
+
+`uploads/` is a runtime directory like `backups/`/`logs/`/`runtime/` — it is
+not committed to git and is not covered by the database backup script.
+Back it up separately (e.g. `tar` it alongside your database backups) if you
+care about keeping uploaded receipts.
+
 ## Maintenance
 
 Destructive, hand-run SQL for clearing data during development. Load local

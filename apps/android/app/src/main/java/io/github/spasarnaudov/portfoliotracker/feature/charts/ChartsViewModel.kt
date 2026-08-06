@@ -48,6 +48,12 @@ class ChartsViewModel @Inject constructor(
         load()
     }
 
+    fun addChart(chart: ChartDefinition) {
+        _uiState.update { it.copy(charts = it.charts + chart) }
+        loadChartData(chart)
+        persist()
+    }
+
     fun load() {
         _uiState.update { it.copy(status = LoadStatus.LOADING, errorMessage = null) }
         viewModelScope.launch {
@@ -72,6 +78,22 @@ class ChartsViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun removeChart(chartId: String) {
+        _uiState.update { state ->
+            state.copy(
+                charts = state.charts.filterNot { it.id == chartId },
+                chartData = state.chartData - chartId,
+            )
+        }
+        persist()
+    }
+
+    fun updateChart(chart: ChartDefinition) {
+        _uiState.update { state -> state.copy(charts = state.charts.map { if (it.id == chart.id) chart else it }) }
+        loadChartData(chart)
+        persist()
     }
 
     private fun loadChartData(chart: ChartDefinition) {
@@ -101,28 +123,6 @@ class ChartsViewModel @Inject constructor(
                 )
             }
         }
-    }
-
-    fun addChart(chart: ChartDefinition) {
-        _uiState.update { it.copy(charts = it.charts + chart) }
-        loadChartData(chart)
-        persist()
-    }
-
-    fun updateChart(chart: ChartDefinition) {
-        _uiState.update { state -> state.copy(charts = state.charts.map { if (it.id == chart.id) chart else it }) }
-        loadChartData(chart)
-        persist()
-    }
-
-    fun removeChart(chartId: String) {
-        _uiState.update { state ->
-            state.copy(
-                charts = state.charts.filterNot { it.id == chartId },
-                chartData = state.chartData - chartId,
-            )
-        }
-        persist()
     }
 
     private fun persist() {

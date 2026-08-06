@@ -37,6 +37,7 @@ import io.github.spasarnaudov.portfoliotracker.feature.admin.AdminLogsScreen
 import io.github.spasarnaudov.portfoliotracker.feature.admin.AdminUsersScreen
 import io.github.spasarnaudov.portfoliotracker.feature.admin.LogDetailScreen
 import io.github.spasarnaudov.portfoliotracker.feature.assets.AssetDetailScreen
+import io.github.spasarnaudov.portfoliotracker.feature.portfolio.AssetPurchasesScreen
 import io.github.spasarnaudov.portfoliotracker.feature.assets.AssetsScreen
 import io.github.spasarnaudov.portfoliotracker.feature.charts.ChartsScreen
 import io.github.spasarnaudov.portfoliotracker.feature.connection.ConnectionSettingsScreen
@@ -164,6 +165,9 @@ fun AppNavHost() {
                     PortfolioScreen(
                         onAddManualItem = { navController.navigate(Destinations.manualItemEdit(null)) },
                         onEditManualItem = { key -> navController.navigate(Destinations.manualItemEdit(key)) },
+                        onOpenPurchases = { assetId, symbol, name ->
+                            navController.navigate(Destinations.assetPurchases(assetId, symbol, name))
+                        },
                     )
                 }
                 composable(
@@ -180,6 +184,17 @@ fun AppNavHost() {
                         onDone = { navController.popBackStack() },
                     )
                 }
+            }
+
+            composable(
+                route = "${Destinations.ASSET_PURCHASES}/{${Destinations.ASSET_PURCHASES_ID_ARG}}/{${Destinations.ASSET_PURCHASES_SYMBOL_ARG}}/{${Destinations.ASSET_PURCHASES_NAME_ARG}}",
+                arguments = listOf(
+                    navArgument(Destinations.ASSET_PURCHASES_ID_ARG) { type = NavType.StringType },
+                    navArgument(Destinations.ASSET_PURCHASES_SYMBOL_ARG) { type = NavType.StringType },
+                    navArgument(Destinations.ASSET_PURCHASES_NAME_ARG) { type = NavType.StringType },
+                ),
+            ) {
+                AssetPurchasesScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable(Destinations.ASSETS) {

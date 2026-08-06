@@ -64,18 +64,36 @@ class PortfolioViewModel @Inject constructor(
     private val assetsRepository: AssetsRepository,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(PortfolioUiState())
-    val uiState: StateFlow<PortfolioUiState> = _uiState.asStateFlow()
-
-    private var originalManualItemsSnapshot: Map<Long, ManualItemDraft> = emptyMap()
+    private var autosaveJob: Job? = null
 
     /** Cancelled before every re-fetch so a slow, superseded range/interval response can never overwrite a newer one. */
     private var historyJob: Job? = null
 
-    private var autosaveJob: Job? = null
+    private var originalManualItemsSnapshot: Map<Long, ManualItemDraft> = emptyMap()
+
+    private val _uiState = MutableStateFlow(PortfolioUiState())
+    val uiState: StateFlow<PortfolioUiState> = _uiState.asStateFlow()
 
     init {
         load()
+    }
+
+    fun discardChanges() {
+        autosaveJob?.cancel()
+        val state = _uiState.value
+        applyPortfolio(
+            holdings = state.holdings.map {
+                Holding(
+                    it.assetId, it.assetSymbol, it.assetName, it.quantity, it.originalIncludeInChart,
+                    it.price, it.value, it.costBasis, it.profit, it.profitPercent,
+                )
+            },
+            manualItems = originalManualItemsSnapshot.values.map {
+                ManualItem(it.id, it.name, BigDecimal(it.quantityText.ifBlank { "0" }), it.unitPriceText.toBigDecimalOrNull(), it.priceAssetId, it.includeInChart, it.value)
+            },
+            totalValue = state.totalValue,
+            goldBuyback = state.goldBuybackAssets,
+        )
     }
 
     fun load() {
@@ -93,6 +111,119 @@ class PortfolioViewModel @Inject constructor(
             }
             loadHistory()
         }
+    }
+
+    fun markManualItemForDeletion(clientKey: String) {
+        _uiState.update { state ->
+            val draft = state.manualItems.firstOrNull { it.clientKey == clientKey } ?: return@update state
+            val updated = if (draft.id == null) {
+                // Never persisted — just drop it locally.
+                state.manualItems.filterNot { it.clientKey == clientKey }
+            } else {
+                state.manualItems.map { if (it.clientKey == clientKey) it.copy(markedForDeletion = true) else it }
+            }
+            state.copy(manualItems = updated)
+        }
+        scheduleAutosave()
+    }
+
+    fun retryHistory() {
+        refreshHistory()
+    }
+
+    /**
+     * Called directly by the UI (rare — e.g. "retry" after a failed save) and by the debounced
+     * autosave triggered from every holding/manual-item edit. If a previous autosave is still
+     * in flight, re-schedules rather than dropping the edit, so the latest state always ends up
+     * persisted even if several edits land back-to-back.
+     */
+    fun save() {
+        val state = _uiState.value
+        if (state.isSaving) {
+            scheduleAutosave()
+            return
+        }
+        if (!state.hasUnsavedChanges) return
+
+        val activeManualItems = state.manualItems.filter { !it.markedForDeletion || it.id != null }
+        val hasInvalidManualQuantity = activeManualItems.any {
+            !it.markedForDeletion && it.quantityText.toBigDecimalOrNull() == null
+        }
+        if (hasInvalidManualQuantity) return
+
+        val hasInvalidUnitPrice = activeManualItems.any {
+            !it.markedForDeletion && it.unitPriceText.isNotBlank() && it.unitPriceText.toBigDecimalOrNull() == null
+        }
+        if (hasInvalidUnitPrice) return
+
+        val holdingsToSend = state.holdings.map {
+            Holding(
+                it.assetId, it.assetSymbol, it.assetName, it.quantity, it.includeInChart,
+                it.price, it.value, it.costBasis, it.profit, it.profitPercent,
+            )
+        }
+        val manualItemsToSend = activeManualItems.map { draft ->
+            ManualItem(
+                id = draft.id,
+                name = draft.name,
+                quantity = draft.quantityText.toBigDecimalOrNull() ?: BigDecimal.ZERO,
+                unitPrice = if (draft.priceAssetId == null) draft.unitPriceText.toBigDecimalOrNull() else null,
+                priceAssetId = draft.priceAssetId,
+                includeInChart = draft.includeInChart,
+                value = draft.value,
+                markedForDeletion = draft.markedForDeletion,
+            )
+        }
+
+        _uiState.update { it.copy(isSaving = true, saveError = null) }
+        viewModelScope.launch {
+            when (val result = portfolioRepository.updatePortfolio(holdingsToSend, manualItemsToSend)) {
+                is ApiResult.Success -> {
+                    val goldBuyback = state.goldBuybackAssets
+                    applyPortfolio(result.data.holdings, result.data.manualItems, result.data.totalValue, goldBuyback)
+                    _uiState.update { it.copy(isSaving = false) }
+                    loadHistory()
+                }
+
+                is ApiResult.Error -> _uiState.update {
+                    it.copy(isSaving = false, saveError = result.error.toUserMessage())
+                }
+            }
+        }
+    }
+
+    fun setHistoryInterval(interval: PortfolioHistoryInterval) {
+        _uiState.update { it.copy(historyInterval = interval) }
+        refreshHistory()
+    }
+
+    fun setHistoryRange(range: ChartRange) {
+        _uiState.update { it.copy(historyRange = range) }
+        refreshHistory()
+    }
+
+    fun toggleHoldingIncludeInChart(assetId: Long) {
+        _uiState.update { state ->
+            state.copy(
+                holdings = state.holdings.map {
+                    if (it.assetId == assetId) it.copy(includeInChart = !it.includeInChart) else it
+                },
+            )
+        }
+        scheduleAutosave()
+    }
+
+    fun upsertManualItem(draft: ManualItemDraft) {
+        _uiState.update { state ->
+            val exists = state.manualItems.any { it.clientKey == draft.clientKey }
+            val updated = if (exists) {
+                state.manualItems.map { if (it.clientKey == draft.clientKey) draft else it }
+            } else {
+                state.manualItems + draft
+            }
+            state.copy(manualItems = updated)
+        }
+        scheduleAutosave()
     }
 
     private fun applyPortfolio(
@@ -140,72 +271,9 @@ class PortfolioViewModel @Inject constructor(
         }
     }
 
-    fun setHistoryRange(range: ChartRange) {
-        _uiState.update { it.copy(historyRange = range) }
-        refreshHistory()
-    }
-
-    fun setHistoryInterval(interval: PortfolioHistoryInterval) {
-        _uiState.update { it.copy(historyInterval = interval) }
-        refreshHistory()
-    }
-
-    fun retryHistory() {
-        refreshHistory()
-    }
-
     private fun refreshHistory() {
         historyJob?.cancel()
         historyJob = viewModelScope.launch { loadHistory() }
-    }
-
-    fun updateHoldingQuantityText(assetId: Long, text: String) {
-        _uiState.update { state ->
-            state.copy(holdings = state.holdings.map { if (it.assetId == assetId) it.copy(quantityText = text) else it })
-        }
-        scheduleAutosave()
-    }
-
-    fun toggleHoldingIncludeInChart(assetId: Long) {
-        _uiState.update { state ->
-            state.copy(
-                holdings = state.holdings.map {
-                    if (it.assetId == assetId) it.copy(includeInChart = !it.includeInChart) else it
-                },
-            )
-        }
-        scheduleAutosave()
-    }
-
-    fun removeHolding(assetId: Long) {
-        updateHoldingQuantityText(assetId, "0")
-    }
-
-    fun upsertManualItem(draft: ManualItemDraft) {
-        _uiState.update { state ->
-            val exists = state.manualItems.any { it.clientKey == draft.clientKey }
-            val updated = if (exists) {
-                state.manualItems.map { if (it.clientKey == draft.clientKey) draft else it }
-            } else {
-                state.manualItems + draft
-            }
-            state.copy(manualItems = updated)
-        }
-        scheduleAutosave()
-    }
-
-    fun markManualItemForDeletion(clientKey: String) {
-        _uiState.update { state ->
-            val draft = state.manualItems.firstOrNull { it.clientKey == clientKey } ?: return@update state
-            val updated = if (draft.id == null) {
-                // Never persisted — just drop it locally.
-                state.manualItems.filterNot { it.clientKey == clientKey }
-            } else {
-                state.manualItems.map { if (it.clientKey == clientKey) it.copy(markedForDeletion = true) else it }
-            }
-            state.copy(manualItems = updated)
-        }
-        scheduleAutosave()
     }
 
     private fun scheduleAutosave() {
@@ -213,81 +281,6 @@ class PortfolioViewModel @Inject constructor(
         autosaveJob = viewModelScope.launch {
             delay(AUTOSAVE_DEBOUNCE_MS)
             save()
-        }
-    }
-
-    fun discardChanges() {
-        autosaveJob?.cancel()
-        val state = _uiState.value
-        applyPortfolio(
-            holdings = state.holdings.map {
-                Holding(it.assetId, it.assetSymbol, it.assetName, it.originalQuantity, it.originalIncludeInChart, it.price, it.value)
-            },
-            manualItems = originalManualItemsSnapshot.values.map {
-                ManualItem(it.id, it.name, BigDecimal(it.quantityText.ifBlank { "0" }), it.unitPriceText.toBigDecimalOrNull(), it.priceAssetId, it.includeInChart, it.value)
-            },
-            totalValue = state.totalValue,
-            goldBuyback = state.goldBuybackAssets,
-        )
-    }
-
-    /**
-     * Called directly by the UI (rare — e.g. "retry" after a failed save) and by the debounced
-     * autosave triggered from every holding/manual-item edit. If a previous autosave is still
-     * in flight, re-schedules rather than dropping the edit, so the latest state always ends up
-     * persisted even if several edits land back-to-back.
-     */
-    fun save() {
-        val state = _uiState.value
-        if (state.isSaving) {
-            scheduleAutosave()
-            return
-        }
-        if (!state.hasUnsavedChanges) return
-
-        if (state.holdings.any { it.parsedQuantity == null }) return
-
-        val activeManualItems = state.manualItems.filter { !it.markedForDeletion || it.id != null }
-        val hasInvalidManualQuantity = activeManualItems.any {
-            !it.markedForDeletion && it.quantityText.toBigDecimalOrNull() == null
-        }
-        if (hasInvalidManualQuantity) return
-
-        val hasInvalidUnitPrice = activeManualItems.any {
-            !it.markedForDeletion && it.unitPriceText.isNotBlank() && it.unitPriceText.toBigDecimalOrNull() == null
-        }
-        if (hasInvalidUnitPrice) return
-
-        val holdingsToSend = state.holdings.map {
-            Holding(it.assetId, it.assetSymbol, it.assetName, it.parsedQuantity!!, it.includeInChart, it.price, it.value)
-        }
-        val manualItemsToSend = activeManualItems.map { draft ->
-            ManualItem(
-                id = draft.id,
-                name = draft.name,
-                quantity = draft.quantityText.toBigDecimalOrNull() ?: BigDecimal.ZERO,
-                unitPrice = if (draft.priceAssetId == null) draft.unitPriceText.toBigDecimalOrNull() else null,
-                priceAssetId = draft.priceAssetId,
-                includeInChart = draft.includeInChart,
-                value = draft.value,
-                markedForDeletion = draft.markedForDeletion,
-            )
-        }
-
-        _uiState.update { it.copy(isSaving = true, saveError = null) }
-        viewModelScope.launch {
-            when (val result = portfolioRepository.updatePortfolio(holdingsToSend, manualItemsToSend)) {
-                is ApiResult.Success -> {
-                    val goldBuyback = state.goldBuybackAssets
-                    applyPortfolio(result.data.holdings, result.data.manualItems, result.data.totalValue, goldBuyback)
-                    _uiState.update { it.copy(isSaving = false) }
-                    loadHistory()
-                }
-
-                is ApiResult.Error -> _uiState.update {
-                    it.copy(isSaving = false, saveError = result.error.toUserMessage())
-                }
-            }
         }
     }
 }

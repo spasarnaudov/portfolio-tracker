@@ -29,8 +29,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.spasarnaudov.portfoliotracker.R
 import io.github.spasarnaudov.portfoliotracker.core.model.AssetPriceInterval
 import io.github.spasarnaudov.portfoliotracker.core.model.ChartRange
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.ChartPoint
@@ -39,6 +40,7 @@ import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenErro
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.FullScreenLoading
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LineChart
 import io.github.spasarnaudov.portfoliotracker.core.ui.components.LoadStatus
+import io.github.spasarnaudov.portfoliotracker.ui.theme.AppSpacing
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -52,6 +54,9 @@ fun AssetDetailScreen(
     val state by viewModel.uiState.collectAsState()
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
+    val genericErrorMessage = stringResource(R.string.common_error_generic)
+    val okLabel = stringResource(R.string.common_action_ok)
+    val cancelLabel = stringResource(R.string.common_action_cancel)
 
     Scaffold(
         topBar = {
@@ -59,14 +64,14 @@ fun AssetDetailScreen(
                 title = { Text("${state.symbol} · ${state.name}") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_navigation_back))
                     }
                 },
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(AppSpacing.Medium)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.Small)) {
                 items(ChartRange.entries) { range ->
                     FilterChip(
                         selected = state.range == range,
@@ -75,7 +80,7 @@ fun AssetDetailScreen(
                     )
                 }
             }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.Small), modifier = Modifier.padding(top = AppSpacing.Small)) {
                 items(AssetPriceInterval.entries) { interval ->
                     FilterChip(
                         selected = state.interval == interval,
@@ -86,18 +91,21 @@ fun AssetDetailScreen(
             }
 
             if (state.range == ChartRange.CUSTOM) {
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = AppSpacing.Small),
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.Small),
+                ) {
                     TextButton(onClick = { showStartPicker = true }) {
-                        Text(state.customStartDate?.toString() ?: "Start date")
+                        Text(state.customStartDate?.toString() ?: stringResource(R.string.screen_asset_detail_start_date_placeholder))
                     }
                     TextButton(onClick = { showEndPicker = true }) {
-                        Text(state.customEndDate?.toString() ?: "End date")
+                        Text(state.customEndDate?.toString() ?: stringResource(R.string.screen_asset_detail_end_date_placeholder))
                     }
                     Button(
                         onClick = viewModel::applyCustomRange,
                         enabled = state.customStartDate != null && state.customEndDate != null,
                     ) {
-                        Text("Apply")
+                        Text(stringResource(R.string.screen_asset_detail_apply_button))
                     }
                 }
             }
@@ -105,15 +113,15 @@ fun AssetDetailScreen(
             when (state.status) {
                 LoadStatus.LOADING -> FullScreenLoading()
                 LoadStatus.ERROR -> FullScreenError(
-                    message = state.errorMessage ?: "Something went wrong.",
+                    message = state.errorMessage ?: genericErrorMessage,
                     onRetry = viewModel::load,
                 )
 
-                LoadStatus.EMPTY -> EmptyState(message = "No price history for this range yet.")
+                LoadStatus.EMPTY -> EmptyState(message = stringResource(R.string.screen_asset_detail_empty_message))
                 LoadStatus.CONTENT -> LineChart(
                     points = state.points.map { ChartPoint(it.timestamp, it.price) },
                     showTimeInLabels = state.interval == AssetPriceInterval.HOURLY || state.interval == AssetPriceInterval.RECORDED,
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = AppSpacing.Medium),
                 )
             }
         }
@@ -129,9 +137,9 @@ fun AssetDetailScreen(
                         viewModel.setCustomDates(millisToLocalDate(it), state.customEndDate)
                     }
                     showStartPicker = false
-                }) { Text("OK") }
+                }) { Text(okLabel) }
             },
-            dismissButton = { TextButton(onClick = { showStartPicker = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showStartPicker = false }) { Text(cancelLabel) } },
         ) {
             DatePicker(state = datePickerState)
         }
@@ -147,9 +155,9 @@ fun AssetDetailScreen(
                         viewModel.setCustomDates(state.customStartDate, millisToLocalDate(it))
                     }
                     showEndPicker = false
-                }) { Text("OK") }
+                }) { Text(okLabel) }
             },
-            dismissButton = { TextButton(onClick = { showEndPicker = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showEndPicker = false }) { Text(cancelLabel) } },
         ) {
             DatePicker(state = datePickerState)
         }

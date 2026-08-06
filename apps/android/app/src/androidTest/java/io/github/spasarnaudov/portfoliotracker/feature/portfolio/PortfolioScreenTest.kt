@@ -46,6 +46,7 @@ class PortfolioScreenTest {
             PortfolioScreen(
                 onAddManualItem = onAddManualItem,
                 onEditManualItem = {},
+                onOpenPurchases = { _, _, _ -> },
                 viewModel = PortfolioViewModel(portfolioRepository, assetsRepository),
             )
         }
