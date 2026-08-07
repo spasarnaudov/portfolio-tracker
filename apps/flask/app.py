@@ -652,6 +652,14 @@ def get_portfolio_chart_data(user_id, portfolio_range, portfolio_interval):
             float(price["value"])
             for price in portfolio_history
         ],
+        "chart_profits": [
+            float(price["profit"])
+            for price in portfolio_history
+        ],
+        "chart_profit_percents": [
+            float(price["profit_percent"]) if price["profit_percent"] is not None else None
+            for price in portfolio_history
+        ],
     }
 
 
@@ -796,6 +804,8 @@ def portfolio():
         ],
         chart_labels=chart_data["chart_labels"],
         chart_values=chart_data["chart_values"],
+        chart_profits=chart_data["chart_profits"],
+        chart_profit_percents=chart_data["chart_profit_percents"],
     )
 
 

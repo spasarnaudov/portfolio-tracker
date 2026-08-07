@@ -90,6 +90,19 @@ class PortfolioRepositoryTests(unittest.TestCase):
         self.assertEqual(parameters, (7, repository.ROLE_MANAGER_USERNAME))
         connection.commit.assert_called_once_with()
 
+    def test_portfolio_history_computes_profit_from_cost_basis_at_each_point(self):
+        connection, cursor = self._connection_and_cursor()
+        cursor.fetchall.return_value = []
+
+        with patch.object(repository, "get_connection", return_value=connection):
+            repository.get_portfolio_history(7, interval="hourly")
+
+        query = cursor.execute.call_args.args[0]
+        self.assertIn("AS cost_basis", query)
+        self.assertIn("AS profit", query)
+        self.assertIn("AS profit_percent", query)
+        self.assertIn("tavex_value - tavex_cost_basis", query)
+
     def test_portfolio_history_uses_recorded_manual_item_prices(self):
         connection, cursor = self._connection_and_cursor()
         cursor.fetchall.return_value = []
@@ -119,15 +132,16 @@ class PortfolioRepositoryTests(unittest.TestCase):
         query, parameters = cursor.execute.call_args.args
         self.assertEqual(
             query.count("history.price_date <= portfolio_dates.price_date"),
-            2,
+            3,
         )
-        self.assertEqual(query.count("ORDER BY history.price_date DESC"), 2)
+        self.assertEqual(query.count("ORDER BY history.price_date DESC"), 3)
         self.assertNotIn("COALESCE(tavex_history.value, 0)", query)
         self.assertNotIn("COALESCE(manual_history.value, 0)", query)
         self.assertEqual(parameters, (
             7,
             end_date,
             end_date,
+            7,
             7,
             7,
             end_date,

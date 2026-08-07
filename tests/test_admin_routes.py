@@ -340,6 +340,8 @@ class AdminRouteTests(unittest.TestCase):
                 patch.object(application, "get_portfolio_history", return_value=[{
                     "price_date": price_date,
                     "value": 123.45,
+                    "profit": 50.0,
+                    "profit_percent": 25.0,
                 }]):
             response = self.client.post(
                 "/portfolio?portfolio_range=1d&portfolio_interval=hourly",
@@ -349,7 +351,31 @@ class AdminRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["chart_values"], [123.45])
+        self.assertEqual(response.json["chart_profits"], [50.0])
+        self.assertEqual(response.json["chart_profit_percents"], [25.0])
         self.assertEqual(response.json["portfolio_interval"], "hourly")
+
+    def test_portfolio_chart_profit_is_taken_per_point_from_history(self):
+        history = [
+            {"price_date": datetime(2026, 7, 13, 9, 0), "value": 100.0, "profit": 10.0, "profit_percent": 12.5},
+            {"price_date": datetime(2026, 7, 13, 10, 0), "value": 140.0, "profit": 40.0, "profit_percent": 40.0},
+        ]
+
+        with patch.object(application, "get_latest_price_date", return_value=None), \
+                patch.object(application, "get_portfolio_history", return_value=history):
+            chart_data = application.get_portfolio_chart_data(7, "1d", "hourly")
+
+        self.assertEqual(chart_data["chart_profits"], [10.0, 40.0])
+        self.assertEqual(chart_data["chart_profit_percents"], [12.5, 40.0])
+
+    def test_portfolio_chart_profit_percent_can_be_none_per_point(self):
+        history = [{"price_date": datetime(2026, 7, 13, 9, 0), "value": 100.0, "profit": 0.0, "profit_percent": None}]
+
+        with patch.object(application, "get_latest_price_date", return_value=None), \
+                patch.object(application, "get_portfolio_history", return_value=history):
+            chart_data = application.get_portfolio_chart_data(7, "1d", "hourly")
+
+        self.assertEqual(chart_data["chart_profit_percents"], [None])
 
 
 if __name__ == "__main__":
