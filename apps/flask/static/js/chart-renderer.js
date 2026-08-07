@@ -2,6 +2,8 @@
     function renderPriceChart(chartCanvas) {
         let labels = JSON.parse(chartCanvas.dataset.labels || "[]");
         let values = JSON.parse(chartCanvas.dataset.values || "[]");
+        let profits = JSON.parse(chartCanvas.dataset.profits || "[]");
+        let profitPercents = JSON.parse(chartCanvas.dataset.profitPercents || "[]");
         let selectedInterval = chartCanvas.dataset.interval || "daily";
         const chartInfo = chartCanvas.parentElement.querySelector(".chart-info");
         const selectLatestByDefault = chartCanvas.dataset.selectLatest === "true";
@@ -85,7 +87,19 @@
             const valueLabel = chartCanvas.dataset.valueLabel
                 || (selectedInterval === "recorded" ? "Price" : "Average price");
 
-            chartInfo.textContent = `${label}: ${labels[selectedIndex]} | ${valueLabel}: ${values[selectedIndex].toFixed(2)}`;
+            let text = `${label}: ${labels[selectedIndex]} | ${valueLabel}: ${values[selectedIndex].toFixed(2)}`;
+
+            const profit = profits[selectedIndex];
+            if (profit !== undefined && profit !== null) {
+                text += ` | Profit: ${Number(profit).toFixed(2)}`;
+
+                const profitPercent = profitPercents[selectedIndex];
+                if (profitPercent !== undefined && profitPercent !== null) {
+                    text += ` (${Number(profitPercent).toFixed(2)}%)`;
+                }
+            }
+
+            chartInfo.textContent = text;
         }
 
         function drawChart(selectedIndex = null) {
@@ -188,7 +202,7 @@
                 resizeChart();
                 drawChart(selectedIndex);
             },
-            update(nextLabels, nextValues, nextInterval) {
+            update(nextLabels, nextValues, nextInterval, nextProfits, nextProfitPercents) {
                 labels = nextLabels;
                 values = nextValues;
                 selectedInterval = nextInterval;
@@ -196,6 +210,14 @@
                 chartCanvas.dataset.labels = JSON.stringify(labels);
                 chartCanvas.dataset.values = JSON.stringify(values);
                 chartCanvas.dataset.interval = selectedInterval;
+                if (nextProfits !== undefined) {
+                    profits = nextProfits;
+                    chartCanvas.dataset.profits = JSON.stringify(profits);
+                }
+                if (nextProfitPercents !== undefined) {
+                    profitPercents = nextProfitPercents;
+                    chartCanvas.dataset.profitPercents = JSON.stringify(profitPercents);
+                }
                 refreshValueRange();
                 resizeChart();
                 drawChart(selectedIndex);
@@ -223,8 +245,8 @@
                 renderPriceChart(chartCanvas).redraw();
             });
         },
-        update(chartCanvas, labels, values, interval) {
-            renderPriceChart(chartCanvas).update(labels, values, interval);
+        update(chartCanvas, labels, values, interval, profits, profitPercents) {
+            renderPriceChart(chartCanvas).update(labels, values, interval, profits, profitPercents);
         },
     };
 }());

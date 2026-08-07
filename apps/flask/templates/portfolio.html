@@ -38,6 +38,8 @@
             height="360"
             data-labels='{{ chart_labels | tojson }}'
             data-values='{{ chart_values | tojson }}'
+            data-profits='{{ chart_profits | tojson }}'
+            data-profit-percents='{{ chart_profit_percents | tojson }}'
             data-interval="{{ portfolio_interval }}"
             data-value-label="Portfolio value"
             data-select-latest="true"
@@ -355,7 +357,9 @@
                         portfolioChart,
                         chartData.chart_labels,
                         chartData.chart_values,
-                        chartData.portfolio_interval
+                        chartData.portfolio_interval,
+                        chartData.chart_profits,
+                        chartData.chart_profit_percents
                     );
                 } catch (error) {
                     console.error(error);

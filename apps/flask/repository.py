@@ -646,13 +646,21 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                             WHERE purchases.user_id = %s
                                 AND purchases.asset_id = asset_period_avg_prices.asset_id
                                 AND purchases.purchase_date <= asset_period_avg_prices.price_date
-                        ) AS quantity
+                        ) AS quantity,
+                        (
+                            SELECT COALESCE(SUM(purchases.quantity * purchases.purchase_price), 0)
+                            FROM portfolio_asset_purchases AS purchases
+                            WHERE purchases.user_id = %s
+                                AND purchases.asset_id = asset_period_avg_prices.asset_id
+                                AND purchases.purchase_date <= asset_period_avg_prices.price_date
+                        ) AS cost_basis
                     FROM asset_period_avg_prices
                 ),
                 tavex_history AS (
                     SELECT
                         price_date,
-                        SUM(quantity * price) AS value
+                        SUM(quantity * price) AS value,
+                        SUM(cost_basis) AS cost_basis
                     FROM asset_period_prices
                     WHERE quantity > 0
                     GROUP BY price_date
@@ -712,30 +720,46 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                     UNION
                     SELECT price_date
                     FROM manual_history
-                )
-                SELECT
-                    portfolio_dates.price_date,
-                    ROUND(
+                ),
+                portfolio_totals AS (
+                    SELECT
+                        portfolio_dates.price_date,
                         COALESCE((
                             SELECT history.value
                             FROM tavex_history AS history
                             WHERE history.price_date <= portfolio_dates.price_date
                             ORDER BY history.price_date DESC
                             LIMIT 1
-                        ), 0)
-                        + COALESCE((
+                        ), 0) AS tavex_value,
+                        COALESCE((
+                            SELECT history.cost_basis
+                            FROM tavex_history AS history
+                            WHERE history.price_date <= portfolio_dates.price_date
+                            ORDER BY history.price_date DESC
+                            LIMIT 1
+                        ), 0) AS tavex_cost_basis,
+                        COALESCE((
                             SELECT history.value
                             FROM manual_history AS history
                             WHERE history.price_date <= portfolio_dates.price_date
                             ORDER BY history.price_date DESC
                             LIMIT 1
-                        ), 0),
-                        2
-                    ) AS value
-                FROM portfolio_dates
-                WHERE (%s::timestamp IS NULL OR portfolio_dates.price_date >= %s::timestamp)
-                    AND (%s::timestamp IS NULL OR portfolio_dates.price_date <= %s::timestamp)
-                ORDER BY portfolio_dates.price_date;
+                        ), 0) AS manual_value
+                    FROM portfolio_dates
+                )
+                SELECT
+                    price_date,
+                    ROUND(tavex_value + manual_value, 2) AS value,
+                    ROUND(tavex_value - tavex_cost_basis, 2) AS profit,
+                    CASE
+                        WHEN tavex_cost_basis > 0 THEN
+                            ROUND((tavex_value - tavex_cost_basis) / tavex_cost_basis * 100, 2)
+                        ELSE NULL
+                    END AS profit_percent
+                FROM portfolio_totals
+                WHERE (%s::timestamp IS NULL OR price_date >= %s::timestamp)
+                    AND (%s::timestamp IS NULL OR price_date <= %s::timestamp)
+                ORDER BY price_date;
             """.format(
                 group_expression=group_expression,
                 linked_group_expression=group_expression.replace(
@@ -746,6 +770,7 @@ def get_portfolio_history(user_id, start_date=None, end_date=None, interval="hou
                 user_id,
                 end_date,
                 end_date,
+                user_id,
                 user_id,
                 user_id,
                 end_date,
